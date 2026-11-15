@@ -88,15 +88,45 @@ def fix_root(root: str) -> int:
     return 0
 
 
-def main() -> int:
-    if len(sys.argv) < 2:
-        print('用法: fix-bundles.py <Payload/Spark.app>', file=sys.stderr)
+def check_root(root: str) -> int:
+    """只探测不修改：返回空壳 bundle 数量（用于签名前硬校验）。"""
+    bad = []
+    for base, _dirs, files in os.walk(root):
+        if 'Info.plist' not in files:
+            continue
+        ip = os.path.join(base, 'Info.plist')
+        try:
+            with open(ip, 'rb') as f:
+                d = plistlib.load(f)
+        except Exception:
+            continue
+        if not isinstance(d, dict):
+            continue
+        exe = d.get('CFBundleExecutable')
+        if exe and not os.path.exists(os.path.join(base, exe)):
+            bad.append(os.path.relpath(ip, root))
+
+    if bad:
+        print('::error::仍有 %d 个空壳 bundle，ldid -s 会失败' % len(bad))
+        for b in bad:
+            print('    ' + b)
         return 1
-    root = sys.argv[1]
+    print('  ✓ 无空壳 bundle')
+    return 0
+
+
+def main() -> int:
+    args = [a for a in sys.argv[1:] if a != '--check']
+    check_only = '--check' in sys.argv[1:]
+
+    if not args:
+        print('用法: fix-bundles.py [--check] <Payload/Spark.app>', file=sys.stderr)
+        return 1
+    root = args[0]
     if not os.path.isdir(root):
         print(f'目录不存在: {root}', file=sys.stderr)
         return 1
-    return fix_root(root)
+    return check_root(root) if check_only else fix_root(root)
 
 
 if __name__ == '__main__':
