@@ -184,6 +184,13 @@ jobs:
             echo "::warning::产物不含内置工具链"
           fi
 
+          # 局域网工作台的网页（不打进 Assets.car，直接当资源文件）
+          if [ -d Native/Remote ]; then
+            mkdir -p "$APP/Remote"
+            cp -R Native/Remote/. "$APP/Remote/"
+            echo "==> 已打包 Remote 网页"
+          fi
+
           # 其它裸资源（json / strings / 配置）
           for f in Native/Resources/*; do
             base="$(basename "$f")"

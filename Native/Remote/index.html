@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spark 工作台</title>
+<style>
+  :root{
+    --bg:#0b0e12; --surface:#151a21; --surface2:#1d242e; --sep:#262e3a;
+    --text:#e6edf3; --dim:#8b98a9; --accent:#35d6a4; --warn:#f2b73d;
+    --danger:#ff5c68; --info:#58a6ff; --code:#0d1117;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f2f2f7; --surface:#fff; --surface2:#f7f7fa; --sep:#d8d8e0;
+           --text:#111; --dim:#667; --code:#f6f8fa; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;
+       background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+  .wrap{display:flex;height:100vh}
+
+  /* 侧栏 */
+  aside{width:260px;flex:0 0 260px;background:var(--surface);border-right:1px solid var(--sep);
+        display:flex;flex-direction:column;min-height:0}
+  .brand{padding:14px 16px;border-bottom:1px solid var(--sep);display:flex;align-items:center;gap:8px}
+  .brand b{font-size:15px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  .files{flex:1;overflow:auto;padding:6px 0;min-height:0}
+  .file{padding:6px 16px;cursor:pointer;display:flex;gap:8px;align-items:center;
+        font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;white-space:nowrap;
+        overflow:hidden;text-overflow:ellipsis}
+  .file:hover{background:var(--surface2)}
+  .file.sel{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+  .file .ico{opacity:.75;width:14px;text-align:center}
+  .file .sz{margin-left:auto;color:var(--dim);font-size:10px}
+  .path{font-size:11px;color:var(--dim);padding:8px 16px;border-bottom:1px solid var(--sep);
+        font-family:ui-monospace,monospace;word-break:break-all}
+
+  /* 主区 */
+  main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+  header{padding:10px 16px;border-bottom:1px solid var(--sep);display:flex;align-items:center;gap:10px;
+         background:var(--surface)}
+  header h1{font-size:14px;margin:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sp{flex:1}
+  button{background:var(--surface2);color:var(--text);border:1px solid var(--sep);border-radius:8px;
+         padding:6px 12px;font-size:12.5px;cursor:pointer;font-weight:500}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#04170f;border-color:transparent;font-weight:600}
+  button.danger{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+
+  .pane{flex:1;display:flex;min-height:0}
+  .editor{flex:1;display:flex;flex-direction:column;min-width:0}
+  textarea{flex:1;width:100%;background:var(--code);color:var(--text);border:0;outline:0;resize:none;
+           padding:12px 14px;font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:2}
+  .statusbar{font-size:11px;color:var(--dim);padding:5px 14px;border-top:1px solid var(--sep);
+             display:flex;gap:12px;background:var(--surface);font-family:ui-monospace,monospace}
+
+  /* 日志 */
+  .logs{width:380px;flex:0 0 380px;border-left:1px solid var(--sep);display:flex;flex-direction:column;
+        background:var(--code)}
+  .logs h2{font-size:12px;margin:0;padding:10px 14px;border-bottom:1px solid var(--sep);
+           color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+           display:flex;align-items:center;gap:8px}
+  #log{flex:1;overflow:auto;padding:10px 14px;font:11.5px/1.55 ui-monospace,monospace;white-space:pre-wrap;
+       word-break:break-word;margin:0;color:#c9d1d9}
+  .err{color:var(--danger)} .ok{color:var(--accent)} .step{color:var(--info)} .info{color:var(--dim)}
+
+  /* 登录 */
+  #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;
+        z-index:99;flex-direction:column;gap:16px}
+  #gate .box{background:var(--surface);border:1px solid var(--sep);border-radius:16px;padding:28px 32px;
+             width:min(340px,86vw);text-align:center}
+  #gate input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--sep);background:var(--bg);
+              color:var(--text);font-size:20px;text-align:center;letter-spacing:.3em;
+              font-family:ui-monospace,monospace;margin:14px 0}
+  #gate p{color:var(--dim);font-size:12.5px;margin:6px 0}
+  .hint{font-size:11px;color:var(--dim);line-height:1.7}
+  @media (max-width:880px){ .logs{display:none} aside{width:200px;flex-basis:200px} }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="box">
+    <div style="font-size:34px">⚡</div>
+    <b style="font-size:16px">Spark 工作台</b>
+    <p>输入手机上显示的 6 位访问码</p>
+    <input id="code" inputmode="numeric" maxlength="6" placeholder="000000" autofocus>
+    <button class="primary" style="width:100%;padding:11px" onclick="login()">连接</button>
+    <p class="hint" style="margin-top:14px">仅限可信局域网 · HTTP 明文传输</p>
+  </div>
+</div>
+
+<div class="wrap" style="display:none" id="app">
+  <aside>
+    <div class="brand"><span class="dot"></span><b>Spark</b></div>
+    <div class="path" id="curPath">/</div>
+    <div class="files" id="files"></div>
+  </aside>
+
+  <main>
+    <header>
+      <h1 id="title">选择左侧文件</h1>
+      <div class="sp"></div>
+      <button onclick="loadDir(curPath)">刷新</button>
+      <button class="primary" id="saveBtn" onclick="save()" disabled>保存</button>
+      <button class="primary" onclick="build()">构建</button>
+    </header>
+
+    <div class="pane">
+      <div class="editor">
+        <textarea id="editor" spellcheck="false" placeholder="// 选择文件后即可编辑" disabled></textarea>
+        <div class="statusbar">
+          <span id="fname">—</span>
+          <span id="fsize"></span>
+          <span id="dirty" style="color:var(--warn)"></span>
+        </div>
+      </div>
+      <div class="logs">
+        <h2>构建日志 <span id="logState" class="info"></span></h2>
+        <pre id="log" class="info">等待操作…</pre>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+let code = sessionStorage.getItem('spark_code') || '';
+let curPath = '';
+let curFile = '';
+let dirty = false;
+
+const $ = id => document.getElementById(id);
+
+function api(path, opts = {}) {
+  const sep = path.includes('?') ? '&' : '?';
+  return fetch(`/api/${path}${sep}code=${encodeURIComponent(code)}`, opts)
+    .then(r => r.json());
+}
+
+async function login() {
+  const v = $('code').value.trim();
+  if (v.length !== 6) return;
+  code = v;
+  try {
+    const r = await api('ping');
+    if (r.ok) {
+      sessionStorage.setItem('spark_code', code);
+      $('gate').style.display = 'none';
+      $('app').style.display = 'flex';
+      loadDir('');
+    } else {
+      alert('访问码不对');
+    }
+  } catch (e) {
+    alert('连不上手机，检查是否同一 WiFi');
+  }
+}
+
+function esc(s) { return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+async function loadDir(p) {
+  const r = await api('list?path=' + encodeURIComponent(p));
+  if (!r.ok) { alert(r.error || '读取失败'); return; }
+  curPath = p;
+  $('curPath').textContent = '/' + p;
+  const box = $('files');
+  box.innerHTML = '';
+  if (p) {
+    const up = document.createElement('div');
+    up.className = 'file';
+    up.innerHTML = '<span class="ico">↑</span>..';
+    up.onclick = () => loadDir(p.split('/').slice(0, -1).join('/'));
+    box.appendChild(up);
+  }
+  for (const it of r.items) {
+    const d = document.createElement('div');
+    d.className = 'file';
+    const icon = it.dir ? '▸' : fileIcon(it.name);
+    d.innerHTML = `<span class="ico">${icon}</span><span>${esc(it.name)}</span>` +
+                  (it.dir ? '' : `<span class="sz">${fmt(it.size)}</span>`);
+    d.onclick = () => it.dir ? loadDir(it.path) : openFile(it.path);
+    box.appendChild(d);
+  }
+}
+
+function fileIcon(n) {
+  if (n === 'Makefile') return '⚙';
+  const e = n.split('.').pop().toLowerCase();
+  return { x: '✎', xm: '✎', m: 'Ⓒ', mm: 'Ⓒ', h: 'Ⓗ', plist: 'Ⓟ', deb: '❏', json: '{}' }[e] || '·';
+}
+function fmt(b) {
+  if (b < 1024) return b + 'B';
+  if (b < 1048576) return (b/1024).toFixed(0) + 'K';
+  return (b/1048576).toFixed(1) + 'M';
+}
+
+async function openFile(p) {
+  const r = await api('read?path=' + encodeURIComponent(p));
+  if (!r.ok) { alert(r.error || '读不到'); return; }
+  curFile = p;
+  $('editor').value = r.text;
+  $('editor').disabled = false;
+  $('title').textContent = p.split('/').pop();
+  $('fname').textContent = p;
+  $('fsize').textContent = fmt(r.bytes);
+  $('saveBtn').disabled = true;
+  $('dirty').textContent = '';
+  dirty = false;
+  log('已打开 ' + p, 'info');
+}
+
+$('editor').addEventListener('input', () => {
+  dirty = true;
+  $('saveBtn').disabled = false;
+  $('dirty').textContent = '● 未保存';
+});
+
+async function save() {
+  if (!curFile) return;
+  if (!confirm('保存到手机？\n原文件会备份为 .sparkbak')) return;
+  const r = await api('write', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path: curFile, text: $('editor').value, confirm: 1 }),
+  });
+  if (r.ok) {
+    dirty = false;
+    $('saveBtn').disabled = true;
+    $('dirty').textContent = '';
+    log('已保存 ' + curFile + '（备份 ' + (r.backup || '-') + '）', 'ok');
+  } else {
+    log('保存失败：' + (r.error || '?'), 'err');
+  }
+}
+
+async function build() {
+  if (!confirm('在手机上构建当前项目？')) return;
+  log('=== 请求构建 ===', 'step');
+  const r = await api('build', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path: curPath || '' }),
+  });
+  if (r.ok) log(r.message || '已开始', 'ok');
+  else log('失败：' + (r.error || '?'), 'err');
+}
+
+function log(text, cls = '') {
+  const el = $('log');
+  const line = document.createElement('div');
+  line.className = cls;
+  line.textContent = text;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+// 自动恢复会话
+if (code.length === 6) { $('code').value = code; login(); }
+$('code').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+// 防止误关丢改动
+window.addEventListener('beforeunload', e => {
+  if (dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+</script>
+</body>
+</html>

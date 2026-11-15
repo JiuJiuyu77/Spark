@@ -13,6 +13,8 @@
 #import "SPTrollViewController.h"
 #import "SPMountsViewController.h"
 #import "SPLogsViewController.h"
+#import "SPCrashViewController.h"
+#import "SPRemoteViewController.h"
 #import "SPStore.h"
 #import "SPCompat.h"
 
@@ -108,6 +110,20 @@
     mount.tint = [SPTheme success];
     mount.controllerClass = SPMountsViewController.class;
 
+    SPToolItem *crash = [SPToolItem new];
+    crash.title = @"崩溃分析";
+    crash.detail = @"解析 .ips / .crash，给结论与栈";
+    crash.symbol = @"xmark.octagon.fill";
+    crash.tint = [SPTheme danger];
+    crash.controllerClass = SPCrashViewController.class;
+
+    SPToolItem *remote = [SPToolItem new];
+    remote.title = @"局域网工作台";
+    remote.detail = @"手机当服务器，电脑浏览器编辑与构建";
+    remote.symbol = @"laptopcomputer.and.iphone";
+    remote.tint = [SPTheme info];
+    remote.controllerClass = SPRemoteViewController.class;
+
     SPToolItem *logs = [SPToolItem new];
     logs.title = @"日志";
     logs.detail = @"构建 / 注入 / 自检记录";
@@ -115,8 +131,8 @@
     logs.tint = [SPTheme textDim];
     logs.controllerClass = SPLogsViewController.class;
 
-    self.groupTitles = @[@"编译", @"分析与注入", @"文件与记录"];
-    self.groups = @[@[tc], @[rev, inj], @[mount, logs]];
+    self.groupTitles = @[@"编译", @"分析与注入", @"文件与记录", @"远程与诊断"];
+    self.groups = @[@[tc], @[rev, inj], @[mount, logs], @[remote, crash]];
 }
 
 #pragma mark - Table
