@@ -1,0 +1,28 @@
+# Theos
+.theos/
+packages/
+obj/
+_build/
+*.deb
+*.dSYM/
+
+# 构建产物
+out/
+include/build-info.mk
+sign.plist
+*.ipa
+*.app.zip
+
+# 工具链与本地数据（体积巨大，不进仓库）
+Native/Resources/alpine-rootfs/
+node_modules/
+
+# 编辑器 / 系统
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# 本地覆盖配置
+wrangler.local.toml
+.dev.vars

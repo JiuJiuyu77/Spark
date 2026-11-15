@@ -1,0 +1,8 @@
+Package: com.reinbuild.demo.tweak
+Name: DemoTweak
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: ReinBuild 示例 tweak
+Maintainer: ReinBuild
+Author: ReinBuild
+Section: Tweaks

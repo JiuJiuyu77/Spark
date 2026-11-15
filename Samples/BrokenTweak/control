@@ -1,0 +1,8 @@
+Package: com.reinbuild.demo.broken
+Name: BrokenTweak
+Version: 0.1.0
+Architecture: iphoneos-arm
+Description: 故意写错的 tweak，用来测试失败诊断
+Maintainer: ReinBuild
+Author: ReinBuild
+Section: Tweaks

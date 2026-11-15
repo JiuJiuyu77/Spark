@@ -1,0 +1,214 @@
+name: build
+
+# ReinBuild —— iOS 原生 App 的云端构建
+#
+# 为什么必须 macos runner：ReinBuild 是链接 UIKit 的 iOS 应用，
+# 只能由 Xcode 的 iPhoneOS SDK + ld64 产出 Mach-O；Linux 跑不了。
+#
+# 触发方式：
+#   · push / PR / tag：自动构建并留档产物
+#   · workflow_dispatch：给手机端 ReinBuild（或 Cloudflare Worker）远程触发
+#   · workflow_call：可以被别的 workflow 复用
+#
+# 产物：ReinBuild-<版本>-<arch>.ipa、*.app.zip、可选 .deb
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: 'ReinBuild 任务号（远程触发时由 Worker 传入）'
+        required: false
+        default: ''
+      note:
+        description: '备注'
+        required: false
+        default: ''
+      options_json:
+        description: '构建选项 JSON（debug / arch / obfuscation ...）'
+        required: false
+        default: '{}'
+  workflow_call: {}
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: build-${{ github.ref }}-${{ inputs.job_id || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. 逻辑层测试：ShareKit + Worker，跑在 ubuntu 上，秒级
+  # ---------------------------------------------------------------------------
+  test:
+    name: Logic tests (ShareKit + Worker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run unit tests
+        run: |
+          node --test ShareKit/test/model.test.mjs
+          node --test Workers/test/worker.test.mjs
+      - name: Syntax check Worker
+        run: node --check Workers/RBCloudWorker.js
+      - name: Toolchain detector smoke
+        run: node scripts/detect-toolchain.mjs --json | head -c 400
+
+  # ---------------------------------------------------------------------------
+  # 2. 真机构建：在 macOS runner 上用 iPhoneOS SDK 编译 ReinBuild
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build ReinBuild (${{ matrix.arch }})
+    needs: test
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64]
+    env:
+      SCHEME: ReinBuild
+      BUNDLE_ID: com.reinbuild.app
+      TEAM_ID: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Show environment
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcodebuild -showsdks | sed -n '1,40p'
+
+      - name: Inject build info
+        id: info
+        run: |
+          VERSION="$(sed -n 's/^Version: *//p' control | head -1)"
+          VERSION="${VERSION:-1.0.0}"
+          GIT="$(git describe --tags --always --dirty)"
+          WHEN="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "git=$GIT" >> "$GITHUB_OUTPUT"
+          echo "when=$WHEN" >> "$GITHUB_OUTPUT"
+          plutil -replace CFBundleShortVersionString -string "$VERSION" Native/Resources/Info.plist
+          plutil -replace CFBundleVersion -string "${{ github.run_number }}" Native/Resources/Info.plist
+          plutil -replace RBGitDescribe -string "$GIT" Native/Resources/Info.plist
+          plutil -replace RBBuildDate -string "$WHEN" Native/Resources/Info.plist
+          echo "版本 $VERSION / $GIT"
+
+      # -----------------------------------------------------------------------
+      # 编译方式 A：直接用 xcrun clang 手工编（不依赖 .xcodeproj）
+      # 这样仓库里不用塞一个二进制工程文件，PR diff 干净，构建脚本也透明。
+      # -----------------------------------------------------------------------
+      - name: Compile (plain clang, no Xcode project)
+        run: |
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          MIN=15.0
+          APP="$RUNNER_TEMP/$SCHEME.app"
+          rm -rf "$APP" && mkdir -p "$APP"
+          cp Native/Resources/Info.plist "$APP/"
+
+          FLAGS=(
+            -target "${{ matrix.arch }}-apple-ios${MIN}"
+            -isysroot "$SDK"
+            -miphoneos-version-min=${MIN}
+            -fobjc-arc -fmodules
+            -O2 -DNDEBUG
+            -INative/ObjC
+            -Wno-deprecated-declarations
+            -Werror=return-type
+          )
+
+          echo "==> 编译源文件"
+          OBJECTS=()
+          for f in Native/ObjC/*.m; do
+            out="$RUNNER_TEMP/$(basename "${f%.m}").o"
+            echo "    $f"
+            xcrun clang "${FLAGS[@]}" -c "$f" -o "$out"
+            OBJECTS+=("$out")
+          done
+
+          echo "==> 链接"
+          xcrun clang "${FLAGS[@]}" "${OBJECTS[@]}" \
+            -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore \
+            -o "$APP/$SCHEME"
+
+          echo "==> 自签（模拟器/研究用，真机安装请用你自己的证书重签）"
+          codesign --force --sign - --timestamp=none "$APP" || true
+
+          SIZE=$(du -sh "$APP" | cut -f1)
+          echo "APP = $APP ($SIZE)"
+          file "$APP/$SCHEME"
+          echo "APP_PATH=$APP" >> "$GITHUB_ENV"
+
+      - name: Package artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          V="${{ steps.info.outputs.version }}"
+          A="${{ matrix.arch }}"
+          # 1) 裸 .app（打包成 zip，保留权限位）
+          (cd "$(dirname "$APP_PATH")" && ditto -c -k --sequesterRsrc --keepParent "$(basename "$APP_PATH")" "$GITHUB_WORKSPACE/out/${SCHEME}-${V}-${A}.app.zip")
+          # 2) .ipa（Payload/ 目录结构）
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$APP_PATH" "$RUNNER_TEMP/ipa/Payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/out/${SCHEME}-${V}-${A}.ipa" Payload)
+          # 3) 校验信息
+          ( cd out && shasum -a 256 * > SHA256SUMS.txt && ls -lh )
+          cat out/SHA256SUMS.txt
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReinBuild-${{ steps.info.outputs.version }}-${{ matrix.arch }}
+          path: out/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Write job summary
+        run: |
+          {
+            echo "## ReinBuild 构建完成"
+            echo ""
+            echo "| 项目 | 值 |"
+            echo "|---|---|"
+            echo "| 版本 | ${{ steps.info.outputs.version }} |"
+            echo "| git | \`${{ steps.info.outputs.git }}\` |"
+            echo "| 架构 | ${{ matrix.arch }} |"
+            echo "| 触发任务 | \`${{ inputs.job_id }}\` |"
+            echo "| runner | macOS $(sw_vers -productVersion) |"
+            echo ""
+            echo '### 产物'
+            echo '```'
+            cat out/SHA256SUMS.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # 3. 打 tag 时顺手建一个 Release，把产物挂上去
+  # ---------------------------------------------------------------------------
+  release:
+    name: Attach to release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          name: ReinBuild ${{ github.ref_name }}

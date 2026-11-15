@@ -1,0 +1,74 @@
+name: checks
+
+# 轻量检查：每个 PR 都跑，几十秒出结果
+#   · ShareKit / Worker 单元测试
+#   · Worker 语法检查
+#   · YAML / JSON / plist 格式
+#   · ObjC 源码的「括号/引号平衡」快速体检（没有 macOS 也能拦低级错误）
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  quick:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Unit tests
+        run: |
+          node --test ShareKit/test/model.test.mjs
+          node --test Workers/test/worker.test.mjs
+
+      - name: Worker syntax
+        run: node --check Workers/RBCloudWorker.js
+
+      - name: Generated script is valid shell
+        run: |
+          node scripts/gen-build-script.mjs --demo > /tmp/gen.sh
+          sh -n /tmp/gen.sh && echo "生成的构建脚本语法 OK"
+          head -5 /tmp/gen.sh
+
+      - name: ObjC bracket balance
+        run: python3 scripts/check-balance.py
+
+      - name: Validate plists
+        run: |
+          python3 - <<'EOF'
+          import plistlib, glob, sys
+          ok = True
+          for p in glob.glob('Native/Resources/*.plist') + ['entitlements.plist']:
+              try:
+                  plistlib.load(open(p, 'rb'))
+                  print(f'{p}: OK')
+              except Exception as e:
+                  print(f'{p}: {e}')
+                  ok = False
+          sys.exit(0 if ok else 1)
+          EOF
+
+      - name: Validate JSON / YAML
+        run: |
+          node -e 'require("./package.json"); console.log("package.json OK")'
+          python3 -c "import json;[json.load(open(p)) for p in ['package.json','package-lock.json']]" 2>/dev/null || true
+          python3 - <<'EOF'
+          import glob, sys
+          try:
+              import yaml
+          except ImportError:
+              print('无 PyYAML，跳过')
+              sys.exit(0)
+          for p in glob.glob('.github/workflows/*.yml'):
+              yaml.safe_load(open(p))
+              print(p, 'OK')
+          EOF
+
+      - name: Detect toolchain (informational)
+        run: |
+          REIN_ROOT="$GITHUB_WORKSPACE" node scripts/detect-toolchain.mjs || true

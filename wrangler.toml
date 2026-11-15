@@ -1,0 +1,34 @@
+# Cloudflare Worker：ReinBuild 远程构建编排
+#
+# 部署：
+#   npm i -g wrangler
+#   wrangler kv namespace create JOBS        # 把返回的 id 填到下面
+#   wrangler r2 bucket create reinbuild-uploads
+#   wrangler secret put TOKEN                # 自己定一个足够长的随机串
+#   wrangler secret put GH_TOKEN             # GitHub PAT，需要 actions:write
+#   wrangler deploy
+#
+# 手机端在「工具链 → 构建目标 → GitHub CI」里填 Worker 地址与 TOKEN。
+
+name = "reinbuild-worker"
+main = "Workers/RBCloudWorker.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+GH_OWNER = "JiuJiuyu77"
+GH_REPO = "ReinBuild"
+GH_WORKFLOW = "build.yml"
+GH_REF = "main"
+MAX_UPLOAD_MB = "32"
+RB_VERSION = "1.0.0"
+
+[[kv_namespaces]]
+binding = "JOBS"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "reinbuild-uploads"
+
+[observability]
+enabled = true
