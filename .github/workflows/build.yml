@@ -386,6 +386,60 @@ jobs:
           echo "  ✓ 无符号链接"
 
           # ------------------------------------------------------------------
+          # 编译 Share Extension（必须在签名之前，且要在清空 App 之后）
+          # ------------------------------------------------------------------
+          # 注意：GITHUB_ENV 里写的 APP_PATH 在同一步内可用，但 $APP 是上一步的局部变量，
+          # 这里重新算一遍，避免 unbound variable
+          EXT="$APP/PlugIns/SparkShare.appex"
+          rm -rf "$EXT" && mkdir -p "$EXT"
+
+          cp ShareExtension/Info.plist "$EXT/"
+          plutil -convert binary1 "$EXT/Info.plist"
+          for lproj in ShareExtension/Native/Resources/*.lproj; do
+            [ -d "$lproj" ] && cp -R "$lproj" "$EXT/"
+          done
+
+          FLAGS=(
+            -target "${{ matrix.arch }}-apple-ios${MIN}"
+            -isysroot "$SDK"
+            -miphoneos-version-min=${MIN}
+            -fobjc-arc -fmodules
+            -O2 -DNDEBUG
+            -Wno-deprecated-declarations
+          )
+
+          echo "==> 编译扩展"
+          # .appex 必须链接成 dylib（MH_BUNDLE 由 -bundle 生成），
+          # 并由 NSExtensionMain 作为入口（ShareExtension/main.m）
+          xcrun clang "${FLAGS[@]}" \
+            -bundle -fapplication-extension \
+            -framework UIKit -framework Foundation -framework UniformTypeIdentifiers \
+            -o "$EXT/SparkShare" \
+            ShareExtension/main.m ShareExtension/SPShareViewController.m
+
+          echo "==> 签名扩展（带 App Group）"
+          if [ -f ShareExtension/entitlements.plist ]; then
+            codesign --force --sign - --timestamp=none \
+              --entitlements ShareExtension/entitlements.plist \
+              --generate-entitlement-der "$EXT" || true
+          else
+            codesign --force --sign - --timestamp=none "$EXT" || true
+          fi
+          file "$EXT/SparkShare"
+          du -sh "$EXT"
+
+          # ------------------------------------------------------------------
+          # 编译 JIT helper（必须在签名之前：它是独立进程，要单独签名）
+          # ------------------------------------------------------------------
+          echo "==> 编译 JIT helper"
+          mkdir -p "$APP/bin"
+          xcrun clang -O2 -target arm64-apple-ios15.0 -isysroot "$SDK" \
+            -miphoneos-version-min="${MIN}" \
+            -o "$APP/bin/spark-jitd" Native/JIT/spark-jitd.c
+          chmod 755 "$APP/bin/spark-jitd"
+          file "$APP/bin/spark-jitd"
+
+          # ------------------------------------------------------------------
           # Helper 必须单独签名！
           # bin/spark-jitd 是独立进程，继承不到主 App 的签名；
           # 不给它签，ldid -s 遍历到未签名的 Mach-O 就会报
@@ -446,69 +500,6 @@ jobs:
       # Share Extension：编译并塞进 .app/PlugIns/
       # 有了它，Spark 才会出现在其它 App 的「分享」菜单里
       # -----------------------------------------------------------------------
-      # -----------------------------------------------------------------------
-      # JIT helper：独立子进程，GCC 侧可执行内存在这里申请
-      # -----------------------------------------------------------------------
-      - name: Build JIT helper
-        run: |
-          set -euo pipefail
-          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
-          APP="$RUNNER_TEMP/${SCHEME}.app"
-          mkdir -p "$APP/bin"
-          xcrun clang -O2 -target arm64-apple-ios15.0 -isysroot "$SDK" \
-            -miphoneos-version-min=15.0 \
-            -o "$APP/bin/spark-jitd" Native/JIT/spark-jitd.c
-          chmod 755 "$APP/bin/spark-jitd"
-          file "$APP/bin/spark-jitd"
-          ls -lh "$APP/bin/spark-jitd"
-
-      - name: Build Share Extension
-        run: |
-          set -euo pipefail
-          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
-          MIN=15.0
-          # 注意：GITHUB_ENV 里写的 APP_PATH 在同一步内可用，但 $APP 是上一步的局部变量，
-          # 这里重新算一遍，避免 unbound variable
-          APP="$RUNNER_TEMP/${SCHEME}.app"
-          [ -d "$APP" ] || { echo "主 App 不存在：$APP"; exit 1; }
-          EXT="$APP/PlugIns/SparkShare.appex"
-          rm -rf "$EXT" && mkdir -p "$EXT"
-
-          cp ShareExtension/Info.plist "$EXT/"
-          plutil -convert binary1 "$EXT/Info.plist"
-          for lproj in ShareExtension/Native/Resources/*.lproj; do
-            [ -d "$lproj" ] && cp -R "$lproj" "$EXT/"
-          done
-
-          FLAGS=(
-            -target "${{ matrix.arch }}-apple-ios${MIN}"
-            -isysroot "$SDK"
-            -miphoneos-version-min=${MIN}
-            -fobjc-arc -fmodules
-            -O2 -DNDEBUG
-            -Wno-deprecated-declarations
-          )
-
-          echo "==> 编译扩展"
-          # .appex 必须链接成 dylib（MH_BUNDLE 由 -bundle 生成），
-          # 并由 NSExtensionMain 作为入口（ShareExtension/main.m）
-          xcrun clang "${FLAGS[@]}" \
-            -bundle -fapplication-extension \
-            -framework UIKit -framework Foundation -framework UniformTypeIdentifiers \
-            -o "$EXT/SparkShare" \
-            ShareExtension/main.m ShareExtension/SPShareViewController.m
-
-          echo "==> 签名扩展（带 App Group）"
-          if [ -f ShareExtension/entitlements.plist ]; then
-            codesign --force --sign - --timestamp=none \
-              --entitlements ShareExtension/entitlements.plist \
-              --generate-entitlement-der "$EXT" || true
-          else
-            codesign --force --sign - --timestamp=none "$EXT" || true
-          fi
-          file "$EXT/SparkShare"
-          du -sh "$EXT"
-
       - name: Package artifacts
         run: |
           set -euo pipefail
