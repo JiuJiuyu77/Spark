@@ -14,6 +14,15 @@ import re
 import sys
 
 SRC = 'Native/ObjC'
+
+# 明显不存在的系统方法调用（本仓库踩过的坑，避免再犯）
+KNOWN_BAD = [
+    ('[UIColor', 'setTintColor', 'UIColor 没有 setTintColor，tintColor 是 UIView/UIImage 的属性'),
+    ('CALayer', '.strokeColor', 'CALayer 没有 strokeColor，用 CAShapeLayer'),
+    ('CALayer', '.fillColor', 'CALayer 没有 fillColor，用 CAShapeLayer'),
+    ('CAGradientLayer', 'strokeColor', 'CAGradientLayer 不支持描边，用 CAShapeLayer'),
+    ('NSUserDefaults', 'integerValueForKey', 'NSUserDefaults 用 integerForKey:'),
+]
 PROBLEMS = []
 
 
@@ -91,6 +100,12 @@ def check(path: str):
         m = re.search(r'\[\s*[\w.]+\s+[A-Za-z]\w*:\s*[^:()\[\]]+\?[^:()\[\]]+:\s*[^:()\[\]\s][^:()\[\]]*\s+[A-Za-z]\w*:', line)
         if m:
             PROBLEMS.append(f'{name}:{lineno}: 三元表达式当消息接收者 → 用括号包起来')
+
+    # 4b. 已知不存在的系统方法
+    for lineno, line in enumerate(lines, 1):
+        for owner, member, hint in KNOWN_BAD:
+            if owner in line and member in line:
+                PROBLEMS.append(f'{name}:{lineno}: {hint}')
 
     # 5. switch 里 case 直接声明变量（粗略：case 行末尾声明且下一个 case 前没有 {）
     in_switch = False

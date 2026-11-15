@@ -169,7 +169,6 @@
         UIImage *sym = [UIImage systemImageNamed:symbol
                                withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:15
                                                                                                weight:UIImageSymbolWeightSemibold]];
-        [tint setTintColor];
         UIImage *tinted = [sym imageWithTintColor:tint renderingMode:UIImageRenderingModeAlwaysOriginal];
         CGSize s = tinted.size;
         [tinted drawInRect:CGRectMake((size.width - s.width) / 2, (size.height - s.height) / 2, s.width, s.height)];
