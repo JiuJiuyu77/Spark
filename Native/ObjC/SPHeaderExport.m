@@ -53,9 +53,9 @@
     // 没有段信息（普通 -zz）时，用启发式：大写开头的 identifier 当类名
     if (!pendingClasses.count) {
         for (NSString *line in [out componentsSeparatedByString:@"\n"]) {
-            NSString *name = line.lastObject;
+            NSString *name = [line componentsSeparatedByString:@" "].lastObject;
             if (name.length < 2 || name.length > 60) continue;
-            if ([self looksLikeClassName:name] && [name containsString:@""]) [pendingClasses addObject:name];
+            if ([self looksLikeClassName:name]) [pendingClasses addObject:name];
         }
     }
 
@@ -75,7 +75,7 @@
     NSMutableArray *d = [NSMutableArray array];
     NSString *bin = SPToolchainInstallerBinDir();
     if (bin.length) [d addObject:bin];
-    NSString *rev = [SPToolchain shared].scan.pathFor(SPToolchainComponentReverse);
+    NSString *rev = [[[SPToolchain shared] scan] pathFor:SPToolchainComponentReverse];
     if (rev.length) [d addObject:rev];
     [d addObjectsFromArray:@[@"/usr/bin", @"/var/jb/usr/bin", @"/usr/local/bin", @"/bin"]];
     return d;

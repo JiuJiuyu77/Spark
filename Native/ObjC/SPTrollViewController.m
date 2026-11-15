@@ -448,7 +448,7 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
     NSMutableArray *dirs = [NSMutableArray array];
     NSString *reinRoot = [SPToolchain shared].reinRoot;
     [dirs addObjectsFromArray:@[
-        SPToolchainInstallerBinDir(), [SPToolchain shared].scan.pathFor(SPToolchainComponentDarwin),
+        SPToolchainInstallerBinDir(), [[[SPToolchain shared] scan] pathFor:SPToolchainComponentDarwin],
         [reinRoot stringByAppendingPathComponent:@"helpers"],
         [reinRoot stringByAppendingPathComponent:@"tools/theos-root/usr/bin"],
         @"/var/jb/usr/bin", @"/usr/bin", @"/usr/local/bin",
