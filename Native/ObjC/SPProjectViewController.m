@@ -207,7 +207,7 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
         case SPProjectSectionInfo: return 5;
-        case SPProjectSectionOptions: return 7;
+        case SPProjectSectionOptions: return 8;
         case SPProjectSectionObfuscation: return 3;
         default: return 7;
     }
@@ -244,9 +244,11 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
                     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault; break;
                 case 2: cell.textLabel.text = @"编译配置"; cell.detailTextLabel.text = o.debug ? @"Debug" : @"Release";
                     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault; break;
-                case 3: cell.textLabel.text = @"构建前清理"; [self addSwitch:cell on:o.cleanBeforeBuild tag:4000]; break;
-                case 4: cell.textLabel.text = @"并行编译"; [self addSwitch:cell on:o.parallel tag:4001]; break;
-                case 5: cell.textLabel.text = @"ldid 补签"; [self addSwitch:cell on:o.signWithLdid tag:4002]; break;
+                case 3: cell.textLabel.text = @"优化等级"; cell.detailTextLabel.text = [o optimizationName];
+                    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault; break;
+                case 4: cell.textLabel.text = @"构建前清理"; [self addSwitch:cell on:o.cleanBeforeBuild tag:4000]; break;
+                case 5: cell.textLabel.text = @"并行编译"; [self addSwitch:cell on:o.parallel tag:4001]; break;
+                case 6: cell.textLabel.text = @"ldid 补签"; [self addSwitch:cell on:o.signWithLdid tag:4002]; break;
                 default: cell.textLabel.text = @"撤销符号表"; [self addSwitch:cell on:o.strip tag:4003]; break;
             }
             break;
@@ -321,11 +323,16 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
             self.project.options.format = i;
         }];
         else if (ip.row == 2) { self.project.options.debug = !self.project.options.debug; [self persist]; }
+        else if (ip.row == 3) {
+            [self pickFrom:@[@"-O0", @"-Og", @"-O1", @"-O2", @"-O3", @"-Os", @"-Oz", @"-Ofast"] title:@"优化等级" apply:^(NSInteger i) {
+                self.project.options.optimization = (SPOptimization)i;
+            }];
+        }
         return;
     }
     if (ip.section == SPProjectSectionObfuscation) {
         if (ip.row == 1) [self pickFrom:@[@"无", @"轻度（indbr + cse）", @"均衡（indbr + icall + cse）",
-                                         @"强力（全部 5 个 pass）", @"自定义"] title:@"混淆强度" apply:^(NSInteger i) {
+                                         @"强力（全部 7 个 pass）", @"自定义"] title:@"混淆强度" apply:^(NSInteger i) {
             self.project.options.obfuscation = i;
             self.project.options.useOLLVM = i != SPObfuscationNone;
         }];

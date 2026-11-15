@@ -37,6 +37,18 @@ typedef NS_ENUM(NSInteger, SPArch) {
     SPArchBoth,
 };
 
+/// 编译优化等级
+typedef NS_ENUM(NSInteger, SPOptimization) {
+    SPOptimizationO0 = 0,   // -O0 调试
+    SPOptimizationOg,       // -Og 调试友好
+    SPOptimizationO1,       // -O1
+    SPOptimizationO2,       // -O2 发布推荐
+    SPOptimizationO3,       // -O3 激进
+    SPOptimizationOs,       // -Os 优化体积
+    SPOptimizationOz,       // -Oz 极限体积
+    SPOptimizationOfast,    // -Ofast（注意浮点行为）
+};
+
 /// OLLVM 混淆等级（对应 Rein 的 passes 组合）
 typedef NS_ENUM(NSInteger, SPObfuscation) {
     SPObfuscationNone = 0,
@@ -53,6 +65,8 @@ typedef NS_ENUM(NSInteger, SPObfuscation) {
 @property (nonatomic, assign) SPArch arch;
 @property (nonatomic, assign) SPPackageFormat format;
 @property (nonatomic, assign) BOOL debug;
+/// 优化等级（debug 时自动用 O0）
+@property (nonatomic, assign) SPOptimization optimization;
 @property (nonatomic, assign) BOOL cleanBeforeBuild;
 @property (nonatomic, assign) BOOL finalize;      // 打包并生成 deb
 @property (nonatomic, assign) BOOL signWithLdid;

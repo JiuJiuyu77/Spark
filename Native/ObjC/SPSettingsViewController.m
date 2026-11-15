@@ -127,7 +127,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
-        case SPSectionBuildDefaults: return 7;
+        case SPSectionBuildDefaults: return 8;
         case SPSectionObfuscation:   return 4;
         case SPSectionToolchain:     return 7 + (NSInteger)[[SPToolchainDownloader shared] components].count;
         case SPSectionFiles:         return 5;
@@ -313,19 +313,24 @@ typedef NS_ENUM(NSInteger, SPSection) {
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             break;
         case 2:
+            cell.textLabel.text = @"优化等级";
+            cell.detailTextLabel.text = [o optimizationName];
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+            break;
+        case 3:
             cell.textLabel.text = @"默认 Debug 编译";
             [self addSwitch:cell on:o.debug tag:6100];
             break;
-        case 3:
+        case 4:
             cell.textLabel.text = @"并行编译";
             cell.detailTextLabel.text = o.parallel ? [NSString stringWithFormat:@"-j%ld", (long)o.jobs] : @"串行";
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             break;
-        case 4:
+        case 5:
             cell.textLabel.text = @"构建前清理";
             [self addSwitch:cell on:o.cleanBeforeBuild tag:6101];
             break;
-        case 5:
+        case 6:
             cell.textLabel.text = @"ldid 补签";
             [self addSwitch:cell on:o.signWithLdid tag:6102];
             break;
@@ -536,7 +541,15 @@ typedef NS_ENUM(NSInteger, SPSection) {
                 [self pick:@[@"deb（有根）", @"deb（无根 rootless）", @"deb（隐根 roothide）", @".app", @".tipa"] title:@"默认包格式" apply:^(NSInteger i) { o.format = i; }];
                 break;
             }
-            case 3: {
+            case 2: {
+                [self pick:@[@"-O0（调试，最快编译）", @"-Og（调试友好优化）", @"-O1（轻度）",
+                             @"-O2（发布推荐）", @"-O3（激进）", @"-Os（优化体积）",
+                             @"-Oz（极限体积）", @"-Ofast（数学优化，慎用）"] title:@"优化等级" apply:^(NSInteger i) {
+                    o.optimization = (SPOptimization)i;
+                }];
+                break;
+            }
+            case 4: {
                 [self pick:@[@"串行", @"并行 -j2", @"并行 -j4", @"并行 -j6", @"并行 -j8"] title:@"并行度" apply:^(NSInteger i) {
                     o.parallel = i > 0;
                     o.jobs = i == 0 ? 1 : i * 2;

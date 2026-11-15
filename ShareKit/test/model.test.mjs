@@ -136,9 +136,13 @@ test('版本比较与 SDK 选择', () => {
 });
 
 test('passes 预设与 flags 一致', () => {
-  assert.deepEqual(passesForObfuscation('strong'), ['indbr', 'icall', 'indgv', 'cse', 'cff']);
-  assert.deepEqual(passesForObfuscation('custom', ['cff']), ['cff']);
-  assert.deepEqual(flagsForPasses(['cff']), ['-mllvm', '-irobf', '-mllvm', '--irobf-cff']);
+  // LLVM 23 的强力档：7 个 pass（fla/cie/cfe 取代了旧的 cff）
+  assert.deepEqual(passesForObfuscation('strong'),
+    ['indbr', 'icall', 'indgv', 'cse', 'fla', 'cie', 'cfe']);
+  assert.deepEqual(passesForObfuscation('custom', ['fla']), ['fla']);
+  assert.deepEqual(flagsForPasses(['fla']), ['-mllvm', '-irobf', '-mllvm', '--irobf-fla']);
+  // 旧版 Arkari 16 仍然可用
+  assert.deepEqual(passesForObfuscation('legacy'), ['indbr', 'icall', 'indgv', 'cse', 'cff']);
 });
 
 test('defaultOptions 稳定', () => {

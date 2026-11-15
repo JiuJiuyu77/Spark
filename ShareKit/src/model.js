@@ -45,6 +45,30 @@ export const Arch = {
   BOTH: 'both',
 };
 
+/** 编译优化等级（对应 clang -O 档位，并附带 Theos 相关开关） */
+export const Optimization = {
+  O0: 'O0',      // 调试用，不优化，编译最快
+  OG: 'Og',      // 调试友好优化（GCC 风格，clang 也支持）
+  O1: 'O1',      // 轻度优化
+  O2: 'O2',      // 默认发布档（推荐）
+  O3: 'O3',      // 激进优化，体积/速度换编译时间
+  OS: 'Os',      // 优化体积（插件常用，deb 更小）
+  OZ: 'Oz',      // 极限压体积
+  OFAST: 'Ofast',// O3 + 数学优化（谨慎：会改变浮点行为）
+};
+
+/** 各优化档位的实际 flag（含 Theos 会读的 OPTFLAG） */
+export const OPTIMIZATION_FLAGS = {
+  O0: { opt: '-O0', extra: '-g' },
+  Og: { opt: '-Og', extra: '-g' },
+  O1: { opt: '-O1', extra: '-g' },
+  O2: { opt: '-O2', extra: '-g' },
+  O3: { opt: '-O3', extra: '-g' },
+  Os: { opt: '-Os', extra: '-g' },
+  Oz: { opt: '-Oz', extra: '' },
+  Ofast: { opt: '-Ofast', extra: '-g' },
+};
+
 /** 混淆强度 */
 export const Obfuscation = {
   NONE: 'none',
@@ -60,15 +84,25 @@ export const OLLVM_PASSES = {
   icall: { title: 'Indirect Call（间接调用）', flags: ['-mllvm', '-irobf', '-mllvm', '--irobf-icall'] },
   indgv: { title: 'Indirect Globals（间接全局）', flags: ['-mllvm', '-irobf', '-mllvm', '--irobf-indgv'] },
   cse: { title: 'C String Encryption（字符串加密）', flags: ['-mllvm', '-irobf', '-mllvm', '--irobf-cse'] },
-  cff: { title: 'Control Flow Flattening（控制流平坦化）', flags: ['-mllvm', '-irobf', '-mllvm', '--irobf-cff'] },
+  // Arkari 23.x 起改名：cff → fla，并新增 cie / cfe
+  fla: { title: 'Control Flow Flattening（控制流平坦化）', flags: ['-mllvm', '-irobf', '-mllvm', '--irobf-fla'] },
+  cie: { title: 'Indirect Call Enhance（间接调用增强）', flags: ['-mllvm', '-irobf', '-mllvm', '--irobf-cie'] },
+  cfe: { title: 'Control Flow Enhance（控制流增强）', flags: ['-mllvm', '-irobf', '-mllvm', '--irobf-cfe'] },
+  // 兼容旧版 Arkari 16（Rein 自带的那一版）
+  cff: { title: 'Control Flow Flattening（旧版 cff）', flags: ['-mllvm', '-irobf', '-mllvm', '--irobf-cff'] },
 };
 
 /** 混淆强度的预设组合（与 Rein 的 recommended_presets 对齐，并给出更保守/更强的档位） */
 export const OBFUSCATION_PRESETS = {
   none: [],
+  // 轻度：只加间接跳转与字符串加密，体积影响最小
   light: ['indbr', 'cse'],
+  // 均衡：再加间接调用
   balanced: ['indbr', 'icall', 'cse'],
-  strong: ['indbr', 'icall', 'indgv', 'cse', 'cff'],
+  // 强力：全部 7 个（LLVM 23 的 fla/cie/cfe 也在内）
+  strong: ['indbr', 'icall', 'indgv', 'cse', 'fla', 'cie', 'cfe'],
+  // 兼容旧版编译器（Rein 自带的 16.0.6）
+  legacy: ['indbr', 'icall', 'indgv', 'cse', 'cff'],
 };
 
 /** 默认选项 */
@@ -83,6 +117,7 @@ export function defaultOptions() {
     strip: false,
     ollvm: false,
     obfuscation: Obfuscation.NONE,
+    optimization: Optimization.O2,
     passes: [],
     parallel: true,
     jobs: 4,
@@ -225,14 +260,20 @@ export function makeEnvironment(options = {}) {
   // 三种包布局：rootful（空）/ rootless / roothide
   env.THEOS_PACKAGE_SCHEME = PACKAGE_SCHEMES[o.format] ?? '';
 
+  // 优化等级：debug 时强制 O0（否则断点乱跳），其余按用户选择
+  const opt = o.debug && !o.optimization ? Optimization.O0
+            : (OPTIMIZATION_FLAGS[o.optimization] ? o.optimization : Optimization.O2);
+  const flags = OPTIMIZATION_FLAGS[opt] || OPTIMIZATION_FLAGS.O2;
+
   if (o.debug) {
     env.DEBUG = '1';
     env.THEOS_DEBUG = '1';
-    env.OPTFLAG = '-O0 -g';
   } else {
     env.DEBUG = '0';
-    env.OPTFLAG = o.strip ? '-O2' : '-O2 -g';
   }
+  env.OPTFLAG = o.strip ? flags.opt : `${flags.opt} ${flags.extra}`.trim();
+  // Theos 会把这些变量拼进编译命令，显式给一遍更保险
+  env.RB_OPT_LEVEL = opt;
   if (o.strip) env.STRIP = '1';
 
   const passes = o.ollvm ? passesForObfuscation(o.obfuscation, o.passes) : [];

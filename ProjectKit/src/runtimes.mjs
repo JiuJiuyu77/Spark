@@ -23,16 +23,19 @@ export const RUNTIME_PROXY_PREFIXES = [
   'https://ghproxy.net/',
 ];
 
-// 自己的运行时仓库（由 Spark-Runtime/scripts/pack-runtime.sh 产出并上传）
-const BASE = 'https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v1';
+// 选型依据见 docs/runtime-decision.md：
+//  · Theos 用自己的仓库（Rein 本地打包，多一个 SDK 17.0、体积小一半）
+//  · 其余全部用 Codex 仓库（Node 24.5.0 有 node-gyp iOS 适配、OLLVM 23.1.1 更新）
+const SELF_BASE = 'https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v1';
+const CODEX_BASE = 'https://github.com/susu123oss/CodexApp-Runtime/releases/download';
 
 export const RUNTIMES = [
   {
     id: 'coretools',
     name: '核心工具集',
     components: { shell: 'usr/bin', libs: 'usr/lib' },
-    archive: `${BASE}/coretools/CoreTools.tar.gz`,
-    file: 'coretools/CoreTools.tar.gz',
+    archive: `${CODEX_BASE}/runtime-core-tools-a7e97567217a/CoreToolsRuntime.tar.gz`,
+    file: 'CoreToolsRuntime.tar.gz',
     size: 40 * 1024 * 1024,
     order: 5,
     optional: false,
@@ -45,8 +48,8 @@ export const RUNTIMES = [
     id: 'reverse',
     name: '逆向工具',
     components: { radare2: '6.2.4', 'mt-macho': '2', 'mt-inject-dylib': '1' },
-    archive: `${BASE}/reverse/ReverseTools.tar.gz`,
-    file: 'reverse/ReverseTools.tar.gz',
+    archive: `${CODEX_BASE}/runtime-reverse-tools-9d3ca9ea3340/ReverseToolsRuntime.tar.gz`,
+    file: 'ReverseToolsRuntime.tar.gz',
     size: 60 * 1024 * 1024,
     order: 10,
     optional: true,
@@ -59,8 +62,8 @@ export const RUNTIMES = [
     id: 'node',
     name: 'Node.js 24.5.0',
     components: { node: '24.5.0', npm: '11.5.1', corepack: '0.34.0' },
-    archive: `${BASE}/node/NodeRuntime.tar.gz`,
-    file: 'node/NodeRuntime.tar.gz',
+    archive: `${CODEX_BASE}/runtime-node-24.5.0-e3a6c25fac33/NodeRuntime.tar.gz`,
+    file: 'NodeRuntime.tar.gz',
     size: 28 * 1024 * 1024,
     order: 15,
     optional: true,
@@ -73,8 +76,8 @@ export const RUNTIMES = [
     id: 'buildtools',
     name: '构建工具',
     components: { cmake: '3.27.9', ninja: '1.11.1' },
-    archive: `${BASE}/buildtools/BuildTools.tar.gz`,
-    file: 'buildtools/BuildTools.tar.gz',
+    archive: `${CODEX_BASE}/runtime-build-tools-3.27.9-fb0f29cea7b2/BuildToolsRuntime.tar.gz`,
+    file: 'BuildToolsRuntime.tar.gz',
     size: 8 * 1024 * 1024,
     order: 15,
     optional: true,
@@ -87,8 +90,8 @@ export const RUNTIMES = [
     id: 'python',
     name: 'Python 3.13',
     components: { python: '3.13.14' },
-    archive: `${BASE}/python/PythonRuntime.tar.gz`,
-    file: 'python/PythonRuntime.tar.gz',
+    archive: `${CODEX_BASE}/runtime-python-3.13.14-3c834a2c8964/PythonRuntime.tar.gz`,
+    file: 'PythonRuntime.tar.gz',
     size: 10 * 1024 * 1024,
     order: 20,
     optional: true,
@@ -98,18 +101,32 @@ export const RUNTIMES = [
     detail: 'Python 3.13.14（Theos 脚本工具链会用到）',
   },
   {
+    id: 'theos',
+    name: 'Theos 完整版',
+    components: { theos: 'Rein 本地', sdks: 'iPhoneOS16.5 + 17.0' },
+    archive: `${SELF_BASE}/theos/TheosRuntime.tar.gz`,
+    file: 'TheosRuntime.tar.gz',
+    size: 114 * 1024 * 1024,
+    order: 25,
+    optional: true,
+    pathEntries: ['theos/bin'],
+    probe: { executable: 'theos/bin/logos.pl', arguments: [], contains: '' },
+    iosMin: '15.0',
+    detail: '完整 Theos（含 16.5 / 17.0 两个 SDK），内置版不够用时安装',
+  },
+  {
     id: 'ollvm',
     name: 'OLLVM 混淆',
-    components: { llvm: '16.0.6', passes: 'indbr/icall/indgv/cse/cff' },
-    archive: `${BASE}/ollvm/OLLVMRuntime.tar.gz`,
-    file: 'ollvm/OLLVMRuntime.tar.gz',
-    size: 80 * 1024 * 1024,
+    components: { llvm: '23.1.1', passes: 'indbr/icall/indgv/cse/fla/cie/cfe' },
+    archive: `${CODEX_BASE}/runtime-ollvm-23.1.1-e54f2878240e/OLLVMRuntime.tar.gz`,
+    file: 'OLLVMRuntime.tar.gz',
+    size: 35 * 1024 * 1024,
     order: 30,
     optional: true,
     pathEntries: ['bin'],
     probe: { executable: 'bin/clang', arguments: ['--version'], contains: 'clang version' },
     iosMin: '15.0',
-    detail: 'Arkari OLLVM，5 个混淆 pass',
+    detail: 'Arkari LLVM 23.1.1，7 个 pass（arm64e 已验证）',
   },
 ];
 

@@ -7,6 +7,32 @@
 
 #pragma mark - SPBuildOptions
 
+static NSString *SPOptimizationFlag(SPOptimization o) {
+    switch (o) {
+        case SPOptimizationO0: return @"-O0";
+        case SPOptimizationOg: return @"-Og";
+        case SPOptimizationO1: return @"-O1";
+        case SPOptimizationO3: return @"-O3";
+        case SPOptimizationOs: return @"-Os";
+        case SPOptimizationOz: return @"-Oz";
+        case SPOptimizationOfast: return @"-Ofast";
+        default: return @"-O2";
+    }
+}
+
+static NSString *SPOptimizationName(SPOptimization o) {
+    switch (o) {
+        case SPOptimizationO0: return @"O0";
+        case SPOptimizationOg: return @"Og";
+        case SPOptimizationO1: return @"O1";
+        case SPOptimizationO3: return @"O3";
+        case SPOptimizationOs: return @"Os";
+        case SPOptimizationOz: return @"Oz";
+        case SPOptimizationOfast: return @"Ofast";
+        default: return @"O2";
+    }
+}
+
 @implementation SPBuildOptions
 
 - (instancetype)init {
@@ -14,6 +40,7 @@
         _arch = SPArchArm64;
         _format = SPPackageFormatRootlessDeb;
         _debug = YES;
+        _optimization = SPOptimizationO2;
         _cleanBeforeBuild = NO;
         _finalize = YES;
         _signWithLdid = YES;
@@ -49,7 +76,7 @@
         case SPObfuscationNone:     _useOLLVM = NO; _obfuscationPasses = @[]; break;
         case SPObfuscationLight:    _useOLLVM = YES; _obfuscationPasses = @[@"indbr", @"cse"]; break;
         case SPObfuscationBalanced: _useOLLVM = YES; _obfuscationPasses = @[@"indbr", @"icall", @"cse"]; break;
-        case SPObfuscationStrong:   _useOLLVM = YES; _obfuscationPasses = @[@"indbr", @"icall", @"indgv", @"cse", @"cff"]; break;
+        case SPObfuscationStrong:   _useOLLVM = YES; _obfuscationPasses = @[@"indbr", @"icall", @"indgv", @"cse", @"fla", @"cie", @"cfe"]; break;
         case SPObfuscationCustom:   _useOLLVM = YES; break;
     }
 }
@@ -61,10 +88,15 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
         @"icall": @[@"-mllvm", @"-irobf", @"-mllvm", @"--irobf-icall"],
         @"indgv": @[@"-mllvm", @"-irobf", @"-mllvm", @"--irobf-indgv"],
         @"cse":   @[@"-mllvm", @"-irobf", @"-mllvm", @"--irobf-cse"],
-        @"cff":   @[@"-mllvm", @"-irobf", @"-mllvm", @"--irobf-cff"],
+        @"fla":   @[@"-mllvm", @"-irobf", @"-mllvm", @"--irobf-fla"],
+        @"cie":   @[@"-mllvm", @"-irobf", @"-mllvm", @"--irobf-cie"],
+        @"cfe":   @[@"-mllvm", @"-irobf", @"-mllvm", @"--irobf-cfe"],
+        @"cff":   @[@"-mllvm", @"-irobf", @"-mllvm", @"--irobf-cff"],   // 旧版 Arkari 16
     };
     return map[pass] ?: @[];
 }
+
+- (NSString *)optimizationName { return SPOptimizationName(self.optimization); }
 
 - (NSDictionary<NSString *, NSString *> *)makeEnvironment {
     NSMutableDictionary *env = [NSMutableDictionary dictionary];
@@ -93,15 +125,17 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
         default: break; // app/tipa 不涉及 scheme
     }
 
-    // ---- 调试/优化 ----
+    // ---- 调试 / 优化等级 ----
+    NSString *opt = SPOptimizationFlag(self.optimization);
+    NSString *extra = (self.optimization == SPOptimizationOz) ? @"" : @" -g";
     if (self.debug) {
         env[@"DEBUG"] = @"1";
         env[@"THEOS_DEBUG"] = @"1";
-        env[@"OPTFLAG"] = @"-O0 -g";
     } else {
         env[@"DEBUG"] = @"0";
-        env[@"OPTFLAG"] = self.strip ? @"-O2" : @"-O2 -g";
     }
+    env[@"OPTFLAG"] = self.strip ? opt : [opt stringByAppendingString:extra];
+    env[@"RB_OPT_LEVEL"] = [self optimizationName];
     if (self.strip) env[@"STRIP"] = @"1";
 
     // ---- 额外环境 ----
@@ -159,6 +193,7 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
     [parts addObject:archs[self.arch]];
     [parts addObject:formats[self.format]];
     [parts addObject:self.debug ? @"debug" : @"release"];
+    [parts addObject:[self optimizationName]];
     if (self.useOLLVM) [parts addObject:[NSString stringWithFormat:@"OLLVM·%@", obf[self.obfuscation]]];
     if (self.cleanBeforeBuild) [parts addObject:@"clean"];
     return [parts componentsJoinedByString:@" · "];
@@ -166,7 +201,7 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
 
 - (NSDictionary *)dictionaryRepresentation {
     return @{
-        @"arch": @(self.arch), @"format": @(self.format), @"debug": @(self.debug),
+        @"arch": @(self.arch), @"format": @(self.format), @"debug": @(self.debug), @"opt": @(self.optimization),
         @"clean": @(self.cleanBeforeBuild), @"finalize": @(self.finalize),
         @"ldid": @(self.signWithLdid), @"strip": @(self.strip),
         @"ollvm": @(self.useOLLVM), @"obf": @(self.obfuscation),
@@ -184,6 +219,7 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
     o.arch = [d[@"arch"] integerValue];
     o.format = [d[@"format"] integerValue];
     o.debug = [d[@"debug"] boolValue];
+    if (d[@"opt"]) o.optimization = [d[@"opt"] integerValue];
     o.cleanBeforeBuild = [d[@"clean"] boolValue];
     o.finalize = [d[@"finalize"] boolValue];
     o.signWithLdid = [d[@"ldid"] boolValue];
