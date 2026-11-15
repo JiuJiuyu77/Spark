@@ -373,10 +373,39 @@ typedef NS_ENUM(NSInteger, SPSection) {
             cell.selectionStyle = UITableViewCellSelectionStyleDefault;
             break;
         }
-        default: {
+        case 5: {
             cell.textLabel.text = @"工具链详情";
             cell.detailTextLabel.text = [[SPToolchain shared].scan summary];
             cell.detailTextLabel.numberOfLines = 2;
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+            break;
+        }
+        case 6: {
+            // 运行身份：TrollStore 下可 root 跑子进程（自签环境做不到）
+            cell.textLabel.text = @"运行身份";
+            cell.detailTextLabel.text = [SPPrivileged shared].statusText;
+            cell.detailTextLabel.font = [SPTheme caption];
+            cell.detailTextLabel.numberOfLines = 2;
+            cell.detailTextLabel.textColor = [SPPrivileged shared].canElevate ? [SPTheme success] : [SPTheme warn];
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+            break;
+        }
+        default: {
+            NSArray<SPComponentInfo *> *comps = [[SPToolchainDownloader shared] components];
+            NSInteger idx = row - 7;
+            if (idx < 0 || idx >= (NSInteger)comps.count) {
+                cell.textLabel.text = @"";
+                break;
+            }
+            SPComponentInfo *c = comps[idx];
+            cell.textLabel.text = c.title;
+            cell.textLabel.textColor = [SPTheme text];
+            cell.imageView.image = [UIImage systemImageNamed:c.symbol];
+            cell.imageView.tintColor = c.isInstalled ? [SPTheme success] : [SPTheme textDim];
+            cell.detailTextLabel.text = c.isInstalled
+                ? @"已下载"
+                : [NSString stringWithFormat:@"%@ · 约 %@", c.detail, [SPUtil formatBytes:c.approxSize]];
+            cell.detailTextLabel.textColor = c.isInstalled ? [SPTheme success] : [SPTheme textDim];
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             break;
         }
@@ -544,15 +573,6 @@ typedef NS_ENUM(NSInteger, SPSection) {
             case 3: [self importSDK]; break;
             case 4: [[SPToolchain shared] rescan]; [self.table reloadData]; [self toast:@"已重新扫描"]; break;
             case 5: [self showToolchainDetail]; break;
-            case 6: {
-                // 运行身份（TrollStore 特有：可以 root 跑子进程）
-                cell.textLabel.text = @"运行身份";
-                cell.detailTextLabel.text = [SPPrivileged shared].statusText;
-                cell.detailTextLabel.font = [SPTheme caption];
-                cell.detailTextLabel.numberOfLines = 2;
-                cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-                break;
-            }
             case 6: {
                 [[SPPrivileged shared] probeWithCompletion:^(NSString *detail) {
                     [self alert:@"运行身份" message:detail];
