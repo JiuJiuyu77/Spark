@@ -1,5 +1,6 @@
 //
 //  SPReverseViewController.m
+//  逆向工具台 —— HIG：分段控件切换「分析 / 输出」+ 顶部已选二进制卡片
 //
 
 #import "SPReverseViewController.h"
@@ -11,19 +12,30 @@
 #import "SPFileBrowserViewController.h"
 #import "SPToolchain.h"
 
-typedef NS_ENUM(NSInteger, SPRMode) {
-    SPRModeInfo = 0, SPRModeSymbols, SPRModeStrings, SPRModeImports, SPRModeSections, SPRModeEntropy,
+typedef NS_ENUM(NSInteger, SPRevAction) {
+    SPRevActionInfo = 0,
+    SPRevActionSymbols,
+    SPRevActionStrings,
+    SPRevActionImports,
+    SPRevActionSections,
+    SPRevActionEntropy,
+    SPRevActionInject,
+    SPRevActionResign,
+    SPRevActionCount,
 };
 
-@interface SPReverseViewController () <UITableViewDataSource, UITableViewDelegate, UITextFieldDelegate>
+@interface SPReverseViewController ()
 @property (nonatomic, copy, nullable) NSString *binaryPath;
 @property (nonatomic, strong) SPToolchainProfile *profile;
 @property (nonatomic, strong) UITableView *table;
 @property (nonatomic, strong) UILabel *binaryLabel;
 @property (nonatomic, strong) UITextView *outputView;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
-@property (nonatomic, strong) NSArray *actions;
-@property (nonatomic, strong) NSArray *actionSubs;
+@property (nonatomic, strong) UISegmentedControl *segment;
+@property (nonatomic, strong) NSArray<NSString *> *titles;
+@property (nonatomic, strong) NSArray<NSString *> *subtitles;
+@property (nonatomic, strong) NSArray<NSString *> *symbols;
+@property (nonatomic, strong) SPCardView *headerCard;
 @end
 
 @implementation SPReverseViewController
@@ -39,42 +51,88 @@ typedef NS_ENUM(NSInteger, SPRMode) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = [SPTheme background];
-    self.title = @"逆向工具台";
+    self.title = @"逆向";
+    self.navigationController.navigationBar.prefersLargeTitles = YES;
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
 
-    self.actions = @[@"Mach-O 架构信息", @"导出符号 / 入口点", @"导出的类与方法", @"导入的库与符号",
-                     @"段与节", @"字符串（前 500 条）", @"熵值扫描（可疑加壳）",
-                     @"注入 dylib", @"重签名", @"打开原始输出"];
-    self.actionSubs = @[@"rabin2 -I", @"rabin2 -s", @"rabin2 -zz / ic", @"rabin2 -i",
-                        @"rabin2 -S", @"rabin2 -z", @"rabin2 -e",
-                        @"mt-inject-dylib", @"ldid -S", @"全文"];
+    self.titles = @[@"架构与头信息", @"导出符号与入口", @"字符串与 ObjC 类",
+                    @"导入的库与符号", @"段与节", @"熵值（加壳检测）",
+                    @"注入动态库", @"重新签名", @"打开原始输出"];
+    self.subtitles = @[@"rabin2 -I", @"rabin2 -s", @"rabin2 -zz / ic", @"rabin2 -i",
+                       @"rabin2 -S", @"rabin2 -e", @"mt-inject-dylib", @"ldid -S", @"完整文本"];
+    self.symbols = @[@"info.circle", @"list.bullet.indent", @"text.magnifyingglass", @"link",
+                     @"square.stack.3d.up", @"chart.bar.xaxis", @"syringe", @"signature", @"doc.text"];
 
-    UIView *header = [[UIView alloc] init];
-    header.backgroundColor = [SPTheme surface];
-    header.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.view addSubview:header];
+    [self buildHeader];
+    [self buildTable];
+    [self buildOutput];
+    [self buildSegment];
+}
+
+- (void)buildHeader {
+    SPCardView *card = [[SPCardView alloc] init];
+    card.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:card];
+    self.headerCard = card;
 
     self.binaryLabel = [[UILabel alloc] init];
-    self.binaryLabel.font = [SPTheme monoFont:11];
+    self.binaryLabel.font = [SPTheme mono:11];
     self.binaryLabel.textColor = [SPTheme textDim];
     self.binaryLabel.numberOfLines = 2;
-    self.binaryLabel.text = self.binaryPath ? [self.binaryPath stringByReplacingOccurrencesOfString:NSHomeDirectory() withString:@"~"]
-                                            : @"未选择二进制";
+    self.binaryLabel.lineBreakMode = NSLineBreakByTruncatingMiddle;
+    self.binaryLabel.text = self.binaryPath
+        ? [self.binaryPath stringByReplacingOccurrencesOfString:NSHomeDirectory() withString:@"~"]
+        : @"尚未选择二进制，点右侧「选择」开始";
     self.binaryLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    [header addSubview:self.binaryLabel];
+    [card.contentView addSubview:self.binaryLabel];
 
     UIButton *pick = [UIButton buttonWithType:UIButtonTypeSystem];
-    [pick setTitle:@"选择" forState:UIControlStateNormal];
-    [SPTheme styleSecondaryButton:pick];
+    UIButtonConfiguration *cfg = [UIButtonConfiguration tintedButtonConfiguration];
+    cfg.title = @"选择";
+    cfg.image = [UIImage systemImageNamed:@"doc.badge.plus"];
+    cfg.imagePadding = 6;
+    cfg.baseBackgroundColor = [[SPTheme accent] colorWithAlphaComponent:0.12];
+    cfg.baseForegroundColor = [SPTheme accent];
+    cfg.cornerStyle = UIButtonConfigurationCornerStyleMedium;
+    pick.configuration = cfg;
     [pick addTarget:self action:@selector(pickBinary) forControlEvents:UIControlEventTouchUpInside];
     pick.translatesAutoresizingMaskIntoConstraints = NO;
-    [header addSubview:pick];
+    [card.contentView addSubview:pick];
 
     self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.spinner.color = [SPTheme accent];
     self.spinner.hidesWhenStopped = YES;
     self.spinner.translatesAutoresizingMaskIntoConstraints = NO;
-    [header addSubview:self.spinner];
+    [card.contentView addSubview:self.spinner];
 
+    [NSLayoutConstraint activateConstraints:@[
+        [card.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8],
+        [card.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16],
+        [card.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
+
+        [self.binaryLabel.leadingAnchor constraintEqualToAnchor:card.contentView.leadingAnchor],
+        [self.binaryLabel.topAnchor constraintEqualToAnchor:card.contentView.topAnchor],
+        [self.binaryLabel.bottomAnchor constraintEqualToAnchor:card.contentView.bottomAnchor],
+        [self.binaryLabel.trailingAnchor constraintEqualToAnchor:pick.leadingAnchor constant:-10],
+
+        [self.spinner.centerYAnchor constraintEqualToAnchor:pick.centerYAnchor],
+        [self.spinner.trailingAnchor constraintEqualToAnchor:pick.leadingAnchor constant:-8],
+
+        [pick.trailingAnchor constraintEqualToAnchor:card.contentView.trailingAnchor],
+        [pick.topAnchor constraintEqualToAnchor:card.contentView.topAnchor],
+        [pick.heightAnchor constraintGreaterThanOrEqualToConstant:32],
+    ]];
+}
+
+- (void)buildSegment {
+    self.segment = [[UISegmentedControl alloc] initWithItems:@[@"操作", @"输出"]];
+    self.segment.selectedSegmentIndex = 0;
+    self.segment.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.segment addTarget:self action:@selector(segmentChanged) forControlEvents:UIControlEventValueChanged];
+    self.navigationItem.titleView = self.segment;
+}
+
+- (void)buildTable {
     self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
     self.table.backgroundColor = [SPTheme background];
     self.table.dataSource = self;
@@ -83,49 +141,42 @@ typedef NS_ENUM(NSInteger, SPRMode) {
     [self.table registerClass:UITableViewCell.class forCellReuseIdentifier:@"a"];
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.table];
+}
 
+- (void)buildOutput {
     self.outputView = [[UITextView alloc] init];
     self.outputView.backgroundColor = [SPTheme codeBackground];
-    self.outputView.textColor = [SPTheme text];
-    self.outputView.font = [SPTheme monoFont:10.5];
+    self.outputView.textColor = [SPTheme codeText];
+    self.outputView.font = [SPTheme mono:11];
     self.outputView.editable = NO;
-    self.outputView.textContainerInset = UIEdgeInsetsMake(8, 8, 8, 8);
+    self.outputView.textContainerInset = UIEdgeInsetsMake(10, 10, 10, 10);
     self.outputView.translatesAutoresizingMaskIntoConstraints = NO;
-    self.outputView.layer.cornerRadius = 10;
+    [SPTheme round:self.outputView radius:12];
     self.outputView.clipsToBounds = YES;
+    self.outputView.text = @"选择上面的任意一项开始分析。\n\n所有分析都调用 Rein 自带的 radare2 / mt-macho。";
     [self.view addSubview:self.outputView];
-
-    [NSLayoutConstraint activateConstraints:@[
-        [header.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
-        [header.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-        [header.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [header.heightAnchor constraintEqualToConstant:56],
-
-        [self.binaryLabel.leadingAnchor constraintEqualToAnchor:header.leadingAnchor constant:16],
-        [self.binaryLabel.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
-        [self.binaryLabel.trailingAnchor constraintEqualToAnchor:pick.leadingAnchor constant:-8],
-
-        [pick.trailingAnchor constraintEqualToAnchor:header.trailingAnchor constant:-16],
-        [pick.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
-        [pick.widthAnchor constraintEqualToConstant:64],
-        [pick.heightAnchor constraintEqualToConstant:32],
-
-        [self.spinner.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
-        [self.spinner.trailingAnchor constraintEqualToAnchor:header.trailingAnchor constant:-90],
-
-        [self.table.topAnchor constraintEqualToAnchor:header.bottomAnchor],
-        [self.table.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-        [self.table.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [self.table.heightAnchor constraintEqualToAnchor:self.view.heightAnchor multiplier:0.55],
-
-        [self.outputView.topAnchor constraintEqualToAnchor:self.table.bottomAnchor constant:4],
-        [self.outputView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16],
-        [self.outputView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
-        [self.outputView.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-8],
-    ]];
-
-    self.outputView.text = @"选择上面任意一项开始分析。\n所有分析都调用 Rein 自带的 radare2 / mt-macho。";
+    self.outputView.hidden = YES;
 }
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    // 两个视图叠在同一区域，用 hidden 切换，避免反复重建约束
+    UIEdgeInsets pad = UIEdgeInsetsMake(0, 0, 0, 0);
+    (void)pad;
+}
+
+- (void)segmentChanged {
+    BOOL showOutput = self.segment.selectedSegmentIndex == 1;
+    [SPMotion animate:^{
+        self.table.alpha = showOutput ? 0 : 1;
+        self.outputView.alpha = showOutput ? 1 : 0;
+    } duration:0.18];
+    self.table.hidden = NO;
+    self.outputView.hidden = NO;
+    self.table.userInteractionEnabled = !showOutput;
+}
+
+#pragma mark - 选择二进制
 
 - (void)pickBinary {
     SPFileBrowserViewController *b = [[SPFileBrowserViewController alloc] initWithRootPath:NSHomeDirectory()
@@ -133,6 +184,8 @@ typedef NS_ENUM(NSInteger, SPRMode) {
                                                                                 onPick:^(NSString *path, BOOL isDir) {
         self.binaryPath = path;
         self.binaryLabel.text = [path stringByReplacingOccurrencesOfString:NSHomeDirectory() withString:@"~"];
+        self.binaryLabel.textColor = [SPTheme text];
+        [SPMotion hapticSuccess];
     }];
     [self.navigationController pushViewController:b animated:YES];
 }
@@ -140,18 +193,18 @@ typedef NS_ENUM(NSInteger, SPRMode) {
 #pragma mark - Table
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 1; }
-- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s { return self.actions.count; }
+- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s { return SPRevActionCount; }
+
+- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s { return @"分析工具"; }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:@"a"];
     if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"a"];
-    cell.backgroundColor = [SPTheme surface];
-    cell.textLabel.text = self.actions[ip.row];
-    cell.textLabel.textColor = [SPTheme text];
-    cell.textLabel.font = [SPTheme uiFont:14 weight:UIFontWeightRegular];
-    cell.detailTextLabel.text = self.actionSubs[ip.row];
-    cell.detailTextLabel.font = [SPTheme monoFont:10];
-    cell.detailTextLabel.textColor = [SPTheme textDim];
+    [SPTheme styleCell:cell];
+    cell.textLabel.text = self.titles[ip.row];
+    cell.detailTextLabel.text = self.subtitles[ip.row];
+    cell.imageView.image = [UIImage systemImageNamed:self.symbols[ip.row]];
+    cell.imageView.tintColor = (ip.row >= SPRevActionInject) ? [SPTheme warn] : [SPTheme accent];
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
 }
@@ -159,17 +212,18 @@ typedef NS_ENUM(NSInteger, SPRMode) {
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
     if (!self.binaryPath.length) { [self pickBinary]; return; }
+    [SPMotion hapticLight];
+
     switch (ip.row) {
-        case 0: [self runMode:SPRModeInfo]; break;
-        case 1: [self runMode:SPRModeSymbols]; break;
-        case 2: [self runMode:SPRModeStrings]; break;
-        case 3: [self runMode:SPRModeImports]; break;
-        case 4: [self runMode:SPRModeSections]; break;
-        case 5: [self runMode:SPRModeStrings]; break;
-        case 6: [self runMode:SPRModeEntropy]; break;
-        case 7: [self injectDylib]; break;
-        case 8: [self resign]; break;
-        case 9: [self openFullOutput]; break;
+        case SPRevActionInfo: [self runMode:@"info"]; break;
+        case SPRevActionSymbols: [self runMode:@"symbols"]; break;
+        case SPRevActionStrings: [self runMode:@"strings"]; break;
+        case SPRevActionImports: [self runMode:@"imports"]; break;
+        case SPRevActionSections: [self runMode:@"sections"]; break;
+        case SPRevActionEntropy: [self runMode:@"entropy"]; break;
+        case SPRevActionInject: [self injectDylib]; break;
+        case SPRevActionResign: [self resign]; break;
+        default: [self openFullOutput]; break;
     }
 }
 
@@ -184,60 +238,62 @@ typedef NS_ENUM(NSInteger, SPRMode) {
     NSMutableString *script = [NSMutableString string];
     [script appendString:@"export LC_ALL=en_US.UTF-8\n"];
     [script appendString:[NSString stringWithFormat:@"R2=%@; MT=%@\n", [SPUtil shellQuote:r2], [SPUtil shellQuote:mtMacho]]];
-    [script appendString:@"command -v \"$R2\" >/dev/null 2>&1 || [ -x \"$R2\" ] || { echo '找不到 rabin2，请先在工具链页安装逆向工具'; exit 1; }\n"];
+    [script appendString:@"{ command -v \"$R2\" >/dev/null 2>&1 || [ -x \"$R2\" ]; } || { echo '找不到 rabin2：请先在工具链页确认逆向工具已安装'; exit 1; }\n"];
     [script appendString:[NSString stringWithFormat:@"F=%@\n", q]];
     [script appendString:@"[ -f \"$F\" ] || { echo \"文件不存在: $F\"; exit 1; }\n"];
-    [script appendString:@"echo \"文件: $F\"\n"];
-    [script appendString:@"ls -lh \"$F\" | awk '{print \"大小: \" $5}'\n"];
+    [script appendString:@"echo \"文件  $F\"\n"];
+    [script appendString:@"ls -lh \"$F\" | awk '{print \"大小  \" $5}'\n"];
     [script appendString:@"file \"$F\" 2>/dev/null || true\n"];
     [script appendString:@"echo '--------------------------------------------'\n"];
 
     if ([mode isEqualToString:@"info"]) {
         [script appendString:@"\"$R2\" -I \"$F\" 2>&1\n"];
-        [script appendString:@"echo; echo '== 架构/平台 =='; \"$R2\" -H \"$F\" 2>&1 | head -5\n"];
+        [script appendString:@"echo; echo '== 架构 =='; \"$R2\" -H \"$F\" 2>&1 | head -6\n"];
         [script appendString:@"\"$MT\" info \"$F\" 2>&1 | head -40\n"];
     } else if ([mode isEqualToString:@"symbols"]) {
         [script appendString:@"\"$R2\" -s \"$F\" 2>&1 | head -2000\n"];
         [script appendString:@"echo; echo '== 入口 =='; \"$R2\" -e \"$F\" 2>&1\n"];
     } else if ([mode isEqualToString:@"strings"]) {
-        [script appendString:@"\"$R2\" -zz -q \"$F\" 2>&1 | head -2000\n"];
-        [script appendString:@"echo '== 类/方法（ObjC） =='; \"$R2\" -c 'ic' \"$F\" 2>&1 | head -400\n"];
+        [script appendString:@"\"$R2\" -zz -q \"$F\" 2>&1 | head -1500\n"];
+        [script appendString:@"echo '== ObjC 类与方法 =='; \"$R2\" -c 'ic' \"$F\" 2>&1 | head -400\n"];
     } else if ([mode isEqualToString:@"imports"]) {
         [script appendString:@"\"$R2\" -i \"$F\" 2>&1 | head -2000\n"];
     } else if ([mode isEqualToString:@"sections"]) {
         [script appendString:@"\"$R2\" -S \"$F\" 2>&1\n"];
     } else if ([mode isEqualToString:@"entropy"]) {
         [script appendString:@"\"$R2\" -e \"$F\" 2>&1\n"];
-        [script appendString:@"echo; echo '== 段熵值（越高越可能被加壳/加密） =='; \n"];
+        [script appendString:@"echo; echo '== 段熵值（越高越可能被加壳/加密） =='\n"];
         [script appendString:@"\"$R2\" -c 'iS~!' \"$F\" 2>&1 | head -60\n"];
     }
     [script appendString:@"echo; echo '--------------------------------------------'\n"];
-    [script appendString:@"echo '提示：以上输出可复制保存，或在「打开原始输出」里查看完整版本'\n"];
+    [script appendString:@"echo '提示：点右上角「输出」标签可看完整文本，也能一键复制'\n"];
 
     SPCommandResult *r = [SPSession runSyncShell:script
         environment:@{@"PATH": [[SPToolchain shared] pathPrefixForProfile:profile] ?: @""}
                                           cwd:NSHomeDirectory() timeout:120];
     NSString *out = r.stdoutText.length ? r.stdoutText : @"";
     if (r.stderrText.length) out = [out stringByAppendingFormat:@"\n[stderr]\n%@", r.stderrText];
-    if (!out.length) out = [NSString stringWithFormat:@"(no output, exit=%ld)", (long)r.exitCode];
+    if (!out.length) out = [NSString stringWithFormat:@"（没有输出，退出码 %ld）", (long)r.exitCode];
     return out;
 }
 
-- (void)runMode:(SPRMode)mode {
+- (void)runMode:(NSString *)mode {
     [self.spinner startAnimating];
     self.outputView.text = @"分析中…";
+    self.segment.selectedSegmentIndex = 1;
+    [self segmentChanged];
+
     NSString *path = self.binaryPath;
     SPToolchainProfile *profile = self.profile ?: [[SPToolchain shared] localProfileWithSDK:nil error:NULL];
-    NSArray *names = @[@"info", @"symbols", @"strings", @"imports", @"sections", @"strings", @"entropy"];
-    NSString *m = names[mode];
+    __weak typeof(self) weakSelf = self;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        NSString *out = [SPReverseViewController analyzeBinary:path profile:profile mode:m limit:2000];
+        NSString *out = [SPReverseViewController analyzeBinary:path profile:profile mode:mode limit:2000];
         dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf; if (!self) return;
             [self.spinner stopAnimating];
             self.outputView.text = out;
-            // 顺带落盘，方便「打开原始输出」
             NSString *p = [[[SPStore shared] logsDirectory] stringByAppendingPathComponent:
-                           [NSString stringWithFormat:@"rev-%@.txt", m]];
+                           [NSString stringWithFormat:@"rev-%@.txt", mode]];
             [out writeToFile:p atomically:YES encoding:NSUTF8StringEncoding error:NULL];
         });
     });
@@ -245,7 +301,7 @@ typedef NS_ENUM(NSInteger, SPRMode) {
 
 - (void)openFullOutput {
     NSString *dir = [[SPStore shared] logsDirectory];
-    NSArray *files = [NSFileManager.defaultManager contentsOfDirectoryAtPath:dir error:NULL];
+    NSArray *files = [NSFileManager.defaultManager contentsOfDirectoryAtPath:dir error:NULL] ?: @[];
     NSMutableArray *revs = [NSMutableArray array];
     for (NSString *f in files) if ([f hasPrefix:@"rev-"]) [revs addObject:f];
     if (!revs.count) {
@@ -263,13 +319,14 @@ typedef NS_ENUM(NSInteger, SPRMode) {
 #pragma mark - 注入 / 签名
 
 - (void)injectDylib {
-    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"注入 dylib"
-        message:@"输入要注入的 dylib 路径（会调用 mt-inject-dylib，先备份原文件）"
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"注入动态库"
+        message:@"输入要注入的 dylib 路径。会先备份原文件，再调用 mt-inject-dylib。"
         preferredStyle:UIAlertControllerStyleAlert];
     [a addTextFieldWithConfigurationHandler:^(UITextField *tf) {
         tf.placeholder = @"/var/mobile/xxx.dylib";
         tf.autocorrectionType = UITextAutocorrectionTypeNo;
         tf.autocapitalizationType = UITextAutocapitalizationTypeNone;
+        tf.clearButtonMode = UITextFieldViewModeWhileEditing;
     }];
     [a addAction:[UIAlertAction actionWithTitle:@"注入" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *act) {
         NSString *dylib = a.textFields[0].text;
@@ -282,18 +339,20 @@ typedef NS_ENUM(NSInteger, SPRMode) {
         [script appendString:@"[ -f \"$D\" ] || { echo \"dylib 不存在: $D\"; exit 1; }\n"];
         [script appendString:@"cp \"$F\" \"$F.bak-$(date +%s)\" && echo \"已备份到 $F.bak-*\"\n"];
         [script appendString:@"\"$MT\" \"$F\" \"$D\" 2>&1 | head -40\n"];
-        [script appendString:@"echo '--- 注入后依赖 ---'\n"];
+        [script appendString:@"echo '--- 注入后的依赖 ---'\n"];
         [script appendString:@"\"$MT\" info \"$F\" 2>&1 | grep -i -E 'dylib|LC_LOAD' | head -20\n"];
 
-        self.spinner.startAnimating;
+        [self.spinner startAnimating];
+        self.segment.selectedSegmentIndex = 1;
+        [self segmentChanged];
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
             SPCommandResult *r = [SPSession runSyncShell:script
                 environment:@{@"PATH": [[SPToolchain shared] pathPrefixForProfile:p] ?: @""}
                                                   cwd:NSHomeDirectory() timeout:120];
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self.spinner stopAnimating];
-                self.outputView.text = [r.stdoutText stringByAppendingFormat:@"\n%@",
-                                        r.stderrText.length ? r.stderrText : @""];
+                self.outputView.text = [r.stdoutText stringByAppendingFormat:@"\n%@", r.stderrText ?: @""];
+                [SPMotion hapticSuccess];
             });
         });
     }]];
@@ -304,15 +363,16 @@ typedef NS_ENUM(NSInteger, SPRMode) {
 - (void)resign {
     SPToolchainProfile *p = self.profile;
     NSString *ldid = p.darwinBinDir.length ? [p.darwinBinDir stringByAppendingPathComponent:@"ldid"] : @"ldid";
+    NSString *rabin2 = p.reverseBinDir.length ? [p.reverseBinDir stringByAppendingPathComponent:@"rabin2"] : @"rabin2";
     NSString *script = [NSString stringWithFormat:
         @"F=%@; LD=%@\n"
-        @"[ -x \"$LD\" ] || command -v ldid >/dev/null 2>&1 || { echo '找不到 ldid'; exit 1; }\n"
-        @"\"$LD\" -S \"$F\" 2>&1 && echo '签名完成' || echo '签名失败'\n"
-        @"echo '--- codesign ---'; \"%@\" -I \"$F\" 2>&1 | head -5\n",
-        [SPUtil shellQuote:self.binaryPath],
-        [SPUtil shellQuote:ldid],
-        p.reverseBinDir.length ? [p.reverseBinDir stringByAppendingPathComponent:@"rabin2"] : @"rabin2"];
-    self.spinner.startAnimating;
+         "[ -x \"$LD\" ] || command -v ldid >/dev/null 2>&1 || { echo '找不到 ldid'; exit 1; }\n"
+         "\"$LD\" -S \"$F\" 2>&1 && echo '签名完成' || echo '签名失败'\n"
+         "echo '--- 校验 ---'; \"%@\" -I \"$F\" 2>&1 | head -5\n",
+        [SPUtil shellQuote:self.binaryPath], [SPUtil shellQuote:ldid], [SPUtil shellQuote:rabin2]];
+    [self.spinner startAnimating];
+    self.segment.selectedSegmentIndex = 1;
+    [self segmentChanged];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         SPCommandResult *r = [SPSession runSyncShell:script
             environment:@{@"PATH": [[SPToolchain shared] pathPrefixForProfile:p] ?: @""}
@@ -321,6 +381,30 @@ typedef NS_ENUM(NSInteger, SPRMode) {
             [self.spinner stopAnimating];
             self.outputView.text = [r.stdoutText stringByAppendingFormat:@"\n%@", r.stderrText ?: @""];
         });
+    });
+}
+
+/// 让分段控件在布局后生效（table 与 output 叠放）
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        [self.table removeFromSuperview];
+        [self.view addSubview:self.table];
+        [self.view addSubview:self.outputView];
+        [NSLayoutConstraint activateConstraints:@[
+            [self.table.topAnchor constraintEqualToAnchor:self.headerCard.bottomAnchor constant:8],
+            [self.table.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+            [self.table.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+            [self.table.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor],
+
+            [self.outputView.topAnchor constraintEqualToAnchor:self.headerCard.bottomAnchor constant:8],
+            [self.outputView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16],
+            [self.outputView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
+            [self.outputView.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-8],
+        ]];
+        self.outputView.alpha = 0;
+        self.outputView.hidden = NO;
     });
 }
 

@@ -1,5 +1,6 @@
 //
 //  SPFileBrowserViewController.m
+//  文件浏览 —— HIG：InsetGrouped 列表 + SF Symbols 文件类型图标 + 面包屑路径
 //
 
 #import "SPFileBrowserViewController.h"
@@ -47,15 +48,17 @@
     [super viewDidLoad];
     self.view.backgroundColor = [SPTheme background];
     self.title = self.current.lastPathComponent;
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
 
     self.pathLabel = [[UILabel alloc] init];
-    self.pathLabel.font = [SPTheme monoFont:10];
+    self.pathLabel.font = [SPTheme mono:10];
     self.pathLabel.textColor = [SPTheme textDim];
     self.pathLabel.numberOfLines = 2;
+    self.pathLabel.lineBreakMode = NSLineBreakByTruncatingHead;
     self.pathLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.pathLabel];
 
-    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
+    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
     self.table.backgroundColor = [SPTheme background];
     self.table.dataSource = self;
     self.table.delegate = self;
@@ -66,9 +69,9 @@
 
     [NSLayoutConstraint activateConstraints:@[
         [self.pathLabel.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8],
-        [self.pathLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16],
-        [self.pathLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
-        [self.table.topAnchor constraintEqualToAnchor:self.pathLabel.bottomAnchor constant:8],
+        [self.pathLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:20],
+        [self.pathLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-20],
+        [self.table.topAnchor constraintEqualToAnchor:self.pathLabel.bottomAnchor constant:4],
         [self.table.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.table.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.table.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
@@ -94,16 +97,17 @@
             if (!match) continue;
         }
         SPFileRow *r = [SPFileRow new];
-        r.name = n; r.fullPath = full; r.isDirectory = isDir;
+        r.name = n;
+        r.fullPath = full;
+        r.isDirectory = isDir;
         r.size = [fm attributesOfItemAtPath:full error:NULL].fileSize;
         [isDir ? dirs : files addObject:r];
     }
     NSArray *cmp = @[[NSSortDescriptor sortDescriptorWithKey:@"name" ascending:YES selector:@selector(localizedStandardCompare:)]];
     self.rows = [[dirs sortedArrayUsingDescriptors:cmp] arrayByAddingObjectsFromArray:[files sortedArrayUsingDescriptors:cmp]];
-    NSString *shown = [self.current stringByReplacingOccurrencesOfString:NSHomeDirectory() withString:@"~"];
-    self.pathLabel.text = shown;
+    self.pathLabel.text = [self.current stringByReplacingOccurrencesOfString:NSHomeDirectory() withString:@"~"];
     [self.table reloadData];
-    self.title = self.current.lastPathComponent;
+    self.title = self.current.lastPathComponent.length ? self.current.lastPathComponent : @"文件";
 }
 
 #pragma mark - Table
@@ -113,39 +117,45 @@
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:@"row" forIndexPath:ip];
     SPFileRow *r = self.rows[ip.row];
-    cell.backgroundColor = [SPTheme background];
-    cell.textLabel.font = [SPTheme monoFont:13];
+    [SPTheme styleCell:cell];
 
-    NSString *icon = r.isDirectory ? @"▸" : [self iconForFile:r.name];
-    cell.textLabel.text = [NSString stringWithFormat:@"%@  %@", icon, r.name];
-    cell.textLabel.textColor = r.isDirectory ? [SPTheme info] : [SPTheme text];
+    // HIG：文件类型用 SF Symbols 表达，不用自绘字符
+    cell.textLabel.text = r.name;
+    cell.textLabel.font = [SPTheme mono:13];
+    cell.imageView.image = [UIImage systemImageNamed:[self symbolForRow:r]];
+    cell.imageView.tintColor = r.isDirectory ? [SPTheme accent] : [SPTheme textDim];
+    cell.accessoryType = r.isDirectory ? UITableViewCellAccessoryDisclosureIndicator : UITableViewCellAccessoryNone;
+    cell.detailTextLabel.text = r.isDirectory ? nil : [SPUtil formatBytes:r.size];
     return cell;
 }
 
-- (NSString *)iconForFile:(NSString *)name {
-    NSString *ext = name.pathExtension.lowercaseString;
-    if ([ext isEqualToString:@"deb"]) return @"❏";
-    if ([ext isEqualToString:@"x"] || [ext isEqualToString:@"xm"]) return @"ⓧ";
-    if ([ext isEqualToString:@"m"] || [ext isEqualToString:@"mm"]) return @"ⓜ";
-    if ([ext isEqualToString:@"h"]) return @"Ⓗ";
-    if ([ext isEqualToString:@"plist"]) return @"Ⓟ";
-    if ([ext isEqualToString:@"json"]) return @"{}";
-    if ([name isEqualToString:@"Makefile"]) return @"Ⓜ";
-    return @"·";
+- (NSString *)symbolForRow:(SPFileRow *)r {
+    if (r.isDirectory) return @"folder.fill";
+    NSString *ext = r.name.pathExtension.lowercaseString;
+    if ([ext isEqualToString:@"deb"]) return @"shippingbox.fill";
+    if ([ext isEqualToString:@"x"] || [ext isEqualToString:@"xm"]) return @"wand.and.stars";
+    if ([ext isEqualToString:@"m"] || [ext isEqualToString:@"mm"] || [ext isEqualToString:@"c"]) return @"chevron.left.forwardslash.chevron.right";
+    if ([ext isEqualToString:@"h"]) return @"doc.plaintext";
+    if ([ext isEqualToString:@"plist"]) return @"list.bullet.rectangle";
+    if ([ext isEqualToString:@"json"]) return @"curlybraces";
+    if ([ext isEqualToString:@"dylib"]) return @"shippingbox";
+    if ([r.name isEqualToString:@"Makefile"]) return @"hammer";
+    return @"doc";
 }
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
     SPFileRow *r = self.rows[ip.row];
+
     if (r.isDirectory) {
-        SPFileBrowserViewController *next = [[SPFileBrowserViewController alloc] initWithRootPath:r.fullPath
-                                                                                       pickMode:self.pickMode
-                                                                                    fileFilters:self.filters
-                                                                                         onPick:self.onPick];
+        SPFileBrowserViewController *next = [[SPFileBrowserViewController alloc]
+            initWithRootPath:r.fullPath pickMode:self.pickMode fileFilters:self.filters onPick:self.onPick];
         next.onOpenFile = self.onOpenFile;
         [self.navigationController pushViewController:next animated:YES];
         return;
     }
+
+    [SPMotion hapticLight];
     if (self.pickMode) {
         if (self.onPick) self.onPick(r.fullPath, NO);
         [self.navigationController popViewControllerAnimated:YES];
@@ -155,6 +165,31 @@
     if (![NSFileManager.defaultManager isReadableFileAtPath:r.fullPath]) return;
     SPEditorViewController *editor = [[SPEditorViewController alloc] initWithFilePath:r.fullPath];
     [self.navigationController pushViewController:editor animated:YES];
+}
+
+#pragma mark - Context Menu
+
+- (UIContextMenuConfiguration *)tableView:(UITableView *)tv contextMenuConfigurationForRowAtIndexPath:(NSIndexPath *)ip point:(CGPoint)point {
+    SPFileRow *r = self.rows[ip.row];
+    return [UIContextMenuConfiguration configurationWithIdentifier:nil previewProvider:nil
+        actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggested) {
+        UIAction *copy = [UIAction actionWithTitle:@"复制路径" image:[UIImage systemImageNamed:@"doc.on.doc"]
+                                           identifier:nil handler:^(UIAction *a) {
+            UIPasteboard.generalPasteboard.string = r.fullPath;
+            [SPMotion hapticSuccess];
+        }];
+        UIAction *share = [UIAction actionWithTitle:@"分享文件" image:[UIImage systemImageNamed:@"square.and.arrow.up"]
+                                            identifier:nil handler:^(UIAction *a) {
+            UIActivityViewController *av = [[UIActivityViewController alloc]
+                initWithActivityItems:@[[NSURL fileURLWithPath:r.fullPath]] applicationActivities:nil];
+            av.popoverPresentationController.sourceView = tv;
+            av.popoverPresentationController.sourceRect = [tv rectForRowAtIndexPath:ip];
+            [self presentViewController:av animated:YES completion:nil];
+        }];
+        NSMutableArray *items = [NSMutableArray arrayWithObject:copy];
+        if (!r.isDirectory) [items insertObject:share atIndex:0];
+        return [UIMenu menuWithTitle:r.name children:items];
+    }];
 }
 
 @end
