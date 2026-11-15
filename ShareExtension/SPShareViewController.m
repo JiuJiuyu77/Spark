@@ -239,7 +239,7 @@ static NSString *const kAppGroup = @"group.com.HuQing.Spark";
     if ([p hasItemConformingToTypeIdentifier:UTTypeFileURL.identifier]) return YES;
     if ([p hasItemConformingToTypeIdentifier:UTTypeData.identifier]) return YES;
     if ([p hasItemConformingToTypeIdentifier:UTTypeFolder.identifier]) return YES;
-    if ([p hasItemConformingToTypeIdentifier:UTTypeZipArchive.identifier]) return YES;
+    if ([p hasItemConformingToTypeIdentifier:@"public.zip-archive"]) return YES;
     return NO;
 }
 
@@ -256,11 +256,13 @@ static NSString *const kAppGroup = @"group.com.HuQing.Spark";
 
     [provider loadItemForTypeIdentifier:typeId options:nil completionHandler:^(id<NSSecureCoding> item, NSError *error) {
         if (error) { completion(nil, nil, error); return; }
+        // item 声明成 id<NSSecureCoding>，协议不带 NSObject 方法，先转成 id 再判断
+        id obj = (id)item;
         NSURL *src = nil;
-        if ([item isKindOfClass:NSURL.class]) src = (NSURL *)item;
-        else if ([item isKindOfClass:NSData.class]) {
+        if ([obj isKindOfClass:NSURL.class]) src = (NSURL *)obj;
+        else if ([obj isKindOfClass:NSData.class]) {
             NSString *tmp = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
-            [(NSData *)item writeToFile:tmp atomically:YES];
+            [(NSData *)obj writeToFile:tmp atomically:YES];
             src = [NSURL fileURLWithPath:tmp];
         }
         if (!src) {
