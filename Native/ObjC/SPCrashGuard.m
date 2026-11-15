@@ -13,6 +13,10 @@
 static NSString *const kContextKey = @"Spark.currentContext";
 static NSString *const kCrashedFlag = @"Spark.crashedLastRun";
 
+// 前置声明：install 方法里要用，定义在文件末尾
+static void SPHandleUncaughtException(NSException *exception);
+static void SPHandleSignal(int sig);
+
 static NSString *SPCrashDirectory(void) {
     NSString *dir = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/crashes"];
     [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:NULL];
