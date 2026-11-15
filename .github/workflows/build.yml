@@ -57,6 +57,7 @@ jobs:
       - name: Unit tests
         run: |
           node --test ShareKit/test/model.test.mjs
+          node --test ProjectKit/test/trollinject.test.mjs
           node --test Workers/test/worker.test.mjs
       - name: Worker syntax
         run: node --check Workers/SPCloudWorker.js

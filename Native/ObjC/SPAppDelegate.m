@@ -7,6 +7,7 @@
 #import "SPProjectsViewController.h"
 #import "SPToolchainViewController.h"
 #import "SPReverseViewController.h"
+#import "SPTrollViewController.h"
 #import "SPStore.h"
 #import "SPToolchain.h"
 #import "SPCompat.h"
@@ -87,7 +88,14 @@
                                                     image:[UIImage systemImageNamed:@"binoculars.fill"]
                                             selectedImage:[UIImage systemImageNamed:@"binoculars.fill"]];
 
-    self.tabs.viewControllers = @[nav1, nav2, nav3];
+    // 巨魔注入器：参考 TrollFools 的注入流程，作为第四个标签
+    SPTrollViewController *troll = [[SPTrollViewController alloc] init];
+    UINavigationController *nav4 = [[UINavigationController alloc] initWithRootViewController:troll];
+    nav4.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"注入"
+                                                    image:[UIImage systemImageNamed:@"syringe.fill"]
+                                            selectedImage:[UIImage systemImageNamed:@"syringe.fill"]];
+
+    self.tabs.viewControllers = @[nav1, nav2, nav3, nav4];
     self.tabs.selectedIndex = 0;
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(openToolchainTab)

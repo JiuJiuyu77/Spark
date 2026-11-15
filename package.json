@@ -7,8 +7,9 @@
   "scripts": {
     "detect": "node scripts/detect-toolchain.mjs",
     "gen": "node scripts/gen-build-script.mjs",
-    "test": "node --test ShareKit/test/model.test.mjs Workers/test/worker.test.mjs",
-    "check": "node --check Workers/SPCloudWorker.js && python3 scripts/check-balance.py"
+    "test": "node --test ShareKit/test/model.test.mjs ProjectKit/test/trollinject.test.mjs Workers/test/worker.test.mjs",
+    "check": "node --check Workers/SPCloudWorker.js && python3 scripts/check-balance.py",
+    "troll": "node -e \"import('./ProjectKit/src/trolltools.mjs').then(m=>console.log(m.summarizeTools(m.detectTools())))\""
   },
   "engines": {
     "node": ">=18"

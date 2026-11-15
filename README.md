@@ -4,7 +4,7 @@
 
 **参考 Rein（DSH.app）复刻的可视化编译工具 —— 一个 iOS 原生 App**
 
-Theos / Logos 一键编译 · OLLVM 混淆 · 逆向工具台 · 本机 / 远程 / GitHub CI 三种构建
+Theos / Logos 一键编译 · OLLVM 混淆 · 逆向工具台 · **巨魔注入器** · 本机 / 远程 / GitHub CI 三种构建
 
 [![build](https://github.com/JiuJiuyu77/Spark/actions/workflows/build.yml/badge.svg)](https://github.com/JiuJiuyu77/Spark/actions/workflows/build.yml)
 [![checks](https://github.com/JiuJiuyu77/Spark/actions/workflows/checks.yml/badge.svg)](https://github.com/JiuJiuyu77/Spark/actions/workflows/checks.yml)
@@ -27,14 +27,15 @@ Theos / OLLVM / radare2 串起来**，并给它们一个能点的界面。
 | `tools/theos-full` 多 SDK | 「工具链」页扫描并选 SDK |
 | `tools/ollvm` 的 5 个 Arkari pass | 「混淆（OLLVM）」开关 + 强度档位 + 自定义 pass |
 | `tools/reverse` 的 radare2 / mt-macho | 「逆向」页：架构、符号、字符串、注入 dylib、重签名 |
+| 给别人的 ipa 塞插件的 TrollFools | 「注入」页：巨魔注入器（参考 TrollFools） |
 | 换设备/云端跑长任务 | 「构建目标」：本机 / SSH 远程 / GitHub Actions |
 
 ## 界面
 
 ```
-┌─────────────┬─────────────┬─────────────┐
-│   项目       │   工具链      │    逆向      │
-├─────────────┴─────────────┴─────────────┤
+┌────────┬────────┬────────┬────────┐
+│  项目   │  工具链 │  逆向   │  注入   │
+├────────┴────────┴────────┴────────┤
 │  MyTweak                            [+] │
 │  ├ Tweak    rootless deb   3 个源文件    │
 │  ├ DemoApp  App            7 个源文件    │
@@ -101,6 +102,38 @@ Theos / OLLVM / radare2 串起来**，并给它们一个能点的界面。
 | **远程** | 生成脚本 → `scp` 到另一台越狱机 → `ssh` 执行 | 手机性能弱 / 想不耽误玩手机 |
 | **GitHub CI** | 手机上传 zip → Cloudflare Worker 转 `workflow_dispatch` → macos runner 编译 → 回传产物 | 大工程、多架构、要留档 |
 
+### 巨魔注入器
+
+参考 [Lessica/TrollFools](https://github.com/Lessica/TrollFools)（MIT）的注入流程，
+用设备上现成的工具实现「给任意 App 塞 tweak」：
+
+```
+选 App → 选插件（dylib/framework/bundle/.deb/.zip）→ 预览计划 → 注入
+```
+
+自动完成的 6 步（与 TrollFools 的 `InjectorV3` 一一对应）：
+
+| # | 动作 | 说明 |
+|---|---|---|
+| 1 | 备份 | `App.app` → `App.app.sparkbak`，注入失败可原样恢复 |
+| 2 | 预处理 | `.deb` / `.zip` 自动解出 `dylib / framework / bundle`，过滤系统库 |
+| 3 | 规范化路径 | 安装名改成 `@executable_path/…`（沙盒里才找得到） |
+| 4 | 准备 Substrate | 复制 `CydiaSubstrate.framework`，tweak 才加载得起来 |
+| 5 | 插入加载命令 | `insert_dylib [--weak] --inplace <dylib> <App二进制>` |
+| 6 | CoreTrust + 属主 | `ct_bypass` + `chown -R mobile:mobile` |
+
+设备上的工具实测：
+
+```
+DSH.app/helpers/insert_dylib                       ✓
+Rein/tools/theos-root/usr/bin/install_name_tool    ✓
+DSH.app/helpers/ldid                               ✓
+Rein/tools/theos-root/usr/bin/chown                ✓
+ct_bypass                                          ✗（需自备，见 docs/troll-inject.md）
+```
+
+细节与坑见 [docs/troll-inject.md](docs/troll-inject.md)。
+
 ## 仓库结构
 
 ```
@@ -127,6 +160,10 @@ Spark/
 ├── ShareKit/                 共享逻辑（App / Worker / CLI 用同一份判定）
 │   ├── src/model.js         项目识别、make 参数、脚本生成、错误诊断
 │   └── test/model.test.mjs  17 个用例
+├── ProjectKit/              注入器逻辑（纯 JS，可测试）
+│   ├── src/trollinject.mjs  插件筛选、路径规范化、注入计划与脚本生成
+│   ├── src/trolltools.mjs   insert_dylib / ldid / ct_bypass 等工具的发现
+│   └── test/                13 个用例
 ├── Workers/SPCloudWorker.js  Cloudflare Worker：上传 / 派发 / 轮询 / 拉产物
 ├── bin/spark.mjs            CLI：doctor / projects / script / build / analyze
 ├── scripts/                 工具链探测、脚本生成、括号体检
@@ -260,6 +297,8 @@ wrangler deploy
 
 - [ ] 内建 git 面板（在 App 里 commit / push）
 - [ ] 构建产物一键安装（调 dpkg / TrollStore）
+- [x] 巨魔注入器（dylib/framework/bundle/.deb/.zip）
+- [ ] 注入后自动打进 ipa（离线流水线）
 - [ ] 多目标同时编译（同一 tweak 编 rootful + rootless）
 - [ ] 依赖图（复刻 Rein 里 `rein-graph` 那张交互图）
 - [ ] iOS 15 全量回归测试
@@ -267,3 +306,6 @@ wrangler deploy
 ## 许可
 
 MIT。Theos、OLLVM(Arkari)、radare2 各有自己的许可，请遵守各自的条款。
+
+**关于巨魔注入器**：实现参考了 [TrollFools](https://github.com/Lessica/TrollFools)
+（MIT, © 82Flex / Lessica）公开的注入流程，但**未复制其源码**，只复刻步骤并用系统工具实现。
