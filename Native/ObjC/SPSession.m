@@ -22,6 +22,27 @@ extern char **environ;
 
 #pragma mark - SPSession
 
+/// 记录所有活着的子进程 pid，App 退出时统一清理
+static NSMutableSet<NSNumber *> *SPSessionLivePids(void) {
+    static NSMutableSet *set;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ set = [NSMutableSet set]; });
+    return set;
+}
+
+/// 在 applicationWillTerminate / 进入后台超时时调用：
+/// 杀掉所有我们自己起的子进程组，避免 App 被杀后 clang/make 还在跑
+void SPSessionReapAllChildren(void) {
+    NSArray *pids = SPSessionLivePids().allObjects;
+    for (NSNumber *n in pids) {
+        pid_t p = (pid_t)n.intValue;
+        kill(-p, SIGKILL);
+        kill(p, SIGKILL);
+    }
+    [SPSessionLivePids() removeAllObjects];
+    SPLog(@"已清理 %lu 个残留子进程", (unsigned long)pids.count);
+}
+
 @interface SPSession ()
 @property (nonatomic, assign) pid_t pid;
 @property (nonatomic, assign) int outFd;
@@ -165,6 +186,7 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
     }
 
     self.pid = child;
+    [SPSessionLivePids() addObject:@(child)];   // 登记，供退出时清理
     self.outFd = pfd[0];
     self.errFd = efd[0];
     self.startTime = [NSDate date];
@@ -200,6 +222,7 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
             if (WIFEXITED(status)) code = WEXITSTATUS(status);
             else if (WIFSIGNALED(status)) code = 128 + WTERMSIG(status);
         }
+        [SPSessionLivePids() removeObject:@(self.pid)];
         self.pid = -1;
         [self completeWithExitCode:code];
     });

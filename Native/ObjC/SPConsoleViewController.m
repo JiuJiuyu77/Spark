@@ -16,6 +16,7 @@
 #import "SPToolchain.h"
 #import "SPAnimationKit.h"
 #import "SPBackground.h"
+#import "SPAutofix.h"
 
 @interface SPConsoleViewController ()
 @property (nonatomic, strong) SPProject *project;
@@ -361,6 +362,7 @@
                 symbol:@"xmark.octagon.fill" color:[SPTheme danger]];
         [SPMotion hapticError];
         [self showHint:job.failureHint ?: @"编译失败，请查看日志最后几行。"];
+        [self offerAutofixForJob:job];
         [self.logView appendLine:@"" level:SPLogLevelOut];
         [self.logView appendLine:[NSString stringWithFormat:@"[!] %@", job.failureHint ?: @"构建失败"] level:SPLogLevelErr];
     }
@@ -468,6 +470,53 @@
     [text writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:NULL];
     SPEditorViewController *editor = [[SPEditorViewController alloc] initWithFilePath:path];
     [self.navigationController pushViewController:editor animated:YES];
+}
+
+
+#pragma mark - 自动修复
+
+/// 编译失败后解析日志，若有高置信度修复项就提示
+- (void)offerAutofixForJob:(SPJob *)job {
+    NSMutableString *log = [NSMutableString string];
+    for (SPLogLine *l in job.lines) { [log appendString:l.text]; [log appendString:@"\n"]; }
+
+    // 注意：这是 Dylix 路线（沙盒里没有 shell 才要自动改源码）。
+    // Spark 是 TrollStore 环境，能直接看日志、改文件，所以默认不弹，
+    // 只有用户在设置里打开「构建后提示自动修复」才启用。
+    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"Spark.autofixEnabled"]) return;
+    NSArray<SPFixIt *> *fixes = [SPAutofix parseLog:log projectRoot:self.project.path];
+    NSMutableArray<SPFixIt *> *safe = [NSMutableArray array];
+    for (SPFixIt *f in fixes) if (f.safe) [safe addObject:f];
+    if (!safe.count) return;
+
+    NSMutableString *detail = [NSMutableString string];
+    for (SPFixIt *f in safe) {
+        [detail appendFormat:@"• %@\n  %@:%ld\n  %@\n  → %@\n\n",
+         f.ruleName, f.filePath.lastPathComponent, (long)f.line,
+         [f.beforeText stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet],
+         [f.afterText stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet]];
+    }
+    [detail appendString:@"会先备份原文件（.sparkbak），可随时撤销。"];
+
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:
+        [NSString stringWithFormat:@"发现 %lu 处可自动修复", (unsigned long)safe.count]
+        message:detail preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"修复并重编" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
+        NSError *err = nil;
+        if (![SPAutofix applyFixes:safe error:&err]) {
+            [self.logView appendLine:[NSString stringWithFormat:@"[!] 自动修复失败：%@", err.localizedDescription]
+                               level:SPLogLevelErr];
+            return;
+        }
+        [self.logView appendLine:[NSString stringWithFormat:@"[ok] 已修复 %lu 处，重新编译", (unsigned long)safe.count]
+                           level:SPLogLevelStep];
+        [SPMotion hapticSuccess];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self startBuild];
+        });
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"只看不改" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
 }
 
 @end

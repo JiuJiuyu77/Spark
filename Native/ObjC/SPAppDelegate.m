@@ -13,6 +13,7 @@
 #import "SPMeViewController.h"
 #import "SPIncoming.h"
 #import "SPInboxViewController.h"
+#import "SPSession.h"
 #import "SPToolsViewController.h"
 #import "SPGlassKit.h"
 #import "SPJIT.h"
@@ -255,6 +256,11 @@
 }
 
 #pragma mark - 生命周期
+
+- (void)applicationWillTerminate:(UIApplication *)application {
+    // 父进程要走了：把 make/clang 一起收掉，避免留下孤儿进程（Rein boot.js 的做法）
+    SPSessionReapAllChildren();
+}
 
 - (void)applicationDidEnterBackground:(UIApplication *)application {
     [SPSettings.shared save];

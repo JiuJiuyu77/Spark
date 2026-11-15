@@ -56,4 +56,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+/// 清理所有仍在运行的子进程（App 退出 / 长时间挂起时调用）
+FOUNDATION_EXPORT void SPSessionReapAllChildren(void);
+
 NS_ASSUME_NONNULL_END

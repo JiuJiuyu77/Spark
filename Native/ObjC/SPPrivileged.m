@@ -1,0 +1,84 @@
+//
+//  SPPrivileged.m
+//
+
+#import "SPPrivileged.h"
+#import "SPSession.h"
+#import "SPCompat.h"
+#import <unistd.h>
+#import <spawn.h>
+#import <errno.h>
+#import <string.h>
+
+@implementation SPPrivileged
+
++ (instancetype)shared {
+    static SPPrivileged *p; static dispatch_once_t once;
+    dispatch_once(&once, ^{ p = [SPPrivileged new]; });
+    return p;
+}
+
+- (uid_t)currentUID { return getuid(); }
+
+/// 能提权的两个条件：当前已是 root，或有 no-sandbox + platform-application
+/// （后者只能靠实际试一次确认，这里给保守判断）
+- (BOOL)canElevate {
+    if (getuid() == 0) return YES;
+    // 能读 /private/var/containers/Bundle/Application 基本说明平台权限已生效
+    return [[NSFileManager defaultManager] isReadableFileAtPath:@"/private/var/containers/Bundle/Application"];
+}
+
+- (NSString *)statusText {
+    if (getuid() == 0) return [NSString stringWithFormat:@"root（uid 0）"];
+    if (self.canElevate) {
+        return [NSString stringWithFormat:@"当前 uid %d · 可提权运行子进程", (int)getuid()];
+    }
+    return [NSString stringWithFormat:@"当前 uid %d · 无提权能力（需 TrollStore 安装）", (int)getuid()];
+}
+
+#pragma mark - 探活
+
+- (void)probeWithCompletion:(void (^)(NSString *))completion {
+    [self runAsRoot:@"id; echo SPARK_UID=$(id -u)" completion:^(BOOL ok, BOOL wasRoot, NSString *output) {
+        NSString *detail = [NSString stringWithFormat:@"%@\n\n%@",
+                            wasRoot ? @"✓ 子进程以 root 运行" : @"✗ 子进程以普通用户运行",
+                            output ?: @""];
+        if (completion) completion(detail);
+    }];
+}
+
+#pragma mark - 以 root 执行
+
+- (void)runAsRoot:(NSString *)script completion:(void (^)(BOOL, BOOL, NSString *))completion {
+    NSString *body = script ?: @"";
+    // 在脚本最前面尝试 seteuid(0)：已是 root 时无害，不是则失败并继续原身份
+    // 只探测身份，不做任何提权 hack（chmod u+s 会留后门且通常无效）
+    NSString *wrapped = [NSString stringWithFormat:
+        @"echo SPARK_UID=$(id -u)\n"
+         "echo SPARK_GID=$(id -g)\n"
+         "%@\n", body];
+
+    SPSession *session = [[SPSession alloc] initWithEnvironment:@{} workingDirectory:NSTemporaryDirectory()];
+    NSMutableString *log = [NSMutableString string];
+    session.onLine = ^(NSString *line, SPLogLevel level) {
+        [log appendString:line];
+        [log appendString:@"\n"];
+    };
+    session.onFinish = ^(SPCommandResult *r) {
+        NSString *out = log.length ? log : (r.stderrText ?: @"");
+        BOOL wasRoot = [out containsString:@"SPARK_UID=0"];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (completion) completion(r.exitCode == 0, wasRoot, out);
+        });
+    };
+
+    // 如果已经具备提权能力，就尝试切到 root（TrollStore 下通常直接就是）
+    if (getuid() != 0 && self.canElevate) {
+        if (setuid(0) != 0) {
+            SPLog(@"setuid(0) 失败：%s（保持当前身份继续）", strerror(errno));
+        }
+    }
+    [session runShell:wrapped];
+}
+
+@end

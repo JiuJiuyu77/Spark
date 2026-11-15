@@ -14,6 +14,7 @@
 #import "SPSession.h"
 #import "SPJIT.h"
 #import "SPBackground.h"
+#import "SPPrivileged.h"
 #import "SPFileBrowserViewController.h"
 #import "SPMountsViewController.h"
 #import "SPMount.h"
@@ -128,11 +129,11 @@ typedef NS_ENUM(NSInteger, SPSection) {
     switch (s) {
         case SPSectionBuildDefaults: return 7;
         case SPSectionObfuscation:   return 4;
-        case SPSectionToolchain:     return 6 + (NSInteger)[[SPToolchainDownloader shared] components].count;
+        case SPSectionToolchain:     return 7 + (NSInteger)[[SPToolchainDownloader shared] components].count;
         case SPSectionFiles:         return 5;
         case SPSectionMCP:           return 4;
         case SPSectionTarget:        return 4;
-        case SPSectionDisplay:       return 6;
+        case SPSectionDisplay:       return 7;
         default:                     return 3;
     }
 }
@@ -253,6 +254,17 @@ typedef NS_ENUM(NSInteger, SPSection) {
                     UISwitch *sw = [[UISwitch alloc] init];
                     sw.tag = 6004;
                     sw.on = [SPBackground shared].userEnabled;
+                    [sw addTarget:self action:@selector(toggleSetting:) forControlEvents:UIControlEventValueChanged];
+                    cell.accessoryView = sw;
+                    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+                    break;
+                }
+                case 5: {
+                    cell.textLabel.text = @"构建失败时提示自动修复";
+                    cell.detailTextLabel.text = @"会改源码（有备份）";
+                    UISwitch *sw = [[UISwitch alloc] init];
+                    sw.tag = 6005;
+                    sw.on = [[NSUserDefaults standardUserDefaults] boolForKey:@"Spark.autofixEnabled"];
                     [sw addTarget:self action:@selector(toggleSetting:) forControlEvents:UIControlEventValueChanged];
                     cell.accessoryView = sw;
                     cell.selectionStyle = UITableViewCellSelectionStyleNone;
@@ -446,6 +458,10 @@ typedef NS_ENUM(NSInteger, SPSection) {
             break;
         case 6001: [d setBool:sw.isOn forKey:@"Spark.haptics"]; [SPMotion hapticLight]; break;
         case 6002: SPSettings.shared.keepScreenOn = sw.isOn; [SPSettings.shared save]; break;
+        case 6005:
+            [[NSUserDefaults standardUserDefaults] setBool:sw.isOn forKey:@"Spark.autofixEnabled"];
+            [self toast:sw.isOn ? @"已开启（失败时会提示改源码）" : @"已关闭自动修复"];
+            return;
         case 6004:
             [SPBackground shared].userEnabled = sw.isOn;
             [self.table reloadData];
@@ -528,9 +544,24 @@ typedef NS_ENUM(NSInteger, SPSection) {
             case 3: [self importSDK]; break;
             case 4: [[SPToolchain shared] rescan]; [self.table reloadData]; [self toast:@"已重新扫描"]; break;
             case 5: [self showToolchainDetail]; break;
+            case 6: {
+                // 运行身份（TrollStore 特有：可以 root 跑子进程）
+                cell.textLabel.text = @"运行身份";
+                cell.detailTextLabel.text = [SPPrivileged shared].statusText;
+                cell.detailTextLabel.font = [SPTheme caption];
+                cell.detailTextLabel.numberOfLines = 2;
+                cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+                break;
+            }
+            case 6: {
+                [[SPPrivileged shared] probeWithCompletion:^(NSString *detail) {
+                    [self alert:@"运行身份" message:detail];
+                }];
+                break;
+            }
             default: {
                 NSArray<SPComponentInfo *> *comps = [[SPToolchainDownloader shared] components];
-                NSInteger idx = ip.row - 6;
+                NSInteger idx = ip.row - 7;
                 if (idx >= 0 && idx < (NSInteger)comps.count) {
                     SPComponentInfo *c = comps[idx];
                     if (c.isInstalled) {

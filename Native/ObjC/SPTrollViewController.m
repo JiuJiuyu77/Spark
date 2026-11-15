@@ -294,6 +294,7 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
 @property (nonatomic, assign) BOOL weakLoad;
 @property (nonatomic, assign) BOOL coreTrust;
 @property (nonatomic, assign) BOOL wantLdid;
+@property (nonatomic, assign) BOOL exportIPA;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
 @end
 
@@ -306,6 +307,7 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
         _weakLoad = YES;
         _coreTrust = YES;
         _wantLdid = YES;
+        _exportIPA = YES;
     }
     return self;
 }
@@ -353,7 +355,7 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     if (s == 0) return 1;
     if (s == 1) return (NSInteger)self.plugins.count + 1;
-    if (s == 2) return 3;
+    if (s == 2) return 4;
     return 2;
 }
 
@@ -395,11 +397,14 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
         return cell;
     }
     if (ip.section == 2) {
-        NSArray *titles = @[@"弱加载（--weak）", @"CoreTrust 绕过", @"注入后 ldid 补签"];
+        NSArray *titles = @[@"弱加载（--weak）", @"CoreTrust 绕过", @"注入后 ldid 补签", @"同时导出 ipa"];
         cell.textLabel.text = titles[ip.row];
         UISwitch *sw = [[UISwitch alloc] init];
         sw.tag = 8100 + ip.row;
-        sw.on = ip.row == 0 ? self.weakLoad : (ip.row == 1 ? self.coreTrust : self.wantLdid);
+        if (ip.row == 0) sw.on = self.weakLoad;
+        else if (ip.row == 1) sw.on = self.coreTrust;
+        else if (ip.row == 2) sw.on = self.wantLdid;
+        else sw.on = self.exportIPA;
         [sw addTarget:self action:@selector(toggleOption:) forControlEvents:UIControlEventValueChanged];
         cell.accessoryView = sw;
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
@@ -428,7 +433,8 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
     NSInteger i = sw.tag - 8100;
     if (i == 0) self.weakLoad = sw.isOn;
     else if (i == 1) self.coreTrust = sw.isOn;
-    else self.wantLdid = sw.isOn;
+    else if (i == 2) self.wantLdid = sw.isOn;
+    else self.exportIPA = sw.isOn;
     [SPMotion hapticLight];
 }
 
