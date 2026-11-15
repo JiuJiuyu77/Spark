@@ -283,6 +283,15 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
     [self reloadApps];
 }
 
+
+- (void)alert:(NSString *)title message:(NSString *)message {
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:title
+        message:message preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
+}
+
+
 @end
 
 #pragma mark - 注入面板（TrollFools 的 InjectView）
