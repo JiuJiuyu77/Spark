@@ -53,8 +53,10 @@ typedef void (^SPInstallCompletion)(BOOL ok, NSError *_Nullable error);
 - (void)uninstall;
 
 /// 直接给出各组件路径（安装后可用）
-@property (nonatomic, readonly) NSString *binDir;       // Toolchain/bin
-@property (nonatomic, readonly) NSString *libDir;       // Toolchain/lib
+@property (nonatomic, readonly) NSString *binDir;       // usr/bin（优先）或 bin
+@property (nonatomic, readonly) NSString *baseBinDir;   // 始终是 bin（基础命令）
+@property (nonatomic, readonly) NSString *perl5Dir;     // lib/perl5
+@property (nonatomic, readonly) NSString *libDir;       // usr/lib（优先）或 lib
 @property (nonatomic, readonly) NSString *theosPath;    // Toolchain/theos
 @property (nonatomic, readonly) NSString *ollvmRoot;    // Toolchain/ollvm
 @property (nonatomic, readonly) NSString *reverseBinDir;// Toolchain/reverse/bin

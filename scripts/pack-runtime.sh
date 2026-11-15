@@ -1,150 +1,210 @@
 #!/bin/sh
-# pack-runtime.sh —— 从 Rein 目录切出可独立分发的运行时包
+# pack-runtime.sh —— 切出一个可独立分发的「编译根文件系统」
 #
-# 为什么需要它：
-#   ipa 里只有 Theos 本体（makefiles + logos.pl + SDK）是不够的。
-#   真机编译必须有 clang / ld64 / ldid，logos.pl 需要 perl。
-#   这些全在 Rein 的 tools/theos-root 里，要单独打成一个包。
+# 结构对照（参考 CodexApp.app/TheosRuntime，73MB 压缩 / 572MB 解压）：
+#
+#   <包根>/
+#   ├── bin/           基础命令（cat cp mv chmod …）
+#   ├── usr/bin/       clang-16 / ld64 / ldid / make / dpkg-deb / perl
+#   ├── usr/lib/       libLLVM-16 / clang 资源 / perl5 / libcrypto …
+#   ├── sbin/ etc/ var/ Library/
+#   ├── theos/         Theos 本体（makefiles + bin/logos.pl + sdks/）
+#   └── manifest.json
+#
+# 为什么必须是这个结构：
+#   1. Theos 的 makefiles 里 `_CC = $(THEOS)/toolchain/.../clang-16`，
+#      找不到就退回 PATH 里的 clang —— 我们的 bin 必须在 PATH 里
+#   2. logos.pl 需要 perl 与 perl5 模块，否则 .x 文件预处理直接失败
+#   3. dpkg-deb 用来打 deb，缺了 make package 就停在打包前一步
+#   4. libLLVM-16.dylib 与 libLLVM.dylib 是两个 108MB 的**同内容副本**，
+#      ClangApp 也只留一份，必须去重否则包翻倍
 #
 # 用法：
 #   sh scripts/pack-runtime.sh <Rein目录> <输出目录>
-#   sh scripts/pack-runtime.sh /var/mobile/Documents/Rein ./runtimes
 #
 # 产物：
-#   runtimes/SparkToolchain.tar.gz    ~90MB  编译链（clang/ld64/ldid/perl 等）
-#   runtimes/manifest.json            sha256 + 体积
-#
-# 可选环境变量：
-#   CORE_ONLY=1   只打核心（默认 1）
-#   OUT_NAME=...  自定义包内目录名（默认 toolchain）
+#   runtimes/SparkTheosRuntime.tar.gz
+#   runtimes/manifest.json
 
 set -e
 
 REIN="${1:-/var/mobile/Documents/Rein}"
 OUTDIR="${2:-./runtimes}"
-OUT_NAME="${OUT_NAME:-toolchain}"
-CORE_ONLY="${CORE_ONLY:-1}"
+# 转成绝对路径：脚本中途会 cd，相对路径会指错地方
+case "$OUTDIR" in
+    /*) ;;
+    *) OUTDIR="$(pwd)/$OUTDIR" ;;
+esac
+OUT_NAME="${OUT_NAME:-TheosRuntime}"
 
 die() { printf '\033[1;31m[✗] %s\033[0m\n' "$1" >&2; exit 1; }
 say() { printf '\033[1;36m==> %s\033[0m\n' "$1"; }
 ok()  { printf '\033[1;32m[ok] %s\033[0m\n' "$1"; }
+warn() { printf '\033[1;33m[!] %s\033[0m\n' "$1"; }
 
 [ -d "$REIN" ] || die "Rein 目录不存在: $REIN"
-ROOT="$REIN/tools/theos-root"
-[ -d "$ROOT/usr/bin" ] || die "找不到 $ROOT/usr/bin"
 
-mkdir -p "$OUTDIR"
+# Rein 有两套：theos-full（makefiles+SDK）与 theos-root（Darwin 工具集）
+THEOS_FULL="$REIN/tools/theos-full"
+THEOS_ROOT="$REIN/tools/theos-root"
+[ -d "$THEOS_FULL" ] || die "找不到 $THEOS_FULL"
+[ -d "$THEOS_ROOT/usr/bin" ] || die "找不到 $THEOS_ROOT/usr/bin"
+
+mkdir -p "$OUTDIR" || die "无法创建输出目录 $OUTDIR"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
+PKGROOT="$WORK/$OUT_NAME"
+mkdir -p "$PKGROOT"/bin "$PKGROOT"/usr/bin "$PKGROOT"/usr/lib "$PKGROOT"/usr/sbin \
+         "$PKGROOT"/sbin "$PKGROOT"/etc "$PKGROOT"/var "$PKGROOT"/Library
 
-say "目标目录: $WORK/$OUT_NAME"
-mkdir -p "$WORK/$OUT_NAME/bin" "$WORK/$OUT_NAME/lib"
+say "1/6 基础命令 → bin/"
+BASIC="cat chgrp chown cp date dd dir echo false gunzip gzexe gzip kill ln ls \
+mkdir mknod mktemp mv pwd rm rmdir sleep sync touch true uname which env"
+n=0
+for b in $BASIC; do
+	if [ -f "$THEOS_ROOT/usr/bin/$b" ]; then
+		cp "$THEOS_ROOT/usr/bin/$b" "$PKGROOT/bin/" 2>/dev/null && n=$((n+1))
+	fi
+done
+ok "$n 个"
 
-# ---- 1. 核心可执行文件 ----
-# 这些都是 Mach-O arm64，真机上直接能跑
-CORE_BINS="make ldid ld64 ld clang-16 clang++-16 clang clang++ \
-ar ranlib strip install_name_tool otool otool-classic nm lipo \
-tar gzip gunzip unzip zip cp mv rm mkdir chmod chown ln \
-basename dirname cat tee head tail sed awk grep find xargs \
-dpkg dpkg-deb dpkg-query dpkg-split dpkg-realpath dpkg-statoverride \
-plutil PlistBuddy ldid2 ditto fakeroot"
-# 过滤出真实存在的
+say "2/6 编译工具 → usr/bin/"
+# 这些是 Realm 的编译链核心，一个都不能少
+TOOLS="clang-16 clang++-16 clang clang++ clang-cpp ld64 ld ld-classic \
+as ar ranlib nm strip lipo ldid ldid2 install_name_tool \
+otool otool-classic ObjectDump bitcode_strip \
+make dpkg-deb dpkg dpkg-query dpkg-split dpkg-realpath dpkg-statoverride \
+tar gzip gunzip unzip zip ditto fakeroot plutil PlistBuddy \
+sed awk grep egrep fgrep find xargs basename dirname tee head tail \
+chmod chflags chcon apply"
+n=0
 MISSING=""
-FOUND=0
-for b in $CORE_BINS; do
-	if [ -f "$ROOT/usr/bin/$b" ]; then
-		cp "$ROOT/usr/bin/$b" "$WORK/$OUT_NAME/bin/" 2>/dev/null && FOUND=$((FOUND + 1)) || MISSING="$MISSING $b"
+for b in $TOOLS; do
+	if [ -f "$THEOS_ROOT/usr/bin/$b" ]; then
+		cp "$THEOS_ROOT/usr/bin/$b" "$PKGROOT/usr/bin/" 2>/dev/null && n=$((n+1))
 	else
 		MISSING="$MISSING $b"
 	fi
 done
-ok "可执行文件 $FOUND 个"
-[ -n "$MISSING" ] && echo "  （缺失:$MISSING）"
+ok "$n 个"
+[ -n "$MISSING" ] && warn "缺失:$MISSING"
 
-# ---- 2. clang 运行时库 ----
-for d in clang llvm-16; do
-	[ -d "$ROOT/usr/lib/$d" ] && cp -R "$ROOT/usr/lib/$d" "$WORK/$OUT_NAME/lib/" 2>/dev/null && ok "lib/$d"
-done
+# perl（logos.pl / nic.pl 必需）
+if [ -f "$THEOS_ROOT/usr/bin/perl" ]; then
+	cp "$THEOS_ROOT/usr/bin/perl" "$PKGROOT/usr/bin/" && ok "perl"
+else
+	die "找不到 perl —— logos.pl 无法运行，.x 文件无法编译"
+fi
 
-# libLLVM 两份同大小会翻倍，保留 clang 实际依赖的那份
-LLVM="$WORK/$OUT_NAME/lib/llvm-16/lib"
-if [ -f "$LLVM/libLLVM.dylib" ] && [ -f "$LLVM/libLLVM-16.dylib" ]; then
-	if [ "$(stat -c %s "$LLVM/libLLVM.dylib" 2>/dev/null || echo 0)" = \
-	     "$(stat -c %s "$LLVM/libLLVM-16.dylib" 2>/dev/null || echo 1)" ]; then
-		rm -f "$LLVM/libLLVM.dylib"
-		ln -s libLLVM-16.dylib "$LLVM/libLLVM.dylib"
-		ok "libLLVM 去重（符号链接）"
+say "3/6 clang 运行时 → usr/lib/"
+# clang 资源（头文件）
+if [ -d "$THEOS_ROOT/usr/lib/clang" ]; then
+	cp -R "$THEOS_ROOT/usr/lib/clang" "$PKGROOT/usr/lib/" && ok "lib/clang"
+fi
+
+# LLVM 运行库（clang-16 是薄壳，真正代码在 libLLVM-16.dylib）
+if [ -d "$THEOS_ROOT/usr/lib/llvm-16" ]; then
+	mkdir -p "$PKGROOT/usr/lib/llvm-16/lib"
+	cp -R "$THEOS_ROOT/usr/lib/llvm-16/lib/"*.dylib "$PKGROOT/usr/lib/llvm-16/lib/" 2>/dev/null || true
+	cp -R "$THEOS_ROOT/usr/lib/llvm-16/bin" "$PKGROOT/usr/lib/llvm-16/" 2>/dev/null || true
+	cp -R "$THEOS_ROOT/usr/lib/llvm-16/share" "$PKGROOT/usr/lib/llvm-16/" 2>/dev/null || true
+	ok "lib/llvm-16"
+fi
+
+# 去重：libLLVM.dylib 与 libLLVM-16.dylib 同内容（各 108MB）
+LLVM_LIB="$PKGROOT/usr/lib/llvm-16/lib"
+if [ -f "$LLVM_LIB/libLLVM.dylib" ] && [ -f "$LLVM_LIB/libLLVM-16.dylib" ]; then
+	A=$(stat -c %s "$LLVM_LIB/libLLVM.dylib" 2>/dev/null || echo 0)
+	B=$(stat -c %s "$LLVM_LIB/libLLVM-16.dylib" 2>/dev/null || echo 1)
+	if [ "$A" = "$B" ]; then
+		rm -f "$LLVM_LIB/libLLVM.dylib"
+		ln -s libLLVM-16.dylib "$LLVM_LIB/libLLVM.dylib"
+		ok "libLLVM 去重（省 108MB）"
 	fi
 fi
 
-# 其它 dylib（libcrypto / libzstd 等，dpkg 与 clang 会用到）
-for f in "$ROOT"/usr/lib/*.dylib; do
+# 其它运行库（dpkg / perl 依赖）
+count=0
+for f in "$THEOS_ROOT"/usr/lib/*.dylib; do
 	[ -e "$f" ] || continue
-	case "$(basename "$f")" in
-		libLLVM*) ;;  # 已经处理
-		*) cp "$f" "$WORK/$OUT_NAME/lib/" 2>/dev/null || true ;;
-	esac
+	cp "$f" "$PKGROOT/usr/lib/" 2>/dev/null && count=$((count+1))
 done
+[ "$count" -gt 0 ] && ok "$count 个 dylib"
 
-# ---- 3. perl + 模块（logos.pl 必需）----
-if [ -f "$ROOT/usr/bin/perl" ]; then
-	cp "$ROOT/usr/bin/perl" "$ROOT/usr/bin/perlbug" "$WORK/$OUT_NAME/bin/" 2>/dev/null || true
-	ok "perl"
+# perl5 模块（96MB，logos 需要）
+if [ -d "$THEOS_ROOT/usr/lib/perl5" ]; then
+	cp -R "$THEOS_ROOT/usr/lib/perl5" "$PKGROOT/usr/lib/" && ok "lib/perl5"
 fi
-[ -d "$ROOT/usr/lib/perl5" ] && cp -R "$ROOT/usr/lib/perl5" "$WORK/$OUT_NAME/lib/" 2>/dev/null && ok "perl5 模块"
 
-# ---- 4. 空目录占位，供 App 侧放按需下载的组件 ----
-mkdir -p "$WORK/$OUT_NAME/libexec"
+say "4/6 Theos 本体 → theos/"
+mkdir -p "$PKGROOT/theos/sdks"
+for part in makefiles bin lib vendor include templates mod extras package.json Prefix.pch LICENSE.md; do
+	[ -e "$THEOS_FULL/$part" ] && cp -R "$THEOS_FULL/$part" "$PKGROOT/theos/" 2>/dev/null
+done
+# SDK：优先 17.0 + 16.5，有 26.5 也带上
+SDKN=0
+for sdk in "$THEOS_FULL"/sdks/iPhoneOS*.sdk; do
+	[ -d "$sdk" ] || continue
+	cp -R "$sdk" "$PKGROOT/theos/sdks/" 2>/dev/null && SDKN=$((SDKN+1))
+done
+ok "Theos + $SDKN 个 SDK"
+[ -f "$PKGROOT/theos/bin/logos.pl" ] || die "theos/bin/logos.pl 没拷进来"
 
-# ---- 5. 权限 ----
-chmod -R 755 "$WORK/$OUT_NAME/bin" 2>/dev/null || true
+say "5/6 权限与 manifest"
+chmod -R 755 "$PKGROOT/bin" 2>/dev/null || true
+chmod -R 755 "$PKGROOT/usr/bin" 2>/dev/null || true
 
-# ---- 6. 打包 ----
 STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-cat > "$WORK/$OUT_NAME/manifest.json" <<EOF
+SDKLIST=$(ls "$PKGROOT/theos/sdks" 2>/dev/null | tr '\n' ' ')
+cat > "$PKGROOT/manifest.json" <<EOF
 {
   "format": 1,
-  "id": "spark-toolchain",
+  "id": "theos-runtime",
   "packedAt": "$STAMP",
-  "source": "$REIN",
-  "layout": {
-    "bin": "可执行文件（clang-16 / ld64 / ldid / dpkg-deb / perl …）",
-    "lib": "运行时库（libLLVM-16 / clang 资源 / perl5）"
+  "layout": "rootfs",
+  "paths": {
+    "bin": "PATH 前缀 1",
+    "usr/bin": "PATH 前缀 2（clang-16 / ld64 / ldid / make / dpkg-deb / perl）",
+    "usr/lib": "DYLD_LIBRARY_PATH（libLLVM-16 / clang 资源 / perl5）",
+    "theos": "THEOS 根（makefiles + logos.pl + sdks）"
   },
-  "note": "解压到 Documents/Spark/Toolchain 后，构建脚本会把 bin 加进 PATH、lib 加进 DYLD_LIBRARY_PATH、lib/perl5 加进 PERL5LIB"
+  "sdks": "$SDKLIST",
+  "note": "解压到 Documents/Spark/Toolchain 后，构建脚本会拼 PATH=<root>/usr/bin:<root>/bin，THEOS=<root>/theos，DYLD_LIBRARY_PATH=<root>/usr/lib:<root>/usr/lib/llvm-16/lib，PERL5LIB=<root>/usr/lib/perl5"
 }
 EOF
 
-PKG="$OUTDIR/SparkToolchain.tar.gz"
-say "压缩 → $PKG"
-# 用 Python 的 gzip，busybox 的 tar|gzip 管道在低内存设备上会失败
-tar cf "$WORK.tar" -C "$WORK" "$OUT_NAME" 2>/dev/null || tar cf "$WORK.tar" -C "$WORK" .
-python3 - "$WORK.tar" "$PKG" <<'PY' 2>/dev/null || gzip -9 -c "$WORK.tar" > "$PKG"
+say "6/6 压缩"
+PKG="$OUTDIR/SparkTheosRuntime.tar.gz"
+rm -f "$PKG"
+# 必须先 tar 再 gzip：busybox 的 `tar czf` 与 `tar | gzip` 在低内存设备上会失败
+tar cf "$WORK/pkg.tar" -C "$WORK" "$OUT_NAME" || die "tar 失败"
+python3 - "$WORK/pkg.tar" "$PKG" <<'PY' || gzip -9 -c "$WORK/pkg.tar" > "$PKG"
 import gzip, shutil, sys
 with open(sys.argv[1], 'rb') as f, gzip.open(sys.argv[2], 'wb', compresslevel=9) as g:
     shutil.copyfileobj(f, g, 256 * 1024)
 PY
-rm -f "$WORK.tar"
+rm -f "$WORK/pkg.tar"
 
-# ---- 7. manifest ----
 SIZE=$(wc -c < "$PKG" | tr -d ' ')
-if command -v sha256sum >/dev/null 2>&1; then
-	SHA=$(sha256sum "$PKG" | cut -d' ' -f1)
-else
-	SHA="(无 sha256sum)"
-fi
+SHA=$(sha256sum "$PKG" 2>/dev/null | cut -d' ' -f1 || echo "(无 sha256sum)")
+UNPACKED=$(du -sm "$PKGROOT" 2>/dev/null | cut -f1)
+
 cat > "$OUTDIR/manifest.json" <<EOF
 {
-  "id": "spark-toolchain",
-  "file": "SparkToolchain.tar.gz",
+  "id": "theos-runtime",
+  "file": "SparkTheosRuntime.tar.gz",
   "size": $SIZE,
+  "unpackedMB": ${UNPACKED:-0},
   "sha256": "$SHA",
   "packedAt": "$STAMP"
 }
 EOF
 
-ok "完成：$PKG"
-printf '  大小 %s MB\n   sha256 %s\n\n' "$(awk "BEGIN{printf \"%.1f\", $SIZE/1048576}")" "$SHA"
-echo "接下来："
-echo "  1) 把 $PKG 上传到 Spark-Runtime 的 Release（tag: runtime-v1）"
-echo "  2) Spark 设置页「工具链 → 从文件导入工具链」也能直接吃这个包"
+echo
+ok "完成"
+printf '  文件   %s\n' "$PKG"
+printf '  压缩   %.1f MB\n' "$(awk "BEGIN{print $SIZE/1048576}")"
+printf '  解压   %s MB\n' "${UNPACKED:-?}"
+printf '  sha256 %s\n\n' "$SHA"
+echo "下一步："
+echo "  gh release upload runtime-v1 $PKG --repo JiuJiuyu77/Spark-Runtime --clobber"

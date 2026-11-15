@@ -39,7 +39,7 @@ static NSArray<NSDictionary *> *SPRuntimeManifest(void) {
             @"archive": [codex stringByAppendingString:@"/runtime-python-3.13.14-3c834a2c8964/PythonRuntime.tar.gz"],
             @"probe": @"bin/python3", @"detail": @"Python 3.13.14", @"symbol": @"chevron.left.forwardslash.chevron.right"},
           @{@"id": @"theos", @"name": @"Theos 完整版", @"size": @(114*1024*1024), @"order": @25,
-            @"archive": [self_ stringByAppendingString:@"/theos/TheosRuntime.tar.gz"],
+            @"archive": [self_ stringByAppendingString:@"/SparkTheosRuntime.tar.gz"],
             @"probe": @"theos/bin/logos.pl", @"detail": @"含 16.5 / 17.0 两个 SDK", @"symbol": @"wrench.and.screwdriver.fill"},
           @{@"id": @"ollvm", @"name": @"OLLVM 混淆", @"size": @(35*1024*1024), @"order": @30,
             @"archive": [codex stringByAppendingString:@"/runtime-ollvm-23.1.1-e54f2878240e/OLLVMRuntime.tar.gz"],

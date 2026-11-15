@@ -41,15 +41,23 @@
     }
 
     // ---- 内置工具链（ipa 里的，首启展开到 Documents/Spark/Toolchain）----
+    // 结构与 CodexApp/TheosRuntime 一致：rootfs 形态
+    //   bin/  usr/bin/  usr/lib/  theos/
     SPToolchainInstaller *inst = [SPToolchainInstaller shared];
     if (inst.isInstalled) {
-        [lines addObject:[NSString stringWithFormat:@"export SPARK_TC=%@", [SPUtil shellQuote:inst.installRoot]]];
+        NSString *root = inst.installRoot;
+        [lines addObject:[NSString stringWithFormat:@"export SPARK_TC=%@", [SPUtil shellQuote:root]]];
+        // PATH：usr/bin 优先（clang-16 / ld64 / ldid / make / dpkg-deb / perl 都在这）
+        [lines addObject:@"[ -d \"$SPARK_TC/usr/bin\" ] && export PATH=\"$SPARK_TC/usr/bin:$SPARK_TC/bin:$PATH\""];
         [lines addObject:@"[ -d \"$SPARK_TC/bin\" ] && export PATH=\"$SPARK_TC/bin:$PATH\""];
-        // clang 运行时：libLLVM 就在 SPARK_TC/lib/llvm-16/lib
-        [lines addObject:@"[ -d \"$SPARK_TC/lib\" ] && export LD_LIBRARY_PATH=\"$SPARK_TC/lib:$SPARK_TC/lib/llvm-16/lib:${LD_LIBRARY_PATH:-}\""];
-        [lines addObject:@"[ -d \"$SPARK_TC/lib\" ] && export DYLD_LIBRARY_PATH=\"$SPARK_TC/lib:$SPARK_TC/lib/llvm-16/lib:${DYLD_LIBRARY_PATH:-}\""];
-        // perl：logos.pl / nic.pl 需要
-        [lines addObject:@"[ -d \"$SPARK_TC/lib/perl5\" ] && export PERL5LIB=\"$SPARK_TC/lib/perl5:${PERL5LIB:-}\""];
+        // 动态库：clang-16 是薄壳，真正的代码在 usr/lib/llvm-16/lib/libLLVM-16.dylib
+        [lines addObject:@"TC_LIBS=\"$SPARK_TC/usr/lib:$SPARK_TC/usr/lib/llvm-16/lib\""];
+        [lines addObject:@"[ -d \"$SPARK_TC/usr/lib\" ] && export LD_LIBRARY_PATH=\"$TC_LIBS:${LD_LIBRARY_PATH:-}\""];
+        [lines addObject:@"[ -d \"$SPARK_TC/usr/lib\" ] && export DYLD_LIBRARY_PATH=\"$TC_LIBS:${DYLD_LIBRARY_PATH:-}\""];
+        // perl 模块：logos.pl 预处理 .x 必需
+        [lines addObject:@"[ -d \"$SPARK_TC/usr/lib/perl5\" ] && export PERL5LIB=\"$SPARK_TC/usr/lib/perl5:${PERL5LIB:-}\""];
+        // THEOS 指向包内 theos/
+        [lines addObject:@"[ -d \"$SPARK_TC/theos\" ] && export THEOS=\"$SPARK_TC/theos\""];
     }
 
     NSString *pathPrefix = [[SPToolchain shared] pathPrefixForProfile:profile];
@@ -68,7 +76,7 @@
 
     // ---- 工具链自检 ----
     [lines addObject:@"say '工具链自检'"];
-    [lines addObject:@"ok \"内置工具链 $([ -d \"$SPARK_TC/bin\" ] && echo 就绪 || echo 未就绪)\""];
+    [lines addObject:@"ok \"内置工具链 $([ -d \"$SPARK_TC/usr/bin\" ] || [ -d \"$SPARK_TC/bin\" ] && echo 就绪 || echo 未就绪)\""];
     [lines addObject:@"for t in make ldid; do command -v $t >/dev/null 2>&1 && ok \"$t $(command -v $t)\" || warn \"缺少 $t\"; done"];
     [lines addObject:@"CCBIN=\"${CA_TOOL_OLLVM_CLANG:-clang}\"; \"$CCBIN\" --version >/dev/null 2>&1 && ok \"编译器 $($CCBIN --version | head -1)\" || warn \"编译器不可用: $CCBIN\""];
     if (options.useOLLVM) {

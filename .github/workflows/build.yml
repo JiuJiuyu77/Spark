@@ -133,7 +133,7 @@ jobs:
           # 可用仓库变量 TOOLCHAIN_SOURCE 覆盖为任意直链
           SRC="${{ vars.TOOLCHAIN_SOURCE }}"
           if [ -z "$SRC" ]; then
-            SRC="https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v1/TheosRuntime.tar.gz"
+            SRC="https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v1/SparkTheosRuntime.tar.gz"
           fi
 
           if [ -d "$TC/theos/bin" ]; then
@@ -154,19 +154,38 @@ jobs:
             rm -f /tmp/tc.tar.gz
           fi
 
-          # TheosRuntime.tar.gz 里是 theos/ 目录，直接当 THEOS 根
-          if [ -d "$TC/theos" ]; then
-            du -sh "$TC/theos"
-            ls "$TC/theos/sdks" || true
-            # 校验必须有 logos.pl 与至少一个 SDK
-            [ -f "$TC/theos/bin/logos.pl" ] || { echo "::error::包内缺 logos.pl"; exit 1; }
-            ls "$TC/theos/sdks"/iPhoneOS*.sdk >/dev/null 2>&1 || { echo "::error::包内缺 SDK"; exit 1; }
-            echo "present=true" >> "$GITHUB_OUTPUT"
-            echo "theos=Native/Resources/Toolchain/theos" >> "$GITHUB_OUTPUT"
-          else
-            echo "::error::解包后没有 theos 目录"
-            exit 1
-          fi
+          # rootfs 结构：usr/bin（clang/ld64/ldid/perl）+ theos/（makefiles + SDK）
+          ls "$TC" || true
+          du -sh "$TC"/* 2>/dev/null || true
+
+          # Theos 本体
+          THEOSDIR=""
+          for c in "$TC/theos" "$TC/TheosRuntime/theos"; do
+            [ -d "$c" ] && { THEOSDIR="$c"; break; }
+          done
+          [ -n "$THEOSDIR" ] || { echo "::error::包里没有 theos/ 目录"; exit 1; }
+          [ -f "$THEOSDIR/bin/logos.pl" ] || { echo "::error::缺 logos.pl"; exit 1; }
+          ls "$THEOSDIR/sdks"/iPhoneOS*.sdk >/dev/null 2>&1 || { echo "::error::缺 SDK"; exit 1; }
+
+          # 编译链：clang-16 / ld64 / ldid / perl 必须在，否则 make 跑到链接就挂
+          BINDIR=""
+          for c in "$TC/usr/bin" "$TC/TheosRuntime/usr/bin" "$TC/bin"; do
+            [ -d "$c" ] && { BINDIR="$c"; break; }
+          done
+          [ -n "$BINDIR" ] || { echo "::error::包里没有 usr/bin 或 bin（缺编译链）"; exit 1; }
+          for b in clang-16 ld64 ldid perl; do
+            if [ -f "$BINDIR/$b" ]; then echo "  ✓ $b"; else echo "::error::编译链缺 $b"; exit 1; fi
+          done
+
+          # perl5 模块目录
+          PERLDIR=""
+          for c in "$TC/usr/lib/perl5" "$TC/TheosRuntime/usr/lib/perl5" "$TC/lib/perl5"; do
+            [ -d "$c" ] && { PERLDIR="$c"; break; }
+          done
+          [ -n "$PERLDIR" ] && echo "  ✓ perl5" || echo "::warning::没有 perl5 模块，logos .x 可能预处理失败"
+
+          echo "present=true" >> "$GITHUB_OUTPUT"
+          echo "toolchain_root=$TC" >> "$GITHUB_OUTPUT"
 
       - name: Compile (plain clang, no Xcode project)
         run: |

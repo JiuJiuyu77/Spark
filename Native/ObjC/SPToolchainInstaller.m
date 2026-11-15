@@ -39,9 +39,20 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
 
 - (BOOL)hasBundledToolchain { return self.bundledRoot != nil; }
 
-- (NSString *)binDir        { return [self.installRoot stringByAppendingPathComponent:@"bin"]; }
-- (NSString *)libDir        { return [self.installRoot stringByAppendingPathComponent:@"lib"]; }
+- (NSString *)binDir {
+    // CodexApp 结构：usr/bin；旧版结构：bin/。优先 usr/bin（编译链都在那里）
+    NSString *usr = [self.installRoot stringByAppendingPathComponent:@"usr/bin"];
+    if ([NSFileManager.defaultManager fileExistsAtPath:usr]) return usr;
+    return [self.installRoot stringByAppendingPathComponent:@"bin"];
+}
+- (NSString *)libDir {
+    NSString *usr = [self.installRoot stringByAppendingPathComponent:@"usr/lib"];
+    if ([NSFileManager.defaultManager fileExistsAtPath:usr]) return usr;
+    return [self.installRoot stringByAppendingPathComponent:@"lib"];
+}
 - (NSString *)theosPath     { return [self.installRoot stringByAppendingPathComponent:@"theos"]; }
+- (NSString *)baseBinDir    { return [self.installRoot stringByAppendingPathComponent:@"bin"]; }
+- (NSString *)perl5Dir      { return [[self libDir] stringByAppendingPathComponent:@"perl5"]; }
 - (NSString *)ollvmRoot     { return [self.installRoot stringByAppendingPathComponent:@"ollvm"]; }
 - (NSString *)reverseBinDir { return [self.installRoot stringByAppendingPathComponent:@"reverse/bin"]; }
 
@@ -65,9 +76,13 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
     NSString *stamp = [self.installRoot stringByAppendingPathComponent:@".installed"];
     if (![fm fileExistsAtPath:stamp]) return NO;
     // 至少要有 ld64 或 clang，且 Theos makefiles 在
-    BOOL hasCompiler = [fm isExecutableFileAtPath:[self.binDir stringByAppendingPathComponent:@"ld64"]]
-                    || [fm isExecutableFileAtPath:[self.binDir stringByAppendingPathComponent:@"clang-16"]]
-                    || [fm isExecutableFileAtPath:[self.binDir stringByAppendingPathComponent:@"clang"]];
+    BOOL hasCompiler = NO;
+    for (NSString *d in @[self.binDir, self.baseBinDir]) {
+        for (NSString *b in @[@"ld64", @"clang-16", @"clang"]) {
+            if ([fm isExecutableFileAtPath:[d stringByAppendingPathComponent:b]]) { hasCompiler = YES; break; }
+        }
+        if (hasCompiler) break;
+    }
     BOOL hasTheos = [fm fileExistsAtPath:[self.theosPath stringByAppendingPathComponent:@"makefiles/common.mk"]];
     return hasCompiler && hasTheos;
 }

@@ -104,7 +104,7 @@ export const RUNTIMES = [
     id: 'theos',
     name: 'Theos 完整版',
     components: { theos: 'Rein 本地', sdks: 'iPhoneOS16.5 + 17.0' },
-    archive: `${SELF_BASE}/theos/TheosRuntime.tar.gz`,
+    archive: `${SELF_BASE}/SparkTheosRuntime.tar.gz`,
     file: 'TheosRuntime.tar.gz',
     size: 114 * 1024 * 1024,
     order: 25,
