@@ -148,10 +148,45 @@ jobs:
           for f in Native/Resources/*; do
             base="$(basename "$f")"
             case "$base" in
-              Info.plist|*.png|en.lproj|Assets.xcassets) continue ;;
+              Info.plist|*.png|*.lproj|Assets.xcassets) continue ;;
             esac
             cp -R "$f" "$APP/" 2>/dev/null || true
           done
+
+          # ---- 标准 .app 必备件 ----
+          # PkgInfo：8 字节 "APPL????"，某些安装器据此判断是 App
+          printf 'APPL????' > "$APP/PkgInfo"
+
+          # Assets.car：xcrun actool 编译资源目录（图标 + 颜色 + 图标名义尺寸）
+          if [ -d Native/Resources/Assets.xcassets ]; then
+            echo "==> 编译 Assets.car"
+            xcrun actool Native/Resources/Assets.xcassets \
+              --compile "$APP" \
+              --platform iphoneos \
+              --minimum-deployment-target ${MIN} \
+              --app-icon AppIcon \
+              --output-partial-info-plist "$RUNNER_TEMP/asset-info.plist" \
+              --errors --warnings --notices 2>&1 | tail -20
+            # actool 会把 Assets.car 与 AppIcon*.png 一起产出到 $APP
+            ls -lh "$APP/Assets.car" 2>/dev/null || echo "（actool 没产出 Assets.car，回退到扁平 png）"
+          fi
+
+          # 启动屏：iOS 15 起可用 Info.plist 的 UILaunchScreen，无需 storyboard
+          plutil -insert UILaunchScreen -json '{}' "$APP/Info.plist" 2>/dev/null || true
+
+          # 多语言：把 en.lproj 的本地化文件也带上（若有 zh-Hans 一并复制）
+          for lproj in Native/Resources/*.lproj; do
+            [ -d "$lproj" ] && cp -R "$lproj" "$APP/"
+          done
+
+          # 设置包（如果以后要加 App 内设置的系统入口）
+          if [ -d Native/Resources/Settings.bundle ]; then
+            cp -R Native/Resources/Settings.bundle "$APP/"
+          fi
+
+          echo "==> .app 结构"
+          find "$APP" -maxdepth 1 | sort
+          du -sh "$APP"
 
           FLAGS=(
             -target "${{ matrix.arch }}-apple-ios${MIN}"
@@ -199,7 +234,7 @@ jobs:
           echo "==> 自检：ipa 内容"
           unzip -l "out/${SCHEME}-${V}-${A}.ipa"
           for need in "Payload/${SCHEME}.app/Info.plist" "Payload/${SCHEME}.app/${SCHEME}" \
-                      "Payload/${SCHEME}.app/AppIcon60x60@3x.png"; do
+                      "Payload/${SCHEME}.app/AppIcon60x60@3x.png" "Payload/${SCHEME}.app/PkgInfo"; do
             unzip -l "out/${SCHEME}-${V}-${A}.ipa" | grep -q "$need" \
               || { echo "缺少必需文件: $need"; exit 1; }
           done
