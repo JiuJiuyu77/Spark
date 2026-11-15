@@ -134,6 +134,8 @@ jobs:
           SRC="${{ vars.TOOLCHAIN_SOURCE }}"
           if [ -z "$SRC" ]; then
             SRC="https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v1/SparkTheosRuntime.tar.gz"
+            # 与 Spark-Runtime 上传时一致的 sha256（见 docs/runtime-decision.md）
+            TC_SHA="3547bbd074b3b379713be82200ad3347bfec0884cd017916644a9679be5b2ab9"
           fi
 
           if [ -d "$TC/theos/bin" ]; then
@@ -150,7 +152,28 @@ jobs:
               echo "::error::工具链下载失败（三个源都试过）"
               exit 1
             fi
+            # 完整性校验：下载被截断会导致 libLLVM 等大文件残缺，
+            # 进而让 ldid -s 报 "size <= mach_header.GetSize()"
+            echo "  压缩包大小: $(stat -f%z /tmp/tc.tar.gz 2>/dev/null || stat -c%s /tmp/tc.tar.gz) 字节"
+            echo "  期望 sha256: $TC_SHA"
+            ACTUAL_SHA=$(shasum -a 256 /tmp/tc.tar.gz | cut -d' ' -f1)
+            echo "  实际 sha256: $ACTUAL_SHA"
+            if [ -n "$TC_SHA" ] && [ "$ACTUAL_SHA" != "$TC_SHA" ]; then
+              echo "::error::工具链包 sha256 不匹配，下载不完整"
+              exit 1
+            fi
+
             tar xzf /tmp/tc.tar.gz -C "$TC"
+            # 解包后检查关键大文件是否完整（108MB 的 libLLVM）
+            LLVM=$(find "$TC" -name 'libLLVM-16.dylib' | head -1)
+            if [ -n "$LLVM" ]; then
+              SZ=$(stat -f%z "$LLVM" 2>/dev/null || stat -c%s "$LLVM")
+              echo "  libLLVM-16.dylib: $((SZ / 1048576)) MB"
+              if [ "$SZ" -lt $((100 * 1048576)) ]; then
+                echo "::error::libLLVM-16.dylib 只有 $((SZ / 1048576)) MB（应约 108MB），解包不完整"
+                exit 1
+              fi
+            fi
             rm -f /tmp/tc.tar.gz
           fi
 
@@ -377,6 +400,9 @@ jobs:
           # 空壳 bundle 复查（--check 只探测不修改，有问题退出 1）
           python3 scripts/fix-bundles.py --check "$APP"
 
+          # Mach-O 完好性 + 签名检查（含截断检测）
+          python3 scripts/check-macho.py "$APP"
+
           LINKLEFT=$(find "$APP" -type l 2>/dev/null | wc -l | tr -d ' ')
           if [ "${LINKLEFT:-0}" -gt 0 ]; then
             echo "::error::仍有 $LINKLEFT 个符号链接，ldid -s 会失败"
@@ -562,7 +588,7 @@ jobs:
             exit 1
           fi
           # 每个 Mach-O 都必须有 LC_CODE_SIGNATURE，否则 TrollStore 的 ldid -s 会失败
-          if ! python3 scripts/check-macho-signed.py /tmp/vfy/Payload; then
+          if ! python3 scripts/check-macho.py /tmp/vfy/Payload; then
             echo "::error::存在未签名的 Mach-O，ldid -s 会失败"
             exit 1
           fi
