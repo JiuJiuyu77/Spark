@@ -7,9 +7,11 @@
   "scripts": {
     "detect": "node scripts/detect-toolchain.mjs",
     "gen": "node scripts/gen-build-script.mjs",
-    "test": "node --test ShareKit/test/model.test.mjs ProjectKit/test/trollinject.test.mjs Workers/test/worker.test.mjs",
+    "test": "node --test ShareKit/test/model.test.mjs ProjectKit/test/trollinject.test.mjs ProjectKit/test/mcp.test.mjs ProjectKit/test/mcp-loopback.test.mjs Workers/test/worker.test.mjs",
     "check": "node --check Workers/SPCloudWorker.js && python3 scripts/check-balance.py",
-    "troll": "node -e \"import('./ProjectKit/src/trolltools.mjs').then(m=>console.log(m.summarizeTools(m.detectTools())))\""
+    "troll": "node -e \"import('./ProjectKit/src/trolltools.mjs').then(m=>console.log(m.summarizeTools(m.detectTools())))\"",
+    "mcp": "node bin/spark-mcp.mjs",
+    "mcp:http": "node bin/spark-mcp.mjs --http"
   },
   "engines": {
     "node": ">=18"

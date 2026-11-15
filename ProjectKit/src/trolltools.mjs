@@ -32,6 +32,44 @@ export const REQUIRED_FOR_INJECT = ['insert_dylib', 'ldid', 'chown'];
 /** 可选但强烈建议 */
 export const RECOMMENDED = ['install_name_tool', 'ct_bypass'];
 
+/**
+ * Rein 把一套裁过的 Darwin 工具放在 DSH.app/helpers 里（insert_dylib、ldid 都在那儿）。
+ * 这个函数顺着 REIN_ROOT 往上找 Bundle/Application/<UUID>/X.app/helpers，
+ * 让 Spark 不用用户手动指路径也能用上它们。
+ */
+function siblingHelperDirs() {
+  const roots = [
+    process.env.SPARK_APP_PATH,
+    process.env.SPARK_BUNDLE_PATH,
+    process.env.SPARK_REIN_ROOT || process.env.REIN_ROOT,
+  ].filter(Boolean);
+
+  const out = [];
+  for (const start of roots) {
+    if (!start) continue;
+    // 同级 App 的 helpers：…/Bundle/Application/<UUID>/X.app/helpers
+    const appDir = path.dirname(start);
+    out.push(path.join(appDir, 'helpers'));
+    // 自己所在 App 的 helpers
+    out.push(path.join(start, 'helpers'));
+  }
+  // Bundle/Application 下逐个 App 找一遍（真机上通常只有一两个）
+  const appRoot = '/private/var/containers/Bundle/Application';
+  for (const start of roots) {
+    if (!start.startsWith(appRoot)) continue;
+    try {
+      const rest = start.slice(appRoot.length + 1).split('/')[0];
+      const uuidDir = path.join(appRoot, rest);
+      for (const name of fs.readdirSync(uuidDir)) {
+        if (name.endsWith('.app')) out.push(path.join(uuidDir, name, 'helpers'));
+      }
+    } catch {
+      /* 没有权限就算了 */
+    }
+  }
+  return [...new Set(out)];
+}
+
 function isExecutable(p) {
   try {
     fs.accessSync(p, fs.constants.X_OK);
@@ -50,9 +88,11 @@ function isExecutable(p) {
  */
 export function searchDirectories(opts = {}) {
   const home = process.env.HOME || os.homedir();
-  const reinRoot = opts.reinRoot || process.env.REIN_ROOT || path.join(home, 'Documents/Rein');
+  const reinRoot = opts.reinRoot || process.env.SPARK_REIN_ROOT || process.env.REIN_ROOT ||
+    path.join(home, 'Documents/Rein');
   const dirs = [
     ...(opts.extraDirs || []),
+    ...siblingHelperDirs(),
     path.join(reinRoot, 'tools/reverse/bin'),
     path.join(reinRoot, 'helpers'),
     path.join(reinRoot, 'tools/theos-root/usr/bin'),

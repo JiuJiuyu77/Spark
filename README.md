@@ -4,7 +4,7 @@
 
 **参考 Rein（DSH.app）复刻的可视化编译工具 —— 一个 iOS 原生 App**
 
-Theos / Logos 一键编译 · OLLVM 混淆 · 逆向工具台 · **巨魔注入器** · 本机 / 远程 / GitHub CI 三种构建
+Theos / Logos 一键编译 · OLLVM 混淆 · 逆向工具台 · **巨魔注入器** · **MCP 服务** · 本机 / 远程 / GitHub CI 三种构建
 
 [![build](https://github.com/JiuJiuyu77/Spark/actions/workflows/build.yml/badge.svg)](https://github.com/JiuJiuyu77/Spark/actions/workflows/build.yml)
 [![checks](https://github.com/JiuJiuyu77/Spark/actions/workflows/checks.yml/badge.svg)](https://github.com/JiuJiuyu77/Spark/actions/workflows/checks.yml)
@@ -28,6 +28,7 @@ Theos / OLLVM / radare2 串起来**，并给它们一个能点的界面。
 | `tools/ollvm` 的 5 个 Arkari pass | 「混淆（OLLVM）」开关 + 强度档位 + 自定义 pass |
 | `tools/reverse` 的 radare2 / mt-macho | 「逆向」页：架构、符号、字符串、注入 dylib、重签名 |
 | 给别人的 ipa 塞插件的 TrollFools | 「注入」页：巨魔注入器（参考 TrollFools） |
+| 让 AI 直接调编译能力 | MCP 服务（`bin/spark-mcp.mjs`，仅 127.0.0.1） |
 | 换设备/云端跑长任务 | 「构建目标」：本机 / SSH 远程 / GitHub Actions |
 
 ## 界面
@@ -134,6 +135,30 @@ ct_bypass                                          ✗（需自备，见 docs/tr
 
 细节与坑见 [docs/troll-inject.md](docs/troll-inject.md)。
 
+### MCP 服务（仅本地 127.0.0.1）
+
+Spark 内置 MCP 服务器，Claude Desktop / Cursor / Zed 可以直接调用：
+
+```bash
+node bin/spark-mcp.mjs          # stdio（桌面客户端）
+node bin/spark-mcp.mjs --http   # HTTP：http://127.0.0.1:7878/mcp
+```
+
+| 工具 | 作用 |
+|---|---|
+| `spark_doctor` | 工具链体检：Theos / SDK / OLLVM / 注入工具缺什么 |
+| `spark_projects` | 扫描并识别项目类型 |
+| `spark_read_file` | 读源码（带行数上限） |
+| `spark_build_script` | 生成完整 Theos 构建脚本 |
+| `spark_inject_plan` | 生成巨魔注入计划 + 脚本 |
+| `spark_analyze` | 调 radare2 分析 Mach-O |
+
+> ⚠️ **只监听 127.0.0.1**：监听地址在代码里写死为回环，不提供配置项。
+> `startHttpServer({host:'0.0.0.0'})` 直接抛错，非回环请求一律 403。
+> 远程使用请走 SSH 隧道：`ssh -L 7878:127.0.0.1:7878 设备`。
+
+细节见 [docs/mcp.md](docs/mcp.md)。
+
 ## 仓库结构
 
 ```
@@ -160,12 +185,14 @@ Spark/
 ├── ShareKit/                 共享逻辑（App / Worker / CLI 用同一份判定）
 │   ├── src/model.js         项目识别、make 参数、脚本生成、错误诊断
 │   └── test/model.test.mjs  17 个用例
-├── ProjectKit/              注入器逻辑（纯 JS，可测试）
+├── ProjectKit/              注入器 + MCP 逻辑（纯 JS，可测试）
 │   ├── src/trollinject.mjs  插件筛选、路径规范化、注入计划与脚本生成
 │   ├── src/trolltools.mjs   insert_dylib / ldid / ct_bypass 等工具的发现
-│   └── test/                13 个用例
+│   ├── src/mcp-tools.mjs    6 个 MCP 工具的定义与处理器
+│   └── test/                34 个用例（注入 / MCP / 回环约束）
 ├── Workers/SPCloudWorker.js  Cloudflare Worker：上传 / 派发 / 轮询 / 拉产物
 ├── bin/spark.mjs            CLI：doctor / projects / script / build / analyze
+├── bin/spark-mcp.mjs        MCP 服务器（stdio + HTTP，仅回环）
 ├── scripts/                 工具链探测、脚本生成、括号体检
 ├── .github/workflows/       build.yml（macOS 真机构建）+ checks.yml（秒级检查）
 ├── Makefile / control       自身也是标准 Theos 工程
@@ -299,6 +326,8 @@ wrangler deploy
 - [ ] 构建产物一键安装（调 dpkg / TrollStore）
 - [x] 巨魔注入器（dylib/framework/bundle/.deb/.zip）
 - [ ] 注入后自动打进 ipa（离线流水线）
+- [x] MCP 服务（6 个工具，仅 127.0.0.1）
+- [ ] MCP 工具扩展到「执行构建并回传日志」
 - [ ] 多目标同时编译（同一 tweak 编 rootful + rootless）
 - [ ] 依赖图（复刻 Rein 里 `rein-graph` 那张交互图）
 - [ ] iOS 15 全量回归测试

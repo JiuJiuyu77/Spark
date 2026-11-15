@@ -132,3 +132,11 @@ test('注入来源说明', () => {
   assert.ok(describeSource('x.framework').includes('框架'));
   assert.ok(describeSource('x.dylib').includes('动态库'));
 });
+
+test('工具探测能发现同容器的 App helpers', async () => {
+  const { searchDirectories } = await import('../src/trolltools.mjs');
+  const dirs = searchDirectories({ reinRoot: '/tmp/rein', extraDirs: ['/opt/x'] });
+  assert.ok(dirs.includes('/opt/x'));
+  assert.ok(dirs.some((d) => d.includes('helpers')));
+  assert.equal(new Set(dirs).size, dirs.length, '目录不应重复');
+});
