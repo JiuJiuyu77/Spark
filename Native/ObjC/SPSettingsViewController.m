@@ -392,12 +392,21 @@ typedef NS_ENUM(NSInteger, SPSection) {
 
     if (ip.section == SPSectionBuildDefaults) {
         switch (ip.row) {
-            case 0: [self pick:@[@"arm64", @"arm64e", @"arm64 + arm64e"] title:@"默认架构" apply:^(NSInteger i) { o.arch = i; }]; break;
-            case 1: [self pick:@[@"deb（传统）", @"deb（rootless）", @".app", @".tipa"] title:@"默认包格式" apply:^(NSInteger i) { o.format = i; }]; break;
-            case 3: [self pick:@[@"串行", @"并行 -j2", @"并行 -j4", @"并行 -j6", @"并行 -j8"] title:@"并行度" apply:^(NSInteger i) {
-                o.parallel = i > 0;
-                o.jobs = i == 0 ? 1 : i * 2;
-            }]; break;
+            case 0: {
+                [self pick:@[@"arm64", @"arm64e", @"arm64 + arm64e"] title:@"默认架构" apply:^(NSInteger i) { o.arch = i; }];
+                break;
+            }
+            case 1: {
+                [self pick:@[@"deb（传统）", @"deb（rootless）", @".app", @".tipa"] title:@"默认包格式" apply:^(NSInteger i) { o.format = i; }];
+                break;
+            }
+            case 3: {
+                [self pick:@[@"串行", @"并行 -j2", @"并行 -j4", @"并行 -j6", @"并行 -j8"] title:@"并行度" apply:^(NSInteger i) {
+                    o.parallel = i > 0;
+                    o.jobs = i == 0 ? 1 : i * 2;
+                }];
+                break;
+            }
             default: break;
         }
         return;
@@ -452,13 +461,15 @@ typedef NS_ENUM(NSInteger, SPSection) {
     if (ip.section == SPSectionDisplay) {
         if (ip.row == 2) {
             [self pick:@[@"2000", @"5000", @"10000", @"20000"] title:@"日志最多行数" apply:^(NSInteger i) {
-                SPSettings.shared.maxLogLines = @[ @2000, @5000, @10000, @20000 ][i].integerValue;
+                NSArray<NSNumber *> *lineOptions = @[ @2000, @5000, @10000, @20000 ];
+                SPSettings.shared.maxLogLines = lineOptions[i].integerValue;
                 [SPSettings.shared save];
                 [self persistDefaults];
             }];
         } else if (ip.row == 3) {
             [self pick:@[@"10 pt", @"11 pt", @"12 pt", @"14 pt", @"16 pt"] title:@"日志字号" apply:^(NSInteger i) {
-                self.logFontSize = (CGFloat)@[ @10, @11, @12, @14, @16 ][i].doubleValue;
+                NSArray<NSNumber *> *fontOptions = @[ @10, @11, @12, @14, @16 ];
+                self.logFontSize = (CGFloat)fontOptions[i].doubleValue;
                 [[NSUserDefaults standardUserDefaults] setFloat:self.logFontSize forKey:@"Spark.logFontSize"];
                 [self.table reloadData];
             }];
@@ -661,7 +672,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
     [[SPToolchain shared] rescan];
     [self.table reloadData];
     if (ok) [SPMotion hapticSuccess];
-    [self alert:ok ? @"已接收" message:[NSString stringWithFormat:@"收到 %ld 个文件：\n%@", (long)ok, detail]];
+    [self alert:(ok ? @"已接收" : @"未接收") message:[NSString stringWithFormat:@"收到 %ld 个文件：\n%@", (long)ok, detail]];
 }
 
 /// 用内置的 unzip 解 SDK 压缩包

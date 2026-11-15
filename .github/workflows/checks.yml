@@ -44,6 +44,7 @@ jobs:
       - name: ObjC imports complete
         run: python3 scripts/check-imports.py
           python3 scripts/check-header-selfcontained.py
+          python3 scripts/check-objc-syntax.py
 
       - name: Validate plists
         run: |
