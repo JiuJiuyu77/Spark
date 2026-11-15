@@ -34,6 +34,12 @@ NS_ASSUME_NONNULL_BEGIN
 /// 是否在 TrollStore / 越狱环境（有平台权限）
 @property (nonatomic, readonly) BOOL isPlatformApp;
 
+/// 本次 JIT 是否由子进程提供（NO 表示主进程 mmap）
+@property (nonatomic, readonly) BOOL viaSubprocess;
+
+/// 启动时调用：异步拉起 helper 并探测
+- (void)startServiceIfNeeded;
+
 /// 主动探测（会实际申请一小块可执行内存再释放）
 - (void)probe;
 

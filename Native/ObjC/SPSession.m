@@ -38,11 +38,32 @@ extern char **environ;
 
 @implementation SPSession
 
+/// 环境变量只保留 NSString 值：其它类型（NSNull/NSNumber/嵌套）一律转成字符串，
+/// 否则 copy 时会在 -forwardingTargetForSelector: 上抛异常直接 abort。
+static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary *env) {
+    if (![env isKindOfClass:NSDictionary.class]) return @{};
+    NSMutableDictionary *out = [NSMutableDictionary dictionary];
+    for (id key in env) {
+        if (![key isKindOfClass:NSString.class]) continue;
+        id value = env[key];
+        if ([value isKindOfClass:NSString.class]) {
+            out[key] = value;
+        } else if ([value isKindOfClass:NSNumber.class]) {
+            out[key] = [value stringValue];
+        } else if (value == nil || [value isKindOfClass:NSNull.class]) {
+            out[key] = @"";
+        } else {
+            out[key] = [value description] ?: @"";
+        }
+    }
+    return [out copy];
+}
+
 - (instancetype)initWithEnvironment:(NSDictionary<NSString *, NSString *> *)env
                    workingDirectory:(NSString *)cwd {
     if ((self = [super init])) {
-        _environment = env ?: @{};
-        _workingDirectory = [cwd copy];
+        _environment = SPSanitizeEnvironment(env);
+        _workingDirectory = [cwd isKindOfClass:NSString.class] ? [cwd copy] : nil;
         _outBuf = [NSMutableString string];
         _errBuf = [NSMutableString string];
         _readQueue = dispatch_queue_create("spark.session.read", DISPATCH_QUEUE_SERIAL);
@@ -52,6 +73,10 @@ extern char **environ;
 }
 
 - (BOOL)isRunning { return self.pid > 0 && !self.finished; }
+
+- (void)setEnvironment:(NSDictionary<NSString *, NSString *> *)environment {
+    _environment = SPSanitizeEnvironment(environment);
+}
 
 #pragma mark 环境组装
 
@@ -100,12 +125,20 @@ extern char **environ;
     NSMutableArray *argvArr = [NSMutableArray arrayWithObject:exe];
     [argvArr addObjectsFromArray:args];
     char **argv = calloc(argvArr.count + 1, sizeof(char *));
-    for (NSUInteger i = 0; i < argvArr.count; i++) argv[i] = strdup([argvArr[i] UTF8String]);
+    for (NSUInteger i = 0; i < argvArr.count; i++) {
+        id a = argvArr[i];
+        const char *cstr = [a isKindOfClass:NSString.class] ? [(NSString *)a UTF8String] : "";
+        argv[i] = strdup(cstr ? cstr : "");
+    }
     argv[argvArr.count] = NULL;
 
     NSArray *envArr = [self environmentStrings];
     char **envp = calloc(envArr.count + 1, sizeof(char *));
-    for (NSUInteger i = 0; i < envArr.count; i++) envp[i] = strdup([envArr[i] UTF8String]);
+    for (NSUInteger i = 0; i < envArr.count; i++) {
+        id a = envArr[i];
+        const char *cstr = [a isKindOfClass:NSString.class] ? [(NSString *)a UTF8String] : "";
+        envp[i] = strdup(cstr ? cstr : "");
+    }
     envp[envArr.count] = NULL;
 
     int rc = posix_spawn(&child, exe.fileSystemRepresentation, &actions, &attr, argv, envp);

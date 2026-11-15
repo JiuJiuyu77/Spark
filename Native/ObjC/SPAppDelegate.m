@@ -16,6 +16,8 @@
 #import "SPToolsViewController.h"
 #import "SPGlassKit.h"
 #import "SPJIT.h"
+#import "SPCrashGuard.h"
+#import "SPEditorViewController.h"
 #import "SPToolchainInstaller.h"
 #import "SPStore.h"
 #import "SPToolchain.h"
@@ -31,13 +33,14 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
 
+    // 崩溃兜底：尽早装，才能捕获启动期异常
+    [[SPCrashGuard shared] install];
+
     [self configureAppearance];
     [self setupDefaults];
 
     // JIT：后台探测一次，结果在「设置 → 显示与反馈」里看
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-        [[SPJIT shared] probe];
-    });
+    [[SPJIT shared] startServiceIfNeeded];
 
     // 启动时后台扫一遍工具链，别阻塞首屏
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
@@ -69,6 +72,24 @@
                     [[NSNotificationCenter defaultCenter] postNotificationName:@"SPToolchainInstalled" object:nil];
                 }
             }];
+        });
+    }
+
+    // 上次异常退出？提示一次（不打扰、可忽略）
+    NSString *crashReport = [[SPCrashGuard shared] pendingReportPath];
+    if (crashReport.length) {
+        [[SPCrashGuard shared] consumePendingReport];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            UIAlertController *a = [UIAlertController alertControllerWithTitle:@"上次意外退出"
+                message:@"Spark 检测到上次是异常退出的，已保存崩溃报告。要看吗？"
+                preferredStyle:UIAlertControllerStyleAlert];
+            [a addAction:[UIAlertAction actionWithTitle:@"查看" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
+                SPEditorViewController *e = [[SPEditorViewController alloc] initWithFilePath:crashReport];
+                UINavigationController *nav = self.tabs.viewControllers.lastObject;
+                [nav pushViewController:e animated:YES];
+            }]];
+            [a addAction:[UIAlertAction actionWithTitle:@"忽略" style:UIAlertActionStyleCancel handler:nil]];
+            [self.tabs presentViewController:a animated:YES completion:nil];
         });
     }
 

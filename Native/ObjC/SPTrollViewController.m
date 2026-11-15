@@ -463,7 +463,9 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
     NSString *intool = [SPUtil findExecutable:@[@"install_name_tool"] searchDirs:clean];
 
     NSString *app = self.app.appPath;
-    NSString *exe = [app stringByAppendingPathComponent:self.app.executable];
+    NSString *exeName = self.app.executable;
+    if (!exeName.length) exeName = app.lastPathComponent.stringByDeletingPathExtension;
+    NSString *exe = [app stringByAppendingPathComponent:exeName];
     NSArray *plugins = [self activePlugins];
 
     NSMutableString *s = [NSMutableString string];
@@ -474,6 +476,8 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
                      [SPUtil shellQuote:insert], [SPUtil shellQuote:ldid],
                      [SPUtil shellQuote:chown], [SPUtil shellQuote:intool]]];
     [s appendString:@"[ -x \"$INS\" ] || { echo \"缺少 insert_dylib\"; exit 3; }\n"];
+    // 设备上没有 strings，用 grep -a；set -e 下命令不存在会静默退出（Rein 踩过）
+    [s appendString:@"command -v grep >/dev/null 2>&1 || echo '[!] 没有 grep，幂等检查会被跳过'\n"];
     [s appendString:@"[ -f \"$EXE\" ] || { echo \"主二进制不存在: $EXE\"; exit 2; }\n"];
     [s appendString:@"say '备份'\nBK=\"${APP}.sparkbak\"\n[ -d \"$BK\" ] || cp -R \"$APP\" \"$BK\"\n"];
     [s appendString:@"TMP=$(mktemp -d /tmp/spark-inj.XXXXXX)\n"];
@@ -530,7 +534,15 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
         [s appendString:[NSString stringWithFormat:@"say 'CoreTrust 绕过'\n%@ \"$EXE\" 2>/dev/null || true\n", [SPUtil shellQuote:ct]]];
     }
     if (self.wantLdid) {
-        [s appendString:@"say '补签'\n\"$LID\" -S \"$EXE\" 2>/dev/null || true\n"];
+        [s appendString:@"say '补签'\n"];
+        // insert_dylib 会移除旧 LC_CODE_SIGNATURE，这里必须重新生成 adhoc 签名
+        [s appendString:@"\"$LID\" -S \"$EXE\" 2>/dev/null || true\n"];
+        for (SPTrollPlugin *p in plugins) {
+            if ([p.path.pathExtension.lowercaseString isEqualToString:@"dylib"]) {
+                [s appendString:[NSString stringWithFormat:
+                    @"\"$LID\" -S \"$APP/%@\" 2>/dev/null || true\n", p.name]];
+            }
+        }
     }
     [s appendString:@"\"$OWN\" -R mobile:mobile \"$APP\" 2>/dev/null || true\n"];
     [s appendString:@"rm -rf \"$TMP\"\nsay '完成'\necho \"已注入 $APP\"\n"];
