@@ -400,8 +400,8 @@ jobs:
           # 空壳 bundle 复查（--check 只探测不修改，有问题退出 1）
           python3 scripts/fix-bundles.py --check "$APP"
 
-          # Mach-O 完好性 + 签名检查（含截断检测）
-          python3 scripts/check-macho.py "$APP"
+          # 签名前只查完好性（此时主程序尚未签名，属正常）
+          python3 scripts/check-macho.py --no-signature "$APP"
 
           LINKLEFT=$(find "$APP" -type l 2>/dev/null | wc -l | tr -d ' ')
           if [ "${LINKLEFT:-0}" -gt 0 ]; then

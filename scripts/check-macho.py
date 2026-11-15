@@ -89,7 +89,11 @@ def inspect(path: str):
 
 
 def main() -> int:
-    root = sys.argv[1] if len(sys.argv) > 1 else '.'
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    # --no-signature：只检查完好性（截断/头部损坏），不要求已签名。
+    # 签名前用这个：此时主程序还没签名是正常的。
+    allow_unsigned = '--no-signature' in sys.argv[1:]
+    root = args[0] if args else '.'
     if not os.path.isdir(root):
         print(f'[✗] 目录不存在: {root}')
         return 1
@@ -109,6 +113,8 @@ def main() -> int:
                 continue
             total += 1
             state, why = inspect(p)
+            if state == 'unsigned' and allow_unsigned:
+                continue
             if state != 'ok':
                 problems.append((os.path.relpath(p, root), state, why))
 
