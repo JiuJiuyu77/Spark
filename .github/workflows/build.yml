@@ -306,6 +306,8 @@ jobs:
           # 去掉可执行位（编译不需要它们）。
           # ------------------------------------------------------------------
           echo "==> 降级 shell 脚本（避免 ldid -s 报 Unknown header magic）"
+          # 工具链里很多文件是只读的，chmod 前先加写权限
+          chmod -R u+w "$APP" 2>/dev/null || true
           DEMOTED=0
           find "$APP" -type f -perm -u+x 2>/dev/null > /tmp/execlist.txt || true
           while IFS= read -r f; do
@@ -460,7 +462,9 @@ jobs:
             && echo "Share Extension 已包含 ✓" \
             || echo "::warning::Share Extension 没进包，分享菜单里不会出现 Spark"
           # 最终自检：ipa 里不能有 #! 可执行文件（否则用户装不上）
-          rm -rf /tmp/vfy && mkdir -p /tmp/vfy
+          chmod -R u+w /tmp/vfy 2>/dev/null || true
+          rm -rf /tmp/vfy 2>/dev/null || true
+          mkdir -p /tmp/vfy
           unzip -q "out/${SCHEME}-${V}-${A}.ipa" -d /tmp/vfy
           : > /tmp/badscript.txt
           find /tmp/vfy/Payload -type f -perm -u+x 2>/dev/null > /tmp/vfyexec.txt || true
@@ -476,7 +480,9 @@ jobs:
             exit 1
           fi
           echo "✓ 签名前检查通过：无 #! 可执行文件"
-          rm -rf /tmp/vfy
+          # unzip 出来的文件权限是只读，清理前要先改权限
+          chmod -R u+w /tmp/vfy 2>/dev/null || true
+          rm -rf /tmp/vfy 2>/dev/null || true
           echo "ipa 结构检查通过"
 
       - name: Upload artifacts
