@@ -6,7 +6,7 @@
 #import "SPTheme.h"
 #import "SPSyntax.h"
 
-@interface SPEditorViewController () <UITextViewDelegate>
+@interface SPEditorViewController () <UITextViewDelegate, UIScrollViewDelegate>
 @property (nonatomic, copy) NSString *filePath;
 @property (nonatomic, strong) UITextView *textView;
 @property (nonatomic, strong) UIView *gutter;
@@ -190,7 +190,7 @@
     if (self.onSave) self.onSave(self.filePath, text);
 }
 
-- (void)textViewDidChange:(UITextViewDelegate *)tv {
+- (void)textViewDidChange:(UITextView *)textView {
     self.dirty = YES;
     [self rebuildGutter];
     [self updateStatus];
