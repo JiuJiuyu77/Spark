@@ -99,16 +99,17 @@
             }
             if (!match) continue;
         }
-        // 目录里有 .sparkmount 就当作挂载点（点进去走远端浏览）
-        NSString *desc = [full stringByAppendingPathComponent:@".sparkmount"];
-        if (isDir && [fm fileExistsAtPath:desc]) {
-            r.mountDescriptor = desc;
-        }
         SPFileRow *r = [SPFileRow new];
         r.name = n;
         r.fullPath = full;
         r.isDirectory = isDir;
         r.size = [fm attributesOfItemAtPath:full error:NULL].fileSize;
+
+        // 目录里有 .sparkmount 就当作挂载点（点进去走远端浏览）
+        if (isDir) {
+            NSString *desc = [full stringByAppendingPathComponent:@".sparkmount"];
+            if ([fm fileExistsAtPath:desc]) r.mountDescriptor = desc;
+        }
         [isDir ? dirs : files addObject:r];
     }
     NSArray *cmp = @[[NSSortDescriptor sortDescriptorWithKey:@"name" ascending:YES selector:@selector(localizedStandardCompare:)]];
