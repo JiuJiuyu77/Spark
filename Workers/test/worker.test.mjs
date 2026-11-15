@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import worker from '../RBCloudWorker.js';
+import worker from '../SPCloudWorker.js';
 
 /** 极简 KV */
 function makeKV() {
@@ -37,7 +37,7 @@ function makeEnv(overrides = {}) {
     TOKEN: 'test-token-1234567890',
     GH_TOKEN: 'fake-gh',
     GH_OWNER: 'JiuJiuyu77',
-    GH_REPO: 'ReinBuild',
+    GH_REPO: 'Spark',
     GH_WORKFLOW: 'build.yml',
     GH_REF: 'main',
     MAX_UPLOAD_MB: '1',

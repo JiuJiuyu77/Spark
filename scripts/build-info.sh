@@ -17,10 +17,10 @@ GIT="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
 WHEN="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
 cat > include/build-info.mk <<EOF
-RB_VERSION := $VERSION
-RB_GIT_DESCRIBE := $GIT
-RB_BUILD_DATE := $WHEN
-RB_EXTRA_CFLAGS := -DRB_VERSION_STR='"$VERSION"' -DRB_GIT_DESCRIBE='"$GIT"' -DRB_BUILD_DATE='"$WHEN"'
+SP_VERSION := $VERSION
+SP_GIT_DESCRIBE := $GIT
+SP_BUILD_DATE := $WHEN
+SP_EXTRA_CFLAGS := -DSP_VERSION_STR='"$VERSION"' -DSP_GIT_DESCRIBE='"$GIT"' -DSP_BUILD_DATE='"$WHEN"'
 EOF
 
 echo "生成 include/build-info.mk"

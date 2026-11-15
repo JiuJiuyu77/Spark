@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * reinbuild —— 命令行入口，配合 ReinBuild App 的「工具链」页使用。
+ * spark —— 命令行入口，配合 Spark App 的「工具链」页使用。
  *
  * 用法：
- *   node bin/reinbuild.mjs doctor                     # 体检：有哪些编译能力
- *   node bin/reinbuild.mjs projects                   # 列出候选项目
- *   node bin/reinbuild.mjs script <项目目录> [选项]    # 打印构建脚本
- *   node bin/reinbuild.mjs build  <项目目录> [选项]    # 直接编译（真机编译）
- *   node bin/reinbuild.mjs analyze <二进制> [模式]     # 逆向分析（rabin2）
+ *   node bin/spark.mjs doctor                     # 体检：有哪些编译能力
+ *   node bin/spark.mjs projects                   # 列出候选项目
+ *   node bin/spark.mjs script <项目目录> [选项]    # 打印构建脚本
+ *   node bin/spark.mjs build  <项目目录> [选项]    # 直接编译（真机编译）
+ *   node bin/spark.mjs analyze <二进制> [模式]     # 逆向分析（rabin2）
  *
  * 选项：
  *   --ollvm none|light|balanced|strong|custom   --passes indbr,icall,...
@@ -115,7 +115,7 @@ function optionsFromFlags() {
 }
 
 async function cmdDoctor() {
-  console.log('ReinBuild doctor\n');
+  console.log('Spark doctor\n');
   const tc = toolchain();
   const lines = [
     ['Rein 目录', REIN_ROOT],
@@ -134,7 +134,7 @@ async function cmdDoctor() {
 
 async function cmdProjects() {
   const roots = [
-    path.join(HOME, 'Documents/ReinBuild/projects'),
+    path.join(HOME, 'Documents/Spark/projects'),
     path.join(REIN_ROOT, 'workspace'),
     path.join(REIN_ROOT, 'home'),
   ];
@@ -159,7 +159,7 @@ async function cmdProjects() {
 
 async function cmdScript() {
   const target = process.argv[3];
-  if (!target) return console.error('用法：reinbuild script <项目目录>');
+  if (!target) return console.error('用法：spark script <项目目录>');
   const dir = path.resolve(target);
   const tc = toolchain();
   const script = buildScript({ path: dir }, optionsFromFlags(), tc);
@@ -168,7 +168,7 @@ async function cmdScript() {
 
 async function cmdBuild() {
   const target = process.argv[3];
-  if (!target) return console.error('用法：reinbuild build <项目目录>');
+  if (!target) return console.error('用法：spark build <项目目录>');
   const dir = path.resolve(target);
   if (!exists(dir)) return console.error(`目录不存在：${dir}`);
   const tc = toolchain();
@@ -186,7 +186,7 @@ async function cmdBuild() {
 async function cmdAnalyze() {
   const bin = process.argv[3];
   const mode = process.argv[4] || 'info';
-  if (!bin) return console.error('用法：reinbuild analyze <二进制> [info|symbols|strings|imports|sections]');
+  if (!bin) return console.error('用法：spark analyze <二进制> [info|symbols|strings|imports|sections]');
   const tc = toolchain();
   const rabin2 = tc.reverseBin ? path.join(tc.reverseBin, 'rabin2') : 'rabin2';
   const map = { info: '-I', symbols: '-s', strings: '-zz', imports: '-i', sections: '-S', entry: '-e' };
@@ -204,7 +204,7 @@ const table = {
 };
 
 if (!table[cmd]) {
-  console.log(`reinbuild —— ReinBuild 的命令行伴生工具
+  console.log(`spark —— Spark 的命令行伴生工具
 
   doctor                      体检工具链
   projects                    列出候选项目

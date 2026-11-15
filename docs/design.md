@@ -17,16 +17,16 @@ Rein 本身是原生 App（DSH 二进制 + 内嵌 node）驱动 AI 改代码，�
 ## 2. 模块边界
 
 ```
-RBSession          子进程原语：posix_spawn + pipe + 行读 + 取消（TERM→KILL 整组）
+SPSession          子进程原语：posix_spawn + pipe + 行读 + 取消（TERM→KILL 整组）
    ↑
-RBBuilder          编排：脚本生成 → 执行 → 产物收集 → 诊断
+SPBuilder          编排：脚本生成 → 执行 → 产物收集 → 诊断
    ↑                        ↑
-RBToolchain        探测     ShareKit/model.js（判定逻辑的唯一真相）
+SPToolchain        探测     ShareKit/model.js（判定逻辑的唯一真相）
    ↑
 UI 层              Projects / Project / Console / Toolchain / Reverse
 ```
 
-**RBSession 不用 NSTask**：iOS 上 `NSTask` 不存在。这里用 `posix_spawn` 配
+**SPSession 不用 NSTask**：iOS 上 `NSTask` 不存在。这里用 `posix_spawn` 配
 `POSIX_SPAWN_SETPGROUP`，让 make 派生的所有进程落在同一个进程组里，取消时
 `kill(-pid)` 一次带走，避免编译中断后留下僵尸 clang。
 
@@ -64,7 +64,7 @@ SDK 选择：默认取版本号最大的；也可以在工具链页指定。
 
 ## 5. 失败诊断表
 
-`ShareKit/src/model.js` 的 `diagnose()` 与 `RBBuilder` 的 `diagnoseFailureFromLines:`
+`ShareKit/src/model.js` 的 `diagnose()` 与 `SPBuilder` 的 `diagnoseFailureFromLines:`
 共用同一张规则表（关键词 → 中文建议 → 分类）。分类用于以后做「一键修复」入口：
 `toolchain` 跳工具链页，`config` 跳选项，`ollvm` 建议关混淆重试。
 

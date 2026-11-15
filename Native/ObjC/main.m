@@ -1,13 +1,13 @@
 //
 //  main.m
-//  ReinBuild
+//  Spark
 //
 
 #import <UIKit/UIKit.h>
-#import "RBAppDelegate.h"
+#import "SPAppDelegate.h"
 
 int main(int argc, char *argv[]) {
     @autoreleasepool {
-        return UIApplicationMain(argc, argv, nil, NSStringFromClass([RBAppDelegate class]));
+        return UIApplicationMain(argc, argv, nil, NSStringFromClass([SPAppDelegate class]));
     }
 }

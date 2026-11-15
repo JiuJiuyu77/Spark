@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ReinBuild 工具链探测 —— 纯 Node，无第三方依赖。
+ * Spark 工具链探测 —— 纯 Node，无第三方依赖。
  *
  * 用途：
  *   1. 在命令行快速看清本机 Rein 环境到底有哪些编译能力
@@ -127,7 +127,7 @@ function report(results, found) {
     console.log('没有找到任何 Rein 目录。用 REIN_ROOT=... 指定。');
     process.exit(1);
   }
-  console.log(`\nReinBuild 工具链探测\n扫描目录：${(found || results.map((r) => r.root)).join("\n          ")}\n`);
+  console.log(`\nSpark 工具链探测\n扫描目录：${(found || results.map((r) => r.root)).join("\n          ")}\n`);
   const labels = {
     theos: 'Theos',
     sdk: 'iPhoneOS SDK',

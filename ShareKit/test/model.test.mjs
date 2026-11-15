@@ -81,7 +81,7 @@ test('make 环境变量：OLLVM passes 展开', () => {
   assert.ok(env.ADDITIONAL_CCFLAGS.includes('--irobf-icall'));
   assert.ok(env.ADDITIONAL_CCFLAGS.includes('--irobf-cse'));
   assert.equal(env.ADDITIONAL_CPPFLAGS, undefined, '旧变量名会触发 Theos deprecate 警告');
-  assert.equal(env.RB_OLLVM_PASSES, 'indbr,icall,cse');
+  assert.equal(env.SP_OLLVM_PASSES, 'indbr,icall,cse');
 });
 
 test('extraEnv 覆盖生效', () => {

@@ -1,14 +1,14 @@
 {
-  "name": "reinbuild-toolchain",
+  "name": "spark-toolchain",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "让 ReinBuild 一键探测已有的 Theos / SDK / OLLVM / 逆向工具，并生成可复现的构建脚本",
+  "description": "让 Spark 一键探测已有的 Theos / SDK / OLLVM / 逆向工具，并生成可复现的构建脚本",
   "scripts": {
     "detect": "node scripts/detect-toolchain.mjs",
     "gen": "node scripts/gen-build-script.mjs",
     "test": "node --test ShareKit/test/model.test.mjs Workers/test/worker.test.mjs",
-    "check": "node --check Workers/RBCloudWorker.js && python3 scripts/check-balance.py"
+    "check": "node --check Workers/SPCloudWorker.js && python3 scripts/check-balance.py"
   },
   "engines": {
     "node": ">=18"

@@ -1,16 +1,16 @@
 name: build
 
-# ReinBuild —— iOS 原生 App 的云端构建
+# Spark —— iOS 原生 App 的云端构建
 #
-# 为什么必须 macos runner：ReinBuild 是链接 UIKit 的 iOS 应用，
+# 为什么必须 macos runner：Spark 是链接 UIKit 的 iOS 应用，
 # 只能由 Xcode 的 iPhoneOS SDK + ld64 产出 Mach-O；Linux 跑不了。
 #
 # 触发方式：
 #   · push / PR / tag：自动构建并留档产物
-#   · workflow_dispatch：给手机端 ReinBuild（或 Cloudflare Worker）远程触发
+#   · workflow_dispatch：给手机端 Spark（或 Cloudflare Worker）远程触发
 #   · workflow_call：可以被别的 workflow 复用
 #
-# 产物：ReinBuild-<版本>-<arch>.ipa、*.app.zip、可选 .deb
+# 产物：Spark-<版本>-<arch>.ipa、*.app.zip、可选 .deb
 
 on:
   push:
@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       job_id:
-        description: 'ReinBuild 任务号（远程触发时由 Worker 传入）'
+        description: 'Spark 任务号（远程触发时由 Worker 传入）'
         required: false
         default: ''
       note:
@@ -59,15 +59,15 @@ jobs:
           node --test ShareKit/test/model.test.mjs
           node --test Workers/test/worker.test.mjs
       - name: Syntax check Worker
-        run: node --check Workers/RBCloudWorker.js
+        run: node --check Workers/SPCloudWorker.js
       - name: Toolchain detector smoke
         run: node scripts/detect-toolchain.mjs --json | head -c 400
 
   # ---------------------------------------------------------------------------
-  # 2. 真机构建：在 macOS runner 上用 iPhoneOS SDK 编译 ReinBuild
+  # 2. 真机构建：在 macOS runner 上用 iPhoneOS SDK 编译 Spark
   # ---------------------------------------------------------------------------
   build:
-    name: Build ReinBuild (${{ matrix.arch }})
+    name: Build Spark (${{ matrix.arch }})
     needs: test
     runs-on: macos-14
     strategy:
@@ -75,8 +75,8 @@ jobs:
       matrix:
         arch: [arm64]
     env:
-      SCHEME: ReinBuild
-      BUNDLE_ID: com.reinbuild.app
+      SCHEME: Spark
+      BUNDLE_ID: com.HuQing.Spark
       TEAM_ID: ''
     steps:
       - uses: actions/checkout@v4
@@ -101,8 +101,8 @@ jobs:
           echo "when=$WHEN" >> "$GITHUB_OUTPUT"
           plutil -replace CFBundleShortVersionString -string "$VERSION" Native/Resources/Info.plist
           plutil -replace CFBundleVersion -string "${{ github.run_number }}" Native/Resources/Info.plist
-          plutil -replace RBGitDescribe -string "$GIT" Native/Resources/Info.plist
-          plutil -replace RBBuildDate -string "$WHEN" Native/Resources/Info.plist
+          plutil -replace SPGitDescribe -string "$GIT" Native/Resources/Info.plist
+          plutil -replace SPBuildDate -string "$WHEN" Native/Resources/Info.plist
           echo "版本 $VERSION / $GIT"
 
       # -----------------------------------------------------------------------
@@ -170,7 +170,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ReinBuild-${{ steps.info.outputs.version }}-${{ matrix.arch }}
+          name: Spark-${{ steps.info.outputs.version }}-${{ matrix.arch }}
           path: out/*
           if-no-files-found: error
           retention-days: 30
@@ -178,7 +178,7 @@ jobs:
       - name: Write job summary
         run: |
           {
-            echo "## ReinBuild 构建完成"
+            echo "## Spark 构建完成"
             echo ""
             echo "| 项目 | 值 |"
             echo "|---|---|"
@@ -211,4 +211,4 @@ jobs:
         with:
           files: artifacts/*
           generate_release_notes: true
-          name: ReinBuild ${{ github.ref_name }}
+          name: Spark ${{ github.ref_name }}

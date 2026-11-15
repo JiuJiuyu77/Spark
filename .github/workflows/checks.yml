@@ -27,7 +27,7 @@ jobs:
           node --test Workers/test/worker.test.mjs
 
       - name: Worker syntax
-        run: node --check Workers/RBCloudWorker.js
+        run: node --check Workers/SPCloudWorker.js
 
       - name: Generated script is valid shell
         run: |

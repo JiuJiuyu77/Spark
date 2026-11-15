@@ -1,13 +1,13 @@
 <div align="center">
 
-# ReinBuild
+# Spark
 
 **参考 Rein（DSH.app）复刻的可视化编译工具 —— 一个 iOS 原生 App**
 
 Theos / Logos 一键编译 · OLLVM 混淆 · 逆向工具台 · 本机 / 远程 / GitHub CI 三种构建
 
-[![build](https://github.com/JiuJiuyu77/ReinBuild/actions/workflows/build.yml/badge.svg)](https://github.com/JiuJiuyu77/ReinBuild/actions/workflows/build.yml)
-[![checks](https://github.com/JiuJiuyu77/ReinBuild/actions/workflows/checks.yml/badge.svg)](https://github.com/JiuJiuyu77/ReinBuild/actions/workflows/checks.yml)
+[![build](https://github.com/JiuJiuyu77/Spark/actions/workflows/build.yml/badge.svg)](https://github.com/JiuJiuyu77/Spark/actions/workflows/build.yml)
+[![checks](https://github.com/JiuJiuyu77/Spark/actions/workflows/checks.yml/badge.svg)](https://github.com/JiuJiuyu77/Spark/actions/workflows/checks.yml)
 ![platform](https://img.shields.io/badge/platform-iOS%2015%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -17,11 +17,11 @@ Theos / Logos 一键编译 · OLLVM 混淆 · 逆向工具台 · 本机 / 远程
 
 ## 这是什么
 
-ReinBuild 是一个装在越狱 iPhone 上的**原生 App**，把「写 tweak → 编译 → 打包 → 看日志」整条链路收进手机里。
+Spark 是一个装在越狱 iPhone 上的**原生 App**，把「写 tweak → 编译 → 打包 → 看日志」整条链路收进手机里。
 它参照 Rein 的数据目录（`/var/mobile/Documents/Rein`）里那套工具链设计：**不重复造轮子，只把已有的
 Theos / OLLVM / radare2 串起来**，并给它们一个能点的界面。
 
-| 你在 Rein 里做的事 | ReinBuild 里对应的地方 |
+| 你在 Rein 里做的事 | Spark 里对应的地方 |
 |---|---|
 | 让 AI 帮你改代码、跑 `make package` | 「项目」页 → 编译按钮 → 控制台实时日志 |
 | `tools/theos-full` 多 SDK | 「工具链」页扫描并选 SDK |
@@ -71,7 +71,7 @@ Theos / OLLVM / radare2 串起来**，并给它们一个能点的界面。
 - **构建选项**：架构（arm64 / arm64e / 双架构）、包格式（传统 deb / rootless deb / .app / .tipa）、Debug↔Release、clean、`-j` 并行、ldid 补签、strip
 - **命令可预览**：任何一次编译都能先「预览命令」，看到的就是将要执行的完整 shell 脚本，可复制、可贴到终端复现
 - **失败会说人话**：从输出里认出 `ld: library not found` / 头文件缺失 / 被 OOM kill / Logos 语法错 等 10 多类问题，直接给一句中文建议
-- **日志**：虚拟化列表（几万行不卡）、颜色分级、复制、落盘到 `Documents/ReinBuild/logs/`
+- **日志**：虚拟化列表（几万行不卡）、颜色分级、复制、落盘到 `Documents/Spark/logs/`
 
 ### OLLVM
 
@@ -104,31 +104,31 @@ Theos / OLLVM / radare2 串起来**，并给它们一个能点的界面。
 ## 仓库结构
 
 ```
-ReinBuild/
+Spark/
 ├── Native/                  iOS App（Objective-C，26 个源文件）
 │   ├── ObjC/
-│   │   ├── main.m / RBAppDelegate.m        入口 + 三 Tab 外壳
-│   │   ├── RBProjectsViewController.m      项目列表 / 新建 / 导入
-│   │   ├── RBProjectViewController.m       单项目面板（选项 + 快捷操作）
-│   │   ├── RBConsoleViewController.m       构建控制台
-│   │   ├── RBToolchainViewController.m     工具链探测 / SDK / 远程 / CI 设置
-│   │   ├── RBReverseViewController.m       逆向工具台
-│   │   ├── RBFileBrowserViewController.m   文件树
-│   │   ├── RBEditorViewController.m        带行号 + 语法着色编辑器
-│   │   ├── RBLogView.m                     虚拟化日志视图
-│   │   ├── RBSession.m                     posix_spawn 子进程 + 管道读行 + 可取消
-│   │   ├── RBBuilder.m                     构建编排 / 产物收集 / 失败诊断
-│   │   ├── RBToolchain.m                   按 Rein 的目录布局探测
-│   │   ├── RBModels.m                      项目 / 选项 / 任务模型
-│   │   ├── RBStore.m                       JSON 持久化
-│   │   ├── RBSyntax.m                      Logos/ObjC/C/Makefile 高亮
-│   │   └── RBTheme.m / RBCompat.m          视觉与基础设施
+│   │   ├── main.m / SPAppDelegate.m        入口 + 三 Tab 外壳
+│   │   ├── SPProjectsViewController.m      项目列表 / 新建 / 导入
+│   │   ├── SPProjectViewController.m       单项目面板（选项 + 快捷操作）
+│   │   ├── SPConsoleViewController.m       构建控制台
+│   │   ├── SPToolchainViewController.m     工具链探测 / SDK / 远程 / CI 设置
+│   │   ├── SPReverseViewController.m       逆向工具台
+│   │   ├── SPFileBrowserViewController.m   文件树
+│   │   ├── SPEditorViewController.m        带行号 + 语法着色编辑器
+│   │   ├── SPLogView.m                     虚拟化日志视图
+│   │   ├── SPSession.m                     posix_spawn 子进程 + 管道读行 + 可取消
+│   │   ├── SPBuilder.m                     构建编排 / 产物收集 / 失败诊断
+│   │   ├── SPToolchain.m                   按 Rein 的目录布局探测
+│   │   ├── SPModels.m                      项目 / 选项 / 任务模型
+│   │   ├── SPStore.m                       JSON 持久化
+│   │   ├── SPSyntax.m                      Logos/ObjC/C/Makefile 高亮
+│   │   └── SPTheme.m / SPCompat.m          视觉与基础设施
 │   └── Resources/Info.plist
-├── ShareKit/                共享逻辑（App / Worker / CLI 用同一份判定）
+├── ShareKit/                 共享逻辑（App / Worker / CLI 用同一份判定）
 │   ├── src/model.js         项目识别、make 参数、脚本生成、错误诊断
 │   └── test/model.test.mjs  17 个用例
-├── Workers/RBCloudWorker.js Cloudflare Worker：上传 / 派发 / 轮询 / 拉产物
-├── bin/reinbuild.mjs        CLI：doctor / projects / script / build / analyze
+├── Workers/SPCloudWorker.js  Cloudflare Worker：上传 / 派发 / 轮询 / 拉产物
+├── bin/spark.mjs            CLI：doctor / projects / script / build / analyze
 ├── scripts/                 工具链探测、脚本生成、括号体检
 ├── .github/workflows/       build.yml（macOS 真机构建）+ checks.yml（秒级检查）
 ├── Makefile / control       自身也是标准 Theos 工程
@@ -148,14 +148,14 @@ ReinBuild/
 ### 1. 云端构建（不用自己装任何东西）
 
 ```bash
-git clone https://github.com/JiuJiuyu77/ReinBuild.git
-cd ReinBuild
+git clone https://github.com/JiuJiuyu77/Spark.git
+cd Spark
 
 # 看一眼工具链探测能不能认出 Rein 的目录
 REIN_ROOT=/var/mobile/Documents/Rein node scripts/detect-toolchain.mjs
 ```
 
-推到 GitHub 后，Actions 里的 `build` 工作流会自动编译出 `ReinBuild-<版本>-arm64.ipa`。
+推到 GitHub 后，Actions 里的 `build` 工作流会自动编译出 `Spark-<版本>-arm64.ipa`。
 打 tag 时会自动建 Release：
 
 ```bash
@@ -167,15 +167,15 @@ git tag v1.0.0 && git push origin v1.0.0
 CI 产物是 `codesign -s -` 的临时签名，装到真机要换自己的证书：
 
 ```bash
-unzip ReinBuild-1.0.0-arm64.ipa
+unzip Spark-1.0.0-arm64.ipa
 codesign -f -s "Apple Development: 你的名字 (XXXXXXXXXX)" \
-         --entitlements entitlements.plist Payload/ReinBuild.app
+         --entitlements entitlements.plist Payload/Spark.app
 # 或者用 TrollStore / AltStore / 自签工具直接装 .ipa
 ```
 
 ### 3. 真机直接编译（App 内）
 
-1. 打开 ReinBuild → **工具链**，确认 Theos / SDK / Darwin 工具三项是 ✓
+1. 打开 Spark → **工具链**，确认 Theos / SDK / Darwin 工具三项是 ✓
 2. **项目** 页点 `+` → 新建 tweak 模板，或「从磁盘选择目录」导入已有工程
 3. 进项目 → 选好选项 → 点 **编译**
 4. 编译完成点产物名可以直接分享 / 存到文件 App
@@ -183,10 +183,10 @@ codesign -f -s "Apple Development: 你的名字 (XXXXXXXXXX)" \
 ### 4. 命令行（不用打开 App）
 
 ```bash
-node bin/reinbuild.mjs doctor                       # 体检
-node bin/reinbuild.mjs script /var/mobile/MyTweak   # 只打印会执行的脚本
-node bin/reinbuild.mjs build  /var/mobile/MyTweak --release --ollvm strong
-node bin/reinbuild.mjs analyze /var/mobile/MyTweak/.theos/obj/MyTweak.dylib strings
+node bin/spark.mjs doctor                       # 体检
+node bin/spark.mjs script /var/mobile/MyTweak   # 只打印会执行的脚本
+node bin/spark.mjs build  /var/mobile/MyTweak --release --ollvm strong
+node bin/spark.mjs analyze /var/mobile/MyTweak/.theos/obj/MyTweak.dylib strings
 ```
 
 ## 远程构建 Worker（可选）
@@ -196,7 +196,7 @@ node bin/reinbuild.mjs analyze /var/mobile/MyTweak/.theos/obj/MyTweak.dylib stri
 ```bash
 npm i -g wrangler
 wrangler kv namespace create JOBS        # 填进 wrangler.toml
-wrangler r2 bucket create reinbuild-uploads
+wrangler r2 bucket create spark-uploads
 wrangler secret put TOKEN                # 手机端要填同一个
 wrangler secret put GH_TOKEN             # PAT，需要 actions:write
 wrangler deploy

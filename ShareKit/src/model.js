@@ -1,5 +1,5 @@
 /**
- * ReinBuild 共享模型 —— 这是 App / Worker / CI 三端唯一的一份「真相」。
+ * Spark 共享模型 —— 这是 App / Worker / CI 三端唯一的一份「真相」。
  *
  * 为什么要单独一份 JS：iOS 原生 App 里跑的是 Node 环境的逻辑（判断项目类型、
  * 拼 make 参数、解析错误），GitHub Actions 和 Cloudflare Worker 也要用同一套
@@ -199,7 +199,7 @@ export function detectProject(io) {
   return info;
 }
 
-/** 把选项翻译成 make 环境变量（与 Native/ObjC/RBModels.m 一一对应） */
+/** 把选项翻译成 make 环境变量（与 Native/ObjC/SPModels.m 一一对应） */
 export function makeEnvironment(options = {}) {
   const o = { ...defaultOptions(), ...options };
   const env = {};
@@ -231,7 +231,7 @@ export function makeEnvironment(options = {}) {
     // 新版 Theos 认 ADDITIONAL_CCFLAGS；老的 ADDITIONAL_CFLAGS/CPPFLAGS 会报 deprecate
     env.ADDITIONAL_CCFLAGS = flags;
     env.ADDITIONAL_OBJCFLAGS = flags;
-    env.RB_OLLVM_PASSES = passes.join(',');
+    env.SP_OLLVM_PASSES = passes.join(',');
   }
 
   if (o.version) env.PACKAGE_VERSION = o.version;
@@ -269,7 +269,7 @@ export function buildScript(project, options = {}, profile = {}) {
   const q = shellQuote;
   const lines = [
     '#!/bin/sh',
-    '# ReinBuild 生成的构建脚本',
+    '# Spark 生成的构建脚本',
     'set -o pipefail 2>/dev/null || true',
     'export LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8',
     'say() { printf "\\033[1;36m==> %s\\033[0m\\n" "$1"; }',
