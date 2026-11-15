@@ -365,11 +365,29 @@ export function buildScript(project, options = {}, profile = {}) {
     lines.push("say '清理旧产物'", 'rm -rf .theos/_ .theos/obj packages 2>/dev/null || true');
   }
 
+  // Rein 的经验：真 root 环境下 Theos 的 fakeroot 是空壳，可以直接用 dpkg-deb 打包
+  // 这里显式告诉 Theos：不要尝试 fauxsu / fakeroot-ng
+  lines.push('');
+  lines.push(`if [ "$(id -u)" = "0" ]; then ok '当前是 root，跳过 fakeroot 包装'; export THEOS_USE_FAKEROOT=0; fi`);
+  lines.push('export COPYFILE_DISABLE=1');   // 避免 macOS/Linux 资源分叉文件进 deb
+  // deb 压缩：xz -1 是速度/体积平衡点（默认 xz -6 在手机上慢得多）
+  lines.push('export THEOS_PLATFORM_DEB_COMPRESSION_LEVEL=1');
+
   lines.push('', "say '开始编译'", `echo "+ make ${args.join(' ')}"`, 'make ' + args.map(q).join(' '), 'rc=$?');
   lines.push('end=$(date +%s)');
   lines.push('if [ $rc -ne 0 ]; then echo "[!] 编译失败，退出码 $rc"; exit $rc; fi');
   lines.push('ok "用时 $((end - begin)) 秒"');
-  lines.push('', "say '产物'", 'ls -lh packages/*.deb .theos/_/ 2>/dev/null | sed "s/^/    /" || true');
+  lines.push('', "say '产物'");
+  lines.push('ls -lh packages/*.deb .theos/_/ 2>/dev/null | sed "s/^/    /" || true');
+  // 产物自检：把 deb 拆开看一眼结构对不对（Rein 的 inject 脚本也是结构化输出）
+  lines.push(`for d in packages/*.deb; do`);
+  lines.push(`  [ -f "$d" ] || continue`);
+  lines.push(`  if command -v dpkg-deb >/dev/null 2>&1; then`);
+  lines.push(`    ok "校验 $(basename "$d")"`);
+  lines.push(`    dpkg-deb -I "$d" 2>/dev/null | grep -E 'Package:|Version:|Architecture:' | sed 's/^/      /' || true`);
+  lines.push(`    dpkg-deb -c "$d" 2>/dev/null | head -5 | sed 's/^/      /' || true`);
+  lines.push(`  fi`);
+  lines.push(`done`);
 
   // 构建报告（report.json）：把关键信息留档，方便事后查
   lines.push('', "say '生成构建报告'");

@@ -132,3 +132,54 @@ Spark 的 `pickSDK()` 逻辑不完全相同：**优先选 ≤ 目标版本的最
 Rein 的**工程经验**（不要用 strings、PlistBuddy 而非 plutil、重签要覆盖 dylib、
 父进程自毁）比它的功能列表更值得借鉴 —— 这些都是踩过坑才写下的注释，
 Spark 已经把这些逐条落到实现里。
+
+## 8. 打包链路（第二轮分析）
+
+### 8.1 fakeroot 在真 root 下是空壳
+
+`tools/bin/fakeroot.sh` 的判断顺序：
+
+```sh
+if [[ "$USER" == "root" || "$EUID" -eq 0 ]]; then
+    fakeroot=""          # ← 真 root 直接用空字符串
+elif type fauxsu;  then fakeroot="fauxsu -p $persistence -- "
+elif type fakeroot-ng; then ...
+else fakeroot=": "       # ← 连命令都没有，用冒号占位
+fi
+```
+
+而 `makefiles/common.mk:337` 把它设成 `FAKEROOT := $(_THEOS_CA_BASH) fakeroot.sh -p ...`，
+所以**在 TrollStore 的 root 环境下，打包这一步等于没有任何包装**。
+
+**Spark 已采纳**：构建脚本里 `id -u == 0` 时显式 `export THEOS_USE_FAKEROOT=0`。
+
+### 8.2 dpkg-deb 齐全，可以自己校验产物
+
+Rein 的 `theos-root/usr/bin/` 里有完整 dpkg 套件：
+
+```
+dpkg-deb  dpkg  dpkg-query  dpkg-split  dpkg-statoverride  dpkg-trigger
+```
+
+**Spark 已采纳**：构建结束后用 `dpkg-deb -I` / `-c` 把 deb 拆开打印
+Package / Version / Architecture 与前 5 个文件，结构不对当场就能看见。
+
+### 8.3 压缩级别
+
+Theos 默认用 `xz -6` 打包 deb。手机上 `-6` 明显慢，而插件包通常只有几百 KB，
+`-1` 的体积差不到 5%。**Spark 默认设 `THEOS_PLATFORM_DEB_COMPRESSION_LEVEL=1`。**
+
+### 8.4 COPYFILE_DISABLE=1
+
+Rein 的 `deb.mk` 里打包命令带 `COPYFILE_DISABLE=1`，避免 macOS/Linux 的
+`._*` 资源分叉文件混进 deb（会让安装后多出一堆垃圾文件）。**Spark 已采纳。**
+
+## 9. 第二轮新增的对照结论
+
+| 项 | Rein 做法 | Spark | 状态 |
+|---|---|---|---|
+| fakeroot 跳过 | 真 root 下空壳 | 显式 THEOS_USE_FAKEROOT=0 | ✅ |
+| deb 产物自检 | inject 脚本输出 JSON | dpkg-deb -I/-c 打印摘要 | ✅ |
+| deb 压缩级别 | 默认 -6 | 改 -1 | ✅ |
+| COPYFILE_DISABLE | 有 | 已加 | ✅ |
+| 结构化结果 | inject 输出 JSON | 注入输出 JSON | ✅ |

@@ -100,6 +100,13 @@
     for (NSString *a in args) [quoted addObject:[SPUtil shellQuote:a]];
     NSString *makeCmd = [@"make " stringByAppendingString:[quoted componentsJoinedByString:@" "]];
 
+    // Rein 经验：真 root 下 Theos 的 fakeroot 是空壳，可显式关掉
+    [lines addObject:@""];
+    [lines addObject:@"if [ \"$(id -u)\" = \"0\" ]; then ok '当前是 root，跳过 fakeroot 包装'; export THEOS_USE_FAKEROOT=0; fi"];
+    [lines addObject:@"export COPYFILE_DISABLE=1"];
+    // xz -1 是速度/体积平衡点（默认 -6 在手机上慢得多）
+    [lines addObject:@"export THEOS_PLATFORM_DEB_COMPRESSION_LEVEL=1"];
+
     [lines addObject:@"say '开始编译'"];
     [lines addObject:[NSString stringWithFormat:@"echo '+ %@'", makeCmd]];
     [lines addObject:@"__rb_start=$(date +%s)"];
@@ -118,6 +125,14 @@
     // ---- 产物 ----
     [lines addObject:@"say '收集产物'"];
     [lines addObject:@"ls -lh packages/*.deb .theos/_/ 2>/dev/null | sed 's/^/    /' || true"];
+    // 产物自检：拆开 deb 看结构
+    [lines addObject:@"for d in packages/*.deb; do"];
+    [lines addObject:@"  [ -f \"$d\" ] || continue"];
+    [lines addObject:@"  if command -v dpkg-deb >/dev/null 2>&1; then"];
+    [lines addObject:@"    ok \"校验 $(basename \"$d\")\""];
+    [lines addObject:@"    dpkg-deb -I \"$d\" 2>/dev/null | grep -E 'Package:|Version:|Architecture:' | sed 's/^/      /' || true"];
+    [lines addObject:@"  fi"];
+    [lines addObject:@"done"];
     [lines addObject:@"__rb_end=$(date +%s)"];
     [lines addObject:@"ok \"用时 $((__rb_end - __rb_begin)) 秒\""];
 
