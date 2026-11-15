@@ -197,6 +197,13 @@ cat > "$PKGROOT/manifest.json" <<EOF
 }
 EOF
 
+say "5.5/6 清理空壳 bundle（否则 TrollStore 的 ldid -s 会报 Unknown header magic）"
+if [ -f "$(dirname "$0")/fix-bundles.py" ]; then
+	python3 "$(dirname "$0")/fix-bundles.py" "$PKGROOT" || warn "清理脚本执行失败"
+else
+	warn "找不到 fix-bundles.py，跳过（可能导致安装失败）"
+fi
+
 say "6/6 压缩"
 PKG="$OUTDIR/SparkTheosRuntime.tar.gz"
 rm -f "$PKG"

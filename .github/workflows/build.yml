@@ -333,6 +333,14 @@ jobs:
             echo "  无符号链接"
           fi
 
+          # ------------------------------------------------------------------
+          # 清理「空壳 bundle」：Theos vendor 里很多 framework 只有 .tbd 桩，
+          # 没有真实二进制。ldid -s 会读 Info.plist 的 CFBundleExecutable
+          # 然后去打开那个文件，找不到就报 "Unknown header magic"。
+          # ------------------------------------------------------------------
+          echo "==> 清理空壳 bundle"
+          python3 scripts/fix-bundles.py "$APP" || echo "::warning::清理脚本失败"
+
           # 工具链里很多文件是只读的，chmod 前先加写权限
           chmod -R u+w "$APP" 2>/dev/null || true
           DEMOTED=0
@@ -365,6 +373,14 @@ jobs:
             exit 1
           fi
           echo "  ✓ 无残留脚本"
+
+          # 空壳 bundle 复查：还有就说明清理没生效
+          EMPTY=$(python3 scripts/fix-bundles.py "$APP" 2>/dev/null | grep -c '^    - ' || true)
+          if [ "${EMPTY:-0}" -gt 0 ]; then
+            echo "::error::仍有空壳 bundle，ldid -s 会失败"
+            exit 1
+          fi
+          echo "  ✓ 无空壳 bundle"
 
           LINKLEFT=$(find "$APP" -type l 2>/dev/null | wc -l | tr -d ' ')
           if [ "${LINKLEFT:-0}" -gt 0 ]; then
