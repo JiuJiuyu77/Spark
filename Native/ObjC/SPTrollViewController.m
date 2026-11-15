@@ -14,6 +14,7 @@
 #import "SPEditorViewController.h"
 #import "SPToolchain.h"
 #import "SPToolchainInstaller.h"
+#import "SPBackground.h"
 
 static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Application";
 
@@ -557,14 +558,16 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
         if (r.exitCode == 0) [SPMotion hapticSuccess]; else [SPMotion hapticError];
         NSString *text = [NSString stringWithFormat:@"sh %@\n退出码 %ld\n\n%@\n%@",
                           path, (long)r.exitCode, log, r.stderrText ?: @""];
+        [[SPBackground shared] endKeepAlive:@"inject"];
         NSString *p = [[SPStore shared] persistLogText:text jobId:@"inject"];
         SPEditorViewController *e = [[SPEditorViewController alloc] initWithFilePath:p];
         [self.navigationController pushViewController:e animated:YES];
         if (self.onFinished) self.onFinished();
     };
     session.timeout = 300;
+    [[SPBackground shared] beginKeepAlive:@"inject"];
     [session runShell:[NSString stringWithFormat:@"sh %@", [SPUtil shellQuote:path]]];
-    [self alert:@"注入已开始" message:@"完成后会自动打开日志。请勿退出 App。"];
+    [self alert:@"注入已开始" message:@"已开启后台保活，切到后台也会继续执行。"];
 }
 
 - (void)alert:(NSString *)title message:(NSString *)message {

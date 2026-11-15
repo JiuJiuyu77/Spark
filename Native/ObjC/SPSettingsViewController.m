@@ -13,6 +13,7 @@
 #import "SPCompat.h"
 #import "SPSession.h"
 #import "SPJIT.h"
+#import "SPBackground.h"
 #import "SPFileBrowserViewController.h"
 #import "SPMountsViewController.h"
 #import "SPMount.h"
@@ -131,7 +132,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
         case SPSectionFiles:         return 5;
         case SPSectionMCP:           return 4;
         case SPSectionTarget:        return 4;
-        case SPSectionDisplay:       return 5;
+        case SPSectionDisplay:       return 6;
         default:                     return 3;
     }
 }
@@ -245,6 +246,18 @@ typedef NS_ENUM(NSInteger, SPSection) {
                     cell.detailTextLabel.text = [NSString stringWithFormat:@"%.0f pt", self.logFontSize];
                     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
                     break;
+                case 4: {
+                    // 后台保活
+                    cell.textLabel.text = @"后台保活（编译中）";
+                    cell.detailTextLabel.text = [SPBackground shared].statusText;
+                    UISwitch *sw = [[UISwitch alloc] init];
+                    sw.tag = 6004;
+                    sw.on = [SPBackground shared].userEnabled;
+                    [sw addTarget:self action:@selector(toggleSetting:) forControlEvents:UIControlEventValueChanged];
+                    cell.accessoryView = sw;
+                    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+                    break;
+                }
                 default: {
                     // JIT 加速：只读状态 + 开关
                     cell.textLabel.text = @"JIT 加速";
@@ -433,6 +446,11 @@ typedef NS_ENUM(NSInteger, SPSection) {
             break;
         case 6001: [d setBool:sw.isOn forKey:@"Spark.haptics"]; [SPMotion hapticLight]; break;
         case 6002: SPSettings.shared.keepScreenOn = sw.isOn; [SPSettings.shared save]; break;
+        case 6004:
+            [SPBackground shared].userEnabled = sw.isOn;
+            [self.table reloadData];
+            [self toast:sw.isOn ? @"后台保活已开启" : @"后台保活已关闭"];
+            return;
         case 6003:
             [SPJIT shared].userEnabled = sw.isOn;
             if (sw.isOn) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ [[SPJIT shared] probe]; });

@@ -15,6 +15,7 @@
 #import "SPModels.h"
 #import "SPToolchain.h"
 #import "SPAnimationKit.h"
+#import "SPBackground.h"
 
 @interface SPConsoleViewController ()
 @property (nonatomic, strong) SPProject *project;
@@ -307,6 +308,8 @@
     }];
 
     if (SPSettings.shared.keepScreenOn) [UIApplication sharedApplication].idleTimerDisabled = YES;
+    // 长任务保活：切后台也继续编译
+    [[SPBackground shared] beginKeepAlive:@"build"];
 
     self.session = [SPBuilder buildProject:self.project options:self.project.options profile:self.profile
         onLine:^(NSString *line, SPLogLevel level) {
@@ -331,6 +334,7 @@
     [self.ticker invalidate];
     self.ticker = nil;
     [UIApplication sharedApplication].idleTimerDisabled = NO;
+    [[SPBackground shared] endKeepAlive:@"build"];
     self.timerLabel.text = [SPUtil formatDuration:job.duration];
 
     [self.primaryButton setTitle:@"重新编译" forState:UIControlStateNormal];
