@@ -41,7 +41,7 @@
         _enabled = YES;
         _viaSubprocess = YES;
         _lastProbe = [NSDate date];
-        SPLog(@"JIT 探测：可用（子进程 pid=%d）", (int)[SPJITService shared].helperPid);
+        SPLog(@"JIT 探测：可用（子进程 pid=%d）", (int)[[SPJITService shared] helperPid]);
         return;
     }
 

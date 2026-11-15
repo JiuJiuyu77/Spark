@@ -36,6 +36,9 @@ typedef NS_ENUM(NSInteger, SPJITServiceState) {
 /// helper 可执行文件路径（包内或工具链里）
 @property (nonatomic, readonly, nullable) NSString *helperPath;
 
+/// helper 进程 pid（-1 表示未启动）
+@property (nonatomic, readonly) pid_t helperPid;
+
 /// 启动 helper
 - (void)start;
 
