@@ -345,7 +345,12 @@ export function buildScript(project, options = {}, profile = {}) {
 
   lines.push('', "say '工具链自检'");
   // 内存遥测：编译大工程时能提前看到内存压力（Rein 的 boot.js 也这么干）
-  lines.push('mem() { free=$(vm_stat 2>/dev/null | awk \'/Pages free/{gsub("\\.","",$3);print int($3*16384/1048576)}\' 2>/dev/null); [ -n "$free" ] && echo "    内存可用 ${free}MB"; }');
+  // A6：内存遥测 —— 编译期间后台每 15 秒采样一次（借鉴 Rein 的 boot.js）
+  // 一次性采样看不出趋势，长编译内存爬升才是真问题
+  // 注意：模板字符串里 ${...} 会被 JS 吞掉，shell 变量要写成 \${...}
+  lines.push(`mem() { if [ -r /proc/meminfo ]; then awk '/MemAvailable/{printf "    内存可用 %d MB\\n", $2/1024}' /proc/meminfo; else free=$(vm_stat 2>/dev/null | awk '/Pages free/{gsub("\\.","",$3);print int($3*16384/1048576)}'); [ -n "$free" ] && echo "    内存可用 \${free}MB"; fi; }`);
+  lines.push(`( while :; do sleep 15; mem; done ) & MEMWATCH=$!`);
+  lines.push(`trap 'kill $MEMWATCH 2>/dev/null' EXIT`);
   lines.push('mem');
   lines.push('command -v make >/dev/null 2>&1 && ok "make $(command -v make)" || { warn "缺少 make"; exit 3; }');
   // 编译器自检：有 OLLVM 就认真检查它，没有就只看 Theos 侧的 clang

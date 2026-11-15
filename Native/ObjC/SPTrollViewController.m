@@ -649,7 +649,21 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
         }
     }
     [s appendString:@"\"$OWN\" -R mobile:mobile \"$APP\" 2>/dev/null || true\n"];
-    [s appendString:@"rm -rf \"$TMP\"\nsay '完成'\necho \"已注入 $APP\"\n"];
+    // ---- A7：结构化结果（Rein 的 inject 脚本同样输出一行 JSON）----
+    [s appendString:@"\nrm -rf \"$TMP\"\n"];
+    [s appendString:@"printf 'SPARK-RESULT {\"ok\":true,\"app\":\"%s\",\"backup\":\"%s\"}\\n' \"$APP\" \"$BK\"\n"];
+
+    // ---- B6：重启目标 App，让新注入的 dylib 真正生效 ----
+    // 不重启的话用户会以为注入失败（App 里看不到变化）
+    [s appendString:@"say '重启目标 App'\n"];
+    [s appendString:@"BID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' \"$APP/Info.plist\" 2>/dev/null)\n"];
+    [s appendString:@"[ -z \"$BID\" ] && BID=$(basename \"$APP\" .app)\n"];
+    [s appendString:@"if [ -n \"$BID\" ]; then\n"];
+    [s appendString:@"  launchctl kill SIGKILL \"system/$BID\" 2>/dev/null && ok \"已终止 $BID\" || true\n"];
+    [s appendString:@"  sleep 1\n"];
+    [s appendString:@"  open \"$APP\" >/dev/null 2>&1 && ok '已重新打开' || warn '请手动启动 App'\n"];
+    [s appendString:@"fi\n"];
+    [s appendString:@"say '完成'\necho \"已注入 $APP\"\n"];
     return s;
 }
 

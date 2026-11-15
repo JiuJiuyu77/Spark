@@ -107,6 +107,14 @@
     // xz -1 是速度/体积平衡点（默认 -6 在手机上慢得多）
     [lines addObject:@"export THEOS_PLATFORM_DEB_COMPRESSION_LEVEL=1"];
 
+    // A6：内存遥测（Rein 的 boot.js 每 30s 打 rss/heap，这里跟着 make 一起跑）
+    [lines addObject:@"memwatch() { while kill -0 $$ 2>/dev/null; do "
+                     "  if [ -r /proc/meminfo ]; then "
+                     "    awk \'/MemAvailable/{printf \"    [mem] 可用 %d MB\\n\", $2/1024}\' /proc/meminfo; "
+                     "  else "
+                     "    vm_stat 2>/dev/null | awk \'/Pages free/{gsub(\"\\.\",\"\",$3); printf \"    [mem] 可用 %d MB\\n\", $3*16384/1048576}\'; "
+                     "  fi; sleep 15; done; }"];
+    [lines addObject:@"memwatch & MEMPID=$!"];
     [lines addObject:@"say '开始编译'"];
     [lines addObject:[NSString stringWithFormat:@"echo '+ %@'", makeCmd]];
     [lines addObject:@"__rb_start=$(date +%s)"];
