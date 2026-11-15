@@ -10,6 +10,7 @@
 #import "SPStore.h"
 #import "SPSession.h"
 #import "SPCompat.h"
+#import "SPAppEnumerator.h"
 #import "SPFileBrowserViewController.h"
 #import "SPEditorViewController.h"
 #import "SPToolchain.h"
@@ -101,30 +102,19 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
 #pragma mark - 枚举（照 TrollFools 的 LSApplicationProxy 思路，这里走文件系统）
 
 - (void)reloadApps {
-    NSMutableArray *list = [NSMutableArray array];
-    NSFileManager *fm = NSFileManager.defaultManager;
-
-    // 1) TrollStore 装的 App（容器目录，UUID 下一层是 Xxx.app）
-    for (NSString *uuid in [fm contentsOfDirectoryAtPath:kAppBundleRoot error:NULL] ?: @[]) {
-        NSString *dir = [kAppBundleRoot stringByAppendingPathComponent:uuid];
-        for (NSString *name in [fm contentsOfDirectoryAtPath:dir error:NULL] ?: @[]) {
-            if (![name hasSuffix:@".app"]) continue;
-            SPTrollApp *a = [self appAtPath:[dir stringByAppendingPathComponent:name] system:NO];
-            if (a) [list addObject:a];
-        }
+    // B1：优先走 LaunchServices（能拿到真实显示名与系统图标缓存），
+    // 拿不到自动回退文件系统枚举 —— 见 SPAppEnumerator
+    NSMutableArray<SPTrollApp *> *list = [NSMutableArray array];
+    for (SPAppInfo *info in [[SPAppEnumerator shared] allApps]) {
+        SPTrollApp *a = [SPTrollApp new];
+        a.appPath = info.appPath;
+        a.bundleId = info.bundleId;
+        a.executable = info.executable;
+        a.displayName = info.displayName;
+        a.version = info.version;
+        a.isSystem = info.isSystem;
+        [list addObject:a];
     }
-    // 2) 系统 App（/Applications 下没有 UUID 的）
-    for (NSString *name in [fm contentsOfDirectoryAtPath:@"/Applications" error:NULL] ?: @[]) {
-        if (![name hasSuffix:@".app"]) continue;
-        SPTrollApp *a = [self appAtPath:[@"/Applications" stringByAppendingPathComponent:name] system:YES];
-        if (a && ![self containsBundleId:a.bundleId in:list]) [list addObject:a];
-    }
-
-    [list sortUsingComparator:^NSComparisonResult(SPTrollApp *a, SPTrollApp *b) {
-        if ([a.bundleId isEqualToString:@"com.HuQing.Spark"]) return NSOrderedAscending;
-        if ([b.bundleId isEqualToString:@"com.HuQing.Spark"]) return NSOrderedDescending;
-        return [a.displayName localizedStandardCompare:b.displayName];
-    }];
     self.apps = list;
     [self.table reloadData];
 }
@@ -202,8 +192,9 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
                                  a.version.length ? [@"  ·  " stringByAppendingString:a.version] : @""];
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
 
-    // 图标：优先用 App 自己的，找不到用占位
-    UIImage *icon = a.iconPath ? [UIImage imageWithContentsOfFile:a.iconPath] : nil;
+    // 图标：走 SPAppEnumerator（LaunchServices 缓存优先，回退读 .app 里的 png）
+    UIImage *icon = [[SPAppEnumerator shared] iconForBundleId:a.bundleId size:60];
+    if (!icon && a.iconPath) icon = [UIImage imageWithContentsOfFile:a.iconPath];
     if (!icon) icon = [UIImage systemImageNamed:@"app"];
     UIGraphicsImageRenderer *r = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(30, 30)];
     UIImage *small = [r imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
@@ -537,7 +528,10 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
     NSString *insert = [SPUtil findExecutable:@[@"insert_dylib"] searchDirs:clean] ?: @"insert_dylib";
     NSString *ldid = [SPUtil findExecutable:@[@"ldid"] searchDirs:clean] ?: @"ldid";
     NSString *chown = [SPUtil findExecutable:@[@"chown"] searchDirs:clean] ?: @"chown";
-    NSString *ct = [SPUtil findExecutable:@[@"ct_bypass"] searchDirs:clean];
+    // B5：CoreTrust 绕过工具。官方名 ct_bypass，市面上还有几个别名，
+    // 都试一遍；找不到时脚本里会给明确提示（不静默跳过）
+    NSString *ct = [SPUtil findExecutable:@[@"ct_bypass", @"ctbypass", @"CoreTrustBypass"]
+                               searchDirs:clean];
     NSString *intool = [SPUtil findExecutable:@[@"install_name_tool"] searchDirs:clean];
 
     NSString *app = self.app.appPath;
@@ -635,7 +629,17 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
                          self.weakLoad ? @"--weak --inplace" : @"--inplace", [SPUtil shellQuote:load], load]];
     }
     if (self.coreTrust && ct.length) {
-        [s appendString:[NSString stringWithFormat:@"say 'CoreTrust 绕过'\n%@ \"$EXE\" 2>/dev/null || true\n", [SPUtil shellQuote:ct]]];
+        // B5：有 ct_bypass 就去掉 CoreTrust 校验；没有就明确告知——
+        // 此时注入的 App 只能在越狱环境加载，TrollStore 里会闪退
+        [s appendString:[NSString stringWithFormat:
+            @"if [ -x %@ ]; then\n"
+             "  say 'CoreTrust 绕过'\n"
+             "  %@ \"$EXE\" 2>/dev/null && ok '已绕过 CoreTrust' || warn 'CoreTrust 绕过失败'\n"
+             "else\n"
+             "  warn '没有 ct_bypass：注入后的 App 在 TrollStore 下可能闪退'\n"
+             "  warn '需要越狱环境，或自行放置 ct_bypass 到工具链 bin 目录'\n"
+             "fi\n",
+            [SPUtil shellQuote:ct], [SPUtil shellQuote:ct]]];
     }
     if (self.wantLdid) {
         [s appendString:@"say '补签'\n"];
