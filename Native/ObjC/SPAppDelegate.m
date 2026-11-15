@@ -11,6 +11,8 @@
 #import "SPProjectViewController.h"
 #import "SPSettingsViewController.h"
 #import "SPMeViewController.h"
+#import "SPIncoming.h"
+#import "SPInboxViewController.h"
 #import "SPToolsViewController.h"
 #import "SPGlassKit.h"
 #import "SPJIT.h"
@@ -51,6 +53,11 @@
 
     self.window.rootViewController = self.tabs;
     [self.window makeKeyAndVisible];
+
+    // 启动时收编 Share Extension 留下的文件（不打断用户）
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        [[SPIncoming shared] drainSharedIncoming];
+    });
 
     // 内置工具链：首启后台静默展开（约 480MB，一分钟内），完成后自动重扫
     SPToolchainInstaller *inst = [SPToolchainInstaller shared];
@@ -178,6 +185,21 @@
 
 - (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {
     if ([url.scheme isEqualToString:@"spark"]) {
+        // spark://import —— Share Extension 拉活，收编它写进共享容器的文件
+        if ([url.host isEqualToString:@"import"]) {
+            NSArray *items = [[SPIncoming shared] drainSharedIncoming];
+            [self showInbox];
+            if (items.count) {
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"已收到文件"
+                        message:[NSString stringWithFormat:@"共 %lu 个，可在收件箱里导入为项目。", (unsigned long)items.count]
+                        preferredStyle:UIAlertControllerStyleAlert];
+                    [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+                    [self.tabs presentViewController:a animated:YES completion:nil];
+                });
+            }
+            return YES;
+        }
         NSURLComponents *c = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
         for (NSURLQueryItem *item in c.queryItems) {
             if ([item.name isEqualToString:@"path"] && item.value.length) {
@@ -186,7 +208,29 @@
             }
         }
     }
+    // 「用 Spark 打开」传来的文件
+    if (url.isFileURL) {
+        NSURL *copy = url;
+        if ([copy startAccessingSecurityScopedResource]) {
+            [[SPIncoming shared] importPath:copy.path error:NULL];
+            [copy stopAccessingSecurityScopedResource];
+        } else {
+            [[SPIncoming shared] importPath:copy.path error:NULL];
+        }
+        [self showInbox];
+        return YES;
+    }
     return NO;
+}
+
+/// 切到「我的」并打开收件箱
+- (void)showInbox {
+    self.tabs.selectedIndex = 2;
+    self.floatBar.selectedIndex = 2;
+    UINavigationController *nav = self.tabs.viewControllers.lastObject;
+    [nav popToRootViewControllerAnimated:NO];
+    SPInboxViewController *vc = [[SPInboxViewController alloc] init];
+    [nav pushViewController:vc animated:YES];
 }
 
 #pragma mark - 生命周期

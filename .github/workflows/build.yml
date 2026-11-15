@@ -188,7 +188,7 @@ jobs:
           for f in Native/Resources/*; do
             base="$(basename "$f")"
             case "$base" in
-              Info.plist|*.png|*.lproj|Assets.xcassets) continue ;;
+              Info.plist|*.png|*.lproj|Assets.xcassets|Toolchain) continue ;;
             esac
             cp -R "$f" "$APP/" 2>/dev/null || true
           done
@@ -270,6 +270,49 @@ jobs:
           file "$APP/$SCHEME"
           echo "APP_PATH=$APP" >> "$GITHUB_ENV"
 
+      # -----------------------------------------------------------------------
+      # Share Extension：编译并塞进 .app/PlugIns/
+      # 有了它，Spark 才会出现在其它 App 的「分享」菜单里
+      # -----------------------------------------------------------------------
+      - name: Build Share Extension
+        run: |
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          MIN=15.0
+          EXT="$APP/PlugIns/SparkShare.appex"
+          rm -rf "$EXT" && mkdir -p "$EXT"
+
+          cp ShareExtension/Info.plist "$EXT/"
+          plutil -convert binary1 "$EXT/Info.plist"
+          for lproj in ShareExtension/Native/Resources/*.lproj; do
+            [ -d "$lproj" ] && cp -R "$lproj" "$EXT/"
+          done
+
+          FLAGS=(
+            -target "${{ matrix.arch }}-apple-ios${MIN}"
+            -isysroot "$SDK"
+            -miphoneos-version-min=${MIN}
+            -fobjc-arc -fmodules
+            -O2 -DNDEBUG
+            -Wno-deprecated-declarations
+          )
+
+          echo "==> 编译扩展"
+          xcrun clang "${FLAGS[@]}" \
+            -framework UIKit -framework Foundation -framework UniformTypeIdentifiers \
+            -o "$EXT/SparkShare" ShareExtension/SPShareViewController.m
+
+          echo "==> 签名扩展（带 App Group）"
+          if [ -f ShareExtension/entitlements.plist ]; then
+            codesign --force --sign - --timestamp=none \
+              --entitlements ShareExtension/entitlements.plist \
+              --generate-entitlement-der "$EXT" || true
+          else
+            codesign --force --sign - --timestamp=none "$EXT" || true
+          fi
+          file "$EXT/SparkShare"
+          du -sh "$EXT"
+
       - name: Package artifacts
         run: |
           set -euo pipefail
@@ -301,6 +344,9 @@ jobs:
           else
             echo "::warning::可执行文件里没有 platform-application，TrollStore 里可能仍显示沙盒内运行"
           fi
+          unzip -l "out/${SCHEME}-${V}-${A}.ipa" | grep -q "Payload/${SCHEME}.app/PlugIns/SparkShare.appex/SparkShare" \
+            && echo "Share Extension 已包含 ✓" \
+            || echo "::warning::Share Extension 没进包，分享菜单里不会出现 Spark"
           echo "ipa 结构检查通过"
 
       - name: Upload artifacts

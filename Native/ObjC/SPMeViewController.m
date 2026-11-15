@@ -8,6 +8,8 @@
 #import "SPSettingsViewController.h"
 #import "SPLogsViewController.h"
 #import "SPMountsViewController.h"
+#import "SPInboxViewController.h"
+#import "SPIncoming.h"
 #import "SPToolchain.h"
 #import "SPToolchainInstaller.h"
 #import "SPStore.h"
@@ -58,7 +60,7 @@
     self.titles = @[@"", @"通用", @"关于"];
     self.groups = @[
         @[@"设置"],
-        @[@"日志", @"外部文件夹", @"数据目录"],
+        @[@"收件箱", @"日志", @"外部文件夹", @"数据目录"],
         @[@"版本信息", @"运行环境自检"],
     ];
 }
@@ -93,7 +95,11 @@
         cell.textLabel.font = [SPTheme scaled:UIFontTextStyleHeadline weight:UIFontWeightSemibold];
         cell.imageView.image = [self tile:@"gearshape.fill" tint:[SPTheme accent]];
     } else if (ip.section == 1) {
-        if ([title isEqualToString:@"日志"]) {
+        if ([title isEqualToString:@"收件箱"]) {
+            NSUInteger n = [[SPIncoming shared] items].count;
+            cell.detailTextLabel.text = n ? [NSString stringWithFormat:@"%lu 个文件", (unsigned long)n] : @"空";
+            cell.imageView.image = [self tile:@"tray.and.arrow.down.fill" tint:[SPTheme accent]];
+        } else if ([title isEqualToString:@"日志"]) {
             NSUInteger n = [NSFileManager.defaultManager contentsOfDirectoryAtPath:[[SPStore shared] logsDirectory]
                                                                             error:NULL].count;
             cell.detailTextLabel.text = [NSString stringWithFormat:@"%lu 条", (unsigned long)n];
@@ -139,6 +145,7 @@
     UIViewController *vc = nil;
 
     if ([title isEqualToString:@"设置"]) vc = [SPSettingsViewController new];
+    else if ([title isEqualToString:@"收件箱"]) vc = [SPInboxViewController new];
     else if ([title isEqualToString:@"日志"]) vc = [SPLogsViewController new];
     else if ([title isEqualToString:@"外部文件夹"]) vc = [SPMountsViewController new];
     else if ([title isEqualToString:@"数据目录"]) {

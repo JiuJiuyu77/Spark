@@ -5,7 +5,6 @@
 #import "SPAnimationKit.h"
 #import "SPTheme.h"
 
-static const NSInteger kGlowLayerTag = 0x676C6F77;   // 'glow'
 static const NSInteger kSkeletonTag = 0x736B656C;    // 'skel'
 
 @implementation SPAnimationKit
@@ -47,11 +46,15 @@ static const NSInteger kSkeletonTag = 0x736B656C;    // 'skel'
 
     // 找一个足够覆盖整个视图的半径
     CGFloat r = 0;
-    for (CGPoint p in @[[NSValue valueWithCGPoint:CGPointZero],
-                        [NSValue valueWithCGPoint:CGPointMake(view.bounds.size.width, 0)],
-                        [NSValue valueWithCGPoint:CGPointMake(0, view.bounds.size.height)],
-                        [NSValue valueWithCGPoint:CGPointMake(view.bounds.size.width, view.bounds.size.height)]]) {
-        CGPoint q = [p CGPointValue];
+    CGSize sz = view.bounds.size;
+    NSArray<NSValue *> *corners = @[
+        [NSValue valueWithCGPoint:CGPointZero],
+        [NSValue valueWithCGPoint:CGPointMake(sz.width, 0)],
+        [NSValue valueWithCGPoint:CGPointMake(0, sz.height)],
+        [NSValue valueWithCGPoint:CGPointMake(sz.width, sz.height)],
+    ];
+    for (NSValue *v in corners) {
+        CGPoint q = v.CGPointValue;
         CGFloat d = hypot(q.x - point.x, q.y - point.y);
         r = MAX(r, d);
     }
@@ -75,10 +78,10 @@ static const NSInteger kSkeletonTag = 0x736B656C;    // 'skel'
 + (CALayer *)breatheGlowOn:(UIView *)view color:(UIColor *)color {
     if (!view) return nil;
     for (CALayer *l in [view.layer.sublayers copy]) {
-        if (l.tag == kGlowLayerTag) [l removeFromSuperlayer];
+        if ([l.name isEqualToString:@"sp.breatheGlow"]) [l removeFromSuperlayer];
     }
     CALayer *glow = [CALayer layer];
-    glow.tag = kGlowLayerTag;
+    glow.name = @"sp.breatheGlow";
     glow.frame = view.bounds;
     glow.cornerRadius = view.layer.cornerRadius;
     glow.backgroundColor = [color colorWithAlphaComponent:0.16].CGColor;

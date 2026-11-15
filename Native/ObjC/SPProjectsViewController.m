@@ -12,6 +12,8 @@
 #import "SPBuilder.h"
 #import "SPCompat.h"
 #import "SPModels.h"
+#import "SPInboxViewController.h"
+#import "SPIncoming.h"
 #import "SPAnimationKit.h"
 
 NSString *const SPOpenToolchainTabNotification = @"SPOpenToolchainTab";
@@ -316,6 +318,10 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
     }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"从磁盘导入目录…" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
         [self pickDirectory];
+    }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"从收件箱导入" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        SPInboxViewController *inbox = [[SPInboxViewController alloc] init];
+        [self.navigationController pushViewController:inbox animated:YES];
     }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
     sheet.popoverPresentationController.barButtonItem = self.navigationItem.rightBarButtonItem;
