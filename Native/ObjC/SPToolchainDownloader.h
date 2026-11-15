@@ -13,9 +13,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 可下载的组件
 typedef NS_ENUM(NSInteger, SPComponent) {
-    SPComponentOLLVM = 0,      // 约 80 MB
-    SPComponentReverse,        // 约 60 MB
-    SPComponentFullTools,      // 约 40 MB（完整 theos-root 工具集）
+    SPComponentCoreTools = 0,   // 基础命令（sh/tar/cp…）
+    SPComponentReverse,         // radare2 / mt-macho
+    SPComponentNode,            // Node 24.5.0 + npm 11.5.1 + corepack
+    SPComponentBuildTools,      // CMake + Ninja
+    SPComponentPython,          // Python 3.13
+    SPComponentOLLVM,           // Arkari OLLVM
     SPComponentCount,
 };
 

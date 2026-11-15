@@ -77,18 +77,30 @@
     g.frame = bounds;
     g.cornerRadius = radius;
     if (@available(iOS 13.0, *)) g.cornerCurve = kCACornerCurveContinuous;
-    g.colors = @[
-        (id)[UIColor colorWithWhite:1.0 alpha:0.55].CGColor,
-        (id)[UIColor colorWithWhite:1.0 alpha:0.10].CGColor,
-        (id)[UIColor colorWithWhite:1.0 alpha:0.02].CGColor,
-        (id)[UIColor colorWithWhite:0.0 alpha:0.10].CGColor,
-    ];
+    // 深色：白高光更明显；浅色：改用灰描边，否则白底上完全看不见
+    BOOL dark = (UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark);
+    if (dark) {
+        g.colors = @[
+            (id)[UIColor colorWithWhite:1.0 alpha:0.55].CGColor,
+            (id)[UIColor colorWithWhite:1.0 alpha:0.10].CGColor,
+            (id)[UIColor colorWithWhite:1.0 alpha:0.02].CGColor,
+            (id)[UIColor colorWithWhite:0.0 alpha:0.10].CGColor,
+        ];
+        g.strokeColor = [UIColor colorWithWhite:1.0 alpha:0.35].CGColor;
+    } else {
+        g.colors = @[
+            (id)[UIColor colorWithWhite:1.0 alpha:0.95].CGColor,
+            (id)[UIColor colorWithWhite:0.85 alpha:0.55].CGColor,
+            (id)[UIColor colorWithWhite:0.75 alpha:0.25].CGColor,
+            (id)[UIColor colorWithWhite:0.55 alpha:0.18].CGColor,
+        ];
+        g.strokeColor = [UIColor colorWithWhite:0.0 alpha:0.06].CGColor;
+    }
     g.locations = @[@0.0, @0.35, @0.75, @1.0];
     g.startPoint = CGPointMake(0.1, 0.0);
     g.endPoint = CGPointMake(0.9, 1.0);
     g.type = kCAGradientLayerAxial;
     g.fillColor = UIColor.clearColor.CGColor;
-    g.strokeColor = [UIColor colorWithWhite:1.0 alpha:0.35].CGColor;
     g.lineWidth = 1.0;
     return g;
 }
@@ -275,6 +287,15 @@
 - (void)layoutSubviews {
     [super layoutSubviews];
     [SPGlassMaterial applyTo:self.container cornerRadius:32 tint:nil];
+}
+
+- (void)traitCollectionDidChange:(UITraitCollection *)previous {
+    [super traitCollectionDidChange:previous];
+    // 深浅色切换：玻璃描边与色调都要重算
+    [SPGlassMaterial applyTo:self.container cornerRadius:32 tint:nil];
+    for (SPFloatTabButton *b in self.buttons) {
+        b.selected = b.selected;   // 触发颜色刷新
+    }
 }
 
 - (void)tapped:(UITapGestureRecognizer *)g {

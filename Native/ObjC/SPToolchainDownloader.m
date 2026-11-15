@@ -1,24 +1,59 @@
 //
-//  SPToolchainDownloader.m
+//  SPToolchainDownloader.m  (重写：改为由 ProjectKit/src/runtimes.mjs 的数据驱动)
 //
 
 #import "SPToolchainDownloader.h"
-#import "SPToolchainInstaller.h"
-#import "SPCompat.h"
-#import "SPSession.h"
 #import "SPToolchain.h"
+#import "SPToolchainInstaller.h"
+#import "SPSession.h"
+#import "SPCompat.h"
 
-static NSString *const kComponentStateKey = @"Spark.components";
-static NSString *const kDefaultBase = @"https://github.com/JiuJiuyu77/Spark/releases/download/toolchain-v1";
+static NSString *const kComponentStateKey = @"Spark.downloadedComponents";
+
+/**
+ * 运行时清单（与 ProjectKit/src/runtimes.mjs 保持一致）。
+ * 之所以在 ObjC 里再写一份：iOS 运行时不一定有 node，
+ * 但两份的 id / 体积 / 探测命令必须一致，改的时候一起改。
+ */
+static NSArray<NSDictionary *> *SPRuntimeManifest(void) {
+    static NSArray *m;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        m = @[
+          @{@"id": @"core_tools", @"name": @"核心工具集", @"size": @(9.5*1024*1024), @"order": @5,
+            @"archive": @"https://github.com/susu123oss/CodexApp-Runtime/releases/download/runtime-core-tools-a7e97567217a/CoreToolsRuntime.tar.gz",
+            @"probe": @"bin/sh", @"detail": @"sh / tar / cp 等基础命令", @"symbol": @"terminal.fill"},
+          @{@"id": @"reverse_tools", @"name": @"逆向工具", @"size": @(16.6*1024*1024), @"order": @10,
+            @"archive": @"https://github.com/susu123oss/CodexApp-Runtime/releases/download/runtime-reverse-tools-9d3ca9ea3340/ReverseToolsRuntime.tar.gz",
+            @"probe": @"bin/rabin2", @"detail": @"radare2 / mt-macho / 注入 dylib", @"symbol": @"binoculars.fill"},
+          @{@"id": @"node", @"name": @"Node.js 24.5.0", @"size": @(28.1*1024*1024), @"order": @15,
+            @"archive": @"https://github.com/susu123oss/CodexApp-Runtime/releases/download/runtime-node-24.5.0-e3a6c25fac33/NodeRuntime.tar.gz",
+            @"probe": @"bin/node", @"detail": @"Node 24.5.0 + npm 11.5.1 + corepack", @"symbol": @"curlybraces"},
+          @{@"id": @"build_tools", @"name": @"构建工具", @"size": @(7.2*1024*1024), @"order": @15,
+            @"archive": @"https://github.com/susu123oss/CodexApp-Runtime/releases/download/runtime-build-tools-3.27.9-fb0f29cea7b2/BuildToolsRuntime.tar.gz",
+            @"probe": @"bin/ninja", @"detail": @"CMake 3.27.9 + Ninja 1.11.1", @"symbol": @"hammer.fill"},
+          @{@"id": @"python", @"name": @"Python 3.13", @"size": @(10.1*1024*1024), @"order": @20,
+            @"archive": @"https://github.com/susu123oss/CodexApp-Runtime/releases/download/runtime-python-3.13.14-3c834a2c8964/PythonRuntime.tar.gz",
+            @"probe": @"bin/python3", @"detail": @"Python 3.13.14", @"symbol": @"chevron.left.forwardslash.chevron.right"},
+          @{@"id": @"ollvm", @"name": @"OLLVM 混淆", @"size": @(34.7*1024*1024), @"order": @30,
+            @"archive": @"https://github.com/susu123oss/CodexApp-Runtime/releases/download/runtime-ollvm-23.1.1-e54f2878240e/OLLVMRuntime.tar.gz",
+            @"probe": @"bin/clang", @"detail": @"Arkari OLLVM 23.1.1，5 个 pass", @"symbol": @"wand.and.stars"},
+        ];
+    });
+    return m;
+}
+
+/// 直连失败时用的镜像前缀
+static NSArray<NSString *> *SPProxyPrefixes(void) {
+    return @[@"", @"https://gh-proxy.org/", @"https://ghproxy.net/"];
+}
 
 @implementation SPComponentInfo
-
 - (BOOL)isInstalled {
     NSString *dir = [[SPToolchainDownloader shared] directoryFor:self.component];
     return [[NSFileManager defaultManager] fileExistsAtPath:
             [dir stringByAppendingPathComponent:@".installed"]];
 }
-
 @end
 
 @interface SPToolchainDownloader () <NSURLSessionDownloadDelegate>
@@ -28,6 +63,7 @@ static NSString *const kDefaultBase = @"https://github.com/JiuJiuyu77/Spark/rele
 @property (nonatomic, copy) void (^completionBlock)(BOOL, NSError *);
 @property (nonatomic, assign) SPComponent currentComponent;
 @property (nonatomic, strong) NSString *destinationDir;
+@property (nonatomic, assign) NSInteger proxyIndex;
 @end
 
 @implementation SPToolchainDownloader
@@ -36,65 +72,70 @@ static NSString *const kDefaultBase = @"https://github.com/JiuJiuyu77/Spark/rele
     static SPToolchainDownloader *d; static dispatch_once_t once;
     dispatch_once(&once, ^{
         d = [SPToolchainDownloader new];
-        d.baseURL = kDefaultBase;
         NSURLSessionConfiguration *cfg = [NSURLSessionConfiguration defaultSessionConfiguration];
         cfg.timeoutIntervalForRequest = 60;
-        cfg.timeoutIntervalForResource = 3600;
+        cfg.timeoutIntervalForResource = 7200;
         d.session = [NSURLSession sessionWithConfiguration:cfg delegate:d delegateQueue:nil];
     });
     return d;
 }
 
+/// 组件 → 安装子目录（与 runtimes.mjs 的 id 对齐）
 - (NSString *)directoryFor:(SPComponent)component {
+    NSArray *m = SPRuntimeManifest();
     NSString *root = [SPToolchainInstaller shared].installRoot;
-    switch (component) {
-        case SPComponentOLLVM:    return [root stringByAppendingPathComponent:@"ollvm"];
-        case SPComponentReverse:  return [root stringByAppendingPathComponent:@"reverse"];
-        default:                  return [root stringByAppendingPathComponent:@"fulltools"];
+    if (component >= 0 && component < (NSInteger)m.count) {
+        return [root stringByAppendingPathComponent:m[component][@"id"]];
     }
-}
-
-- (NSString *)fileNameFor:(SPComponent)component {
-    switch (component) {
-        case SPComponentOLLVM:   return @"ollvm.tar.gz";
-        case SPComponentReverse: return @"reverse.tar.gz";
-        default:                 return @"fulltools.tar.gz";
-    }
+    return root;
 }
 
 - (NSArray<SPComponentInfo *> *)components {
     NSMutableArray *out = [NSMutableArray array];
-
-    SPComponentInfo *ollvm = [SPComponentInfo new];
-    ollvm.component = SPComponentOLLVM;
-    ollvm.title = @"OLLVM 混淆编译器";
-    ollvm.detail = @"Arkari LLVM 16，5 个混淆 pass";
-    ollvm.symbol = @"wand.and.stars";
-    ollvm.approxSize = 80ULL * 1024 * 1024;
-    [out addObject:ollvm];
-
-    SPComponentInfo *rev = [SPComponentInfo new];
-    rev.component = SPComponentReverse;
-    rev.title = @"逆向工具";
-    rev.detail = @"radare2 / mt-macho / 注入 dylib";
-    rev.symbol = @"binoculars.fill";
-    rev.approxSize = 60ULL * 1024 * 1024;
-    [out addObject:rev];
-
-    SPComponentInfo *full = [SPComponentInfo new];
-    full.component = SPComponentFullTools;
-    full.title = @"完整工具集";
-    full.detail = @"perl / python / 其余命令行工具";
-    full.symbol = @"shippingbox.fill";
-    full.approxSize = 40ULL * 1024 * 1024;
-    [out addObject:full];
-
+    NSArray *m = SPRuntimeManifest();
+    for (NSInteger i = 0; i < (NSInteger)m.count; i++) {
+        NSDictionary *d = m[i];
+        SPComponentInfo *c = [SPComponentInfo new];
+        c.component = i;
+        c.title = d[@"name"];
+        c.detail = d[@"detail"];
+        c.symbol = d[@"symbol"];
+        c.approxSize = [d[@"size"] unsignedLongLongValue];
+        [out addObject:c];
+    }
     return out;
 }
 
-- (void)reload { /* 状态是懒判断的，这里只是占位 */ }
+- (void)reload { /* 状态懒判断 */ }
 
 #pragma mark - 下载
+
+- (void)startTaskForCurrentComponent {
+    NSArray *m = SPRuntimeManifest();
+    NSInteger i = self.currentComponent;
+    if (i < 0 || i >= (NSInteger)m.count) {
+        if (self.completionBlock) self.completionBlock(NO, SPError(SPErrorCodeIO, @"未知组件"));
+        return;
+    }
+    NSString *url = m[i][@"archive"];
+    NSArray *prefixes = SPProxyPrefixes();
+    if (self.proxyIndex >= (NSInteger)prefixes.count) {
+        if (self.completionBlock) self.completionBlock(NO, SPError(SPErrorCodeIO, @"所有下载源都失败，请检查网络"));
+        self.task = nil;
+        return;
+    }
+    NSString *prefix = prefixes[self.proxyIndex];
+    NSString *finalURL = [prefix stringByAppendingString:url];
+    if (self.progressBlock) {
+        NSString *via = prefix.length ? [NSString stringWithFormat:@"（镜像 %@）", prefix] : @"（直连）";
+        self.progressBlock(0.02, [NSString stringWithFormat:@"连接中%@", via]);
+    }
+
+    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:finalURL]];
+    [req setValue:@"Spark/1.3" forHTTPHeaderField:@"User-Agent"];
+    self.task = [self.session downloadTaskWithRequest:req];
+    [self.task resume];
+}
 
 - (void)download:(SPComponent)component
         progress:(void (^)(CGFloat, NSString *))progress
@@ -107,42 +148,35 @@ static NSString *const kDefaultBase = @"https://github.com/JiuJiuyu77/Spark/rele
     self.progressBlock = progress;
     self.completionBlock = completion;
     self.destinationDir = [self directoryFor:component];
-
-    NSString *urlStr = [NSString stringWithFormat:@"%@/%@", self.baseURL, [self fileNameFor:component]];
-    NSURL *url = [NSURL URLWithString:urlStr];
-    if (!url) {
-        if (completion) completion(NO, SPError(SPErrorCodeIO, @"下载地址无效"));
-        return;
-    }
-    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
-    [req setValue:@"Spark/1.2" forHTTPHeaderField:@"User-Agent"];
-    self.task = [self.session downloadTaskWithRequest:req];
-    [self.task resume];
-    if (progress) progress(0, @"连接中…");
+    self.proxyIndex = 0;
+    [[NSFileManager defaultManager] createDirectoryAtPath:self.destinationDir
+                              withIntermediateDirectories:YES attributes:nil error:NULL];
+    [self startTaskForCurrentComponent];
 }
 
 - (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask
 didFinishDownloadingToURL:(NSURL *)location {
-    NSString *dir = self.destinationDir;
     NSFileManager *fm = NSFileManager.defaultManager;
-    [fm createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:NULL];
+    NSString *dir = self.destinationDir;
 
-    // 解包：优先用内置 tar
+    // 用内置 tar 解包（core_tools 没装时退回系统 tar）
     NSString *tar = [SPUtil findExecutable:@[@"tar"] searchDirs:@[
-        [SPToolchainInstaller shared].binDir, @"/usr/bin", @"/var/jb/usr/bin", @"/bin"]];
+        [SPToolchainInstaller shared].binDir,
+        [SPToolchainInstaller shared].installRoot,
+        @"/usr/bin", @"/var/jb/usr/bin", @"/bin"]];
     BOOL ok = NO;
     if (tar) {
-        NSString *cmd = [NSString stringWithFormat:@"%@ xzf %@ -C %@ --strip-components=1 2>/dev/null || %@ xzf %@ -C %@",
-                         [SPUtil shellQuote:tar], [SPUtil shellQuote:location.path],
-                         [SPUtil shellQuote:dir],
-                         [SPUtil shellQuote:tar], [SPUtil shellQuote:location.path],
-                         [SPUtil shellQuote:dir]];
-        SPCommandResult *r = [SPSession runSyncShell:cmd environment:@{} cwd:NSTemporaryDirectory() timeout:300];
-        ok = r.exitCode == 0;
+        if (self.progressBlock) dispatch_async(dispatch_get_main_queue(), ^{ self.progressBlock(0.95, @"解包…"); });
+        NSString *cmd = [NSString stringWithFormat:
+            @"%@ xzf %@ -C %@ 2>/dev/null || %@ xzf %@ -C %@ --strip-components=1 2>/dev/null",
+            [SPUtil shellQuote:tar], [SPUtil shellQuote:location.path], [SPUtil shellQuote:dir],
+            [SPUtil shellQuote:tar], [SPUtil shellQuote:location.path], [SPUtil shellQuote:dir]];
+        SPCommandResult *r = [SPSession runSyncShell:cmd environment:@{} cwd:NSTemporaryDirectory() timeout:600];
+        ok = (r.exitCode == 0);
     }
     if (ok) {
-        // bin 下补执行权限
-        for (NSString *sub in @[@"bin", @"reverse/bin"]) {
+        // 补执行权限
+        for (NSString *sub in @[@"bin", @"sbin", @"libexec"]) {
             NSString *d = [dir stringByAppendingPathComponent:sub];
             for (NSString *f in [fm contentsOfDirectoryAtPath:d error:NULL] ?: @[]) {
                 [fm setAttributes:@{NSFilePosixPermissions: @(0755)}
@@ -155,7 +189,7 @@ didFinishDownloadingToURL:(NSURL *)location {
 
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.progressBlock) self.progressBlock(1.0, ok ? @"完成" : @"解包失败");
-        if (self.completionBlock) self.completionBlock(ok, ok ? nil : SPError(SPErrorCodeIO, @"解包失败，请检查下载包"));
+        if (self.completionBlock) self.completionBlock(ok, ok ? nil : SPError(SPErrorCodeIO, @"解包失败"));
         self.task = nil;
         self.progressBlock = nil;
         self.completionBlock = nil;
@@ -169,21 +203,25 @@ didFinishDownloadingToURL:(NSURL *)location {
 totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
     if (totalBytesExpectedToWrite <= 0) return;
     CGFloat f = (CGFloat)totalBytesWritten / (CGFloat)totalBytesExpectedToWrite;
+    NSString *text = [NSString stringWithFormat:@"%@ / %@",
+                      [SPUtil formatBytes:(unsigned long long)totalBytesWritten],
+                      [SPUtil formatBytes:(unsigned long long)totalBytesExpectedToWrite]];
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (self.progressBlock) {
-            self.progressBlock(f, [NSString stringWithFormat:@"%@ / %@",
-                                   [SPUtil formatBytes:(unsigned long long)totalBytesWritten],
-                                   [SPUtil formatBytes:(unsigned long long)totalBytesExpectedToWrite]]);
-        }
+        if (self.progressBlock) self.progressBlock(MAX(0.02, f * 0.93), text);
     });
 }
 
-- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task
-didCompleteWithError:(NSError *)error {
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
     if (!error) return;
+    // 直连失败 → 换镜像重试
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (self.completionBlock) self.completionBlock(NO, error);
+        self.proxyIndex += 1;
         self.task = nil;
+        if (self.proxyIndex < (NSInteger)SPProxyPrefixes().count) {
+            [self startTaskForCurrentComponent];
+            return;
+        }
+        if (self.completionBlock) self.completionBlock(NO, error);
         self.progressBlock = nil;
         self.completionBlock = nil;
     });

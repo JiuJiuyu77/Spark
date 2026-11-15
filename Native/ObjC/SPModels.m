@@ -87,8 +87,9 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
 
     // ---- 包格式 ----
     switch (self.format) {
-        case SPPackageFormatDeb:        env[@"THEOS_PACKAGE_SCHEME"] = @""; break;
-        case SPPackageFormatRootlessDeb:env[@"THEOS_PACKAGE_SCHEME"] = @"rootless"; break;
+        case SPPackageFormatDeb:         env[@"THEOS_PACKAGE_SCHEME"] = @""; break;
+        case SPPackageFormatRootlessDeb: env[@"THEOS_PACKAGE_SCHEME"] = @"rootless"; break;
+        case SPPackageFormatRootHideDeb: env[@"THEOS_PACKAGE_SCHEME"] = @"roothide"; break;
         default: break; // app/tipa 不涉及 scheme
     }
 
@@ -152,7 +153,7 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
 
 - (NSString *)displaySummary {
     NSArray *archs = @[@"arm64", @"arm64e", @"arm64+arm64e"];
-    NSArray *formats = @[@"deb", @"rootless deb", @".app", @".tipa"];
+    NSArray *formats = @[@"deb", @"rootless deb", @"roothide deb", @".app", @".tipa"];
     NSArray *obf = @[@"无混淆", @"轻度", @"均衡", @"强力", @"自定义"];
     NSMutableArray *parts = [NSMutableArray array];
     [parts addObject:archs[self.arch]];

@@ -8,9 +8,11 @@
 #import "SPModels.h"
 #import "SPToolchain.h"
 #import "SPToolchainInstaller.h"
+#import "SPAnimationKit.h"
 #import "SPToolchainDownloader.h"
 #import "SPCompat.h"
 #import "SPSession.h"
+#import "SPJIT.h"
 #import "SPFileBrowserViewController.h"
 #import "SPMountsViewController.h"
 #import "SPMount.h"
@@ -20,6 +22,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
     SPSectionObfuscation,
     SPSectionToolchain,
     SPSectionFiles,
+    SPSectionMCP,
     SPSectionTarget,
     SPSectionDisplay,
     SPSectionAbout,
@@ -81,6 +84,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
         case SPSectionObfuscation:   return @"混淆（OLLVM）";
         case SPSectionToolchain:     return @"工具链";
         case SPSectionFiles:         return @"文件与缓存";
+        case SPSectionMCP:           return @"MCP 服务（外部程序调用）";
         case SPSectionTarget:        return @"构建目标";
         case SPSectionDisplay:       return @"显示与反馈";
         default:                     return @"关于";
@@ -108,6 +112,10 @@ typedef NS_ENUM(NSInteger, SPSection) {
         }
         case SPSectionFiles:
             return @"「接收文件」会把文件复制到 App 自己的目录，之后在项目里可以直接引用。";
+        case SPSectionMCP: {
+            return @"MCP 让 Claude Desktop / Cursor 这类客户端直接调用 Spark 的编译与注入能力。\n"
+                    "地址固定 127.0.0.1（只接受本机连接）；远程用请走 SSH 隧道。";
+        }
         case SPSectionDisplay:
             return @"关闭「减弱动态效果」后才会播放 Gasp 动画。";
         default:
@@ -121,8 +129,9 @@ typedef NS_ENUM(NSInteger, SPSection) {
         case SPSectionObfuscation:   return 4;
         case SPSectionToolchain:     return 6 + (NSInteger)[[SPToolchainDownloader shared] components].count;
         case SPSectionFiles:         return 5;
+        case SPSectionMCP:           return 4;
         case SPSectionTarget:        return 4;
-        case SPSectionDisplay:       return 4;
+        case SPSectionDisplay:       return 5;
         default:                     return 3;
     }
 }
@@ -177,6 +186,35 @@ typedef NS_ENUM(NSInteger, SPSection) {
             [self configureFilesCell:cell row:ip.row];
             break;
 
+        case SPSectionMCP: {
+            NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+            BOOL on = [d boolForKey:@"Spark.mcpEnabled"];
+            NSInteger port = [d integerForKey:@"Spark.mcpPort"];
+            if (port <= 0) port = 7878;
+            switch (ip.row) {
+                case 0:
+                    cell.textLabel.text = @"启用 MCP 服务";
+                    [self addSwitch:cell on:on tag:6200];
+                    break;
+                case 1:
+                    cell.textLabel.text = @"监听端口";
+                    cell.detailTextLabel.text = [NSString stringWithFormat:@"%ld（仅 127.0.0.1）", (long)port];
+                    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+                    break;
+                case 2:
+                    cell.textLabel.text = @"服务状态";
+                    cell.detailTextLabel.text = on ? @"运行中" : @"已停止";
+                    cell.detailTextLabel.textColor = on ? [SPTheme success] : [SPTheme textDim];
+                    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+                    break;
+                default:
+                    cell.textLabel.text = @"复制客户端配置";
+                    cell.textLabel.textColor = [SPTheme accent];
+                    break;
+            }
+            break;
+        }
+
         case SPSectionTarget: {
             NSArray *titles = @[@"默认构建目标", @"远程主机", @"GitHub 仓库", @"GitHub 分支"];
             cell.textLabel.text = titles[ip.row];
@@ -203,10 +241,23 @@ typedef NS_ENUM(NSInteger, SPSection) {
                     cell.detailTextLabel.text = [NSString stringWithFormat:@"%ld", (long)SPSettings.shared.maxLogLines];
                     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
                     break;
-                default:
+                case 3:
                     cell.detailTextLabel.text = [NSString stringWithFormat:@"%.0f pt", self.logFontSize];
                     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
                     break;
+                default: {
+                    // JIT 加速：只读状态 + 开关
+                    cell.textLabel.text = @"JIT 加速";
+                    cell.detailTextLabel.text = [SPJIT shared].statusText;
+                    cell.detailTextLabel.font = [SPTheme caption];
+                    UISwitch *sw = [[UISwitch alloc] init];
+                    sw.tag = 6003;
+                    sw.on = [SPJIT shared].userEnabled;
+                    [sw addTarget:self action:@selector(toggleSetting:) forControlEvents:UIControlEventValueChanged];
+                    cell.accessoryView = sw;
+                    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+                    break;
+                }
             }
             break;
         }
@@ -233,7 +284,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
             break;
         case 1:
             cell.textLabel.text = @"包格式";
-            cell.detailTextLabel.text = @[@"deb（传统）", @"deb（rootless）", @".app", @".tipa"][o.format];
+            cell.detailTextLabel.text = @[@"deb（有根）", @"deb（无根 rootless）", @"deb（隐根 roothide）", @".app", @".tipa"][o.format];
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             break;
         case 2:
@@ -382,6 +433,17 @@ typedef NS_ENUM(NSInteger, SPSection) {
             break;
         case 6001: [d setBool:sw.isOn forKey:@"Spark.haptics"]; [SPMotion hapticLight]; break;
         case 6002: SPSettings.shared.keepScreenOn = sw.isOn; [SPSettings.shared save]; break;
+        case 6003:
+            [SPJIT shared].userEnabled = sw.isOn;
+            if (sw.isOn) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ [[SPJIT shared] probe]; });
+            [self.table reloadData];
+            [self toast:sw.isOn ? @"已开启 JIT 加速" : @"已关闭 JIT 加速"];
+            return;
+        case 6200:
+            [[NSUserDefaults standardUserDefaults] setBool:sw.isOn forKey:@"Spark.mcpEnabled"];
+            [self.table reloadData];
+            [self toast:sw.isOn ? @"MCP 服务已启用" : @"MCP 服务已停止"];
+            return;
         case 6100: o.debug = sw.isOn; break;
         case 6101: o.cleanBeforeBuild = sw.isOn; break;
         case 6102: o.signWithLdid = sw.isOn; break;
@@ -408,7 +470,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
                 break;
             }
             case 1: {
-                [self pick:@[@"deb（传统）", @"deb（rootless）", @".app", @".tipa"] title:@"默认包格式" apply:^(NSInteger i) { o.format = i; }];
+                [self pick:@[@"deb（有根）", @"deb（无根 rootless）", @"deb（隐根 roothide）", @".app", @".tipa"] title:@"默认包格式" apply:^(NSInteger i) { o.format = i; }];
                 break;
             }
             case 3: {
@@ -493,6 +555,26 @@ typedef NS_ENUM(NSInteger, SPSection) {
         return;
     }
 
+    if (ip.section == SPSectionMCP) {
+        if (ip.row == 1) {
+            NSArray *ports = @[@"7878", @"8787", @"17878"];
+            [self pick:ports title:@"MCP 监听端口" apply:^(NSInteger i) {
+                [[NSUserDefaults standardUserDefaults] setInteger:[ports[i] integerValue] forKey:@"Spark.mcpPort"];
+                [self.table reloadData];
+            }];
+        } else if (ip.row == 3) {
+            NSInteger port = [[NSUserDefaults standardUserDefaults] integerForKey:@"Spark.mcpPort"];
+            if (!port) port = 7878;
+            NSString *json = [NSString stringWithFormat:
+                @"{\n  \"mcpServers\": {\n    \"spark\": {\n"
+                 "      \"url\": \"http://127.0.0.1:%ld/mcp\"\n"
+                 "    }\n  }\n}", (long)port];
+            UIPasteboard.generalPasteboard.string = json;
+            [SPMotion hapticSuccess];
+            [self toast:@"客户端配置已复制"];
+        }
+        return;
+    }
     if (ip.section == SPSectionTarget) { [self editTargetAt:ip.row]; return; }
 
     if (ip.section == SPSectionDisplay) {

@@ -39,12 +39,21 @@ typedef struct { __unsafe_unretained NSString *pattern; NSUInteger group; int ki
     NSMutableAttributedString *a = [[NSMutableAttributedString alloc] initWithString:code ?: @""];
     if (a.length == 0) return a;
 
-    UIColor *kw   = [UIColor colorWithRed:0.80 green:0.52 blue:0.98 alpha:1];
-    UIColor *str  = [UIColor colorWithRed:0.55 green:0.82 blue:0.52 alpha:1];
-    UIColor *cmt  = [UIColor colorWithRed:0.45 green:0.50 blue:0.56 alpha:1];
-    UIColor *num  = [UIColor colorWithRed:0.95 green:0.70 blue:0.42 alpha:1];
-    UIColor *pre  = [UIColor colorWithRed:0.45 green:0.72 blue:0.98 alpha:1];
-    UIColor *lg   = [UIColor colorWithRed:0.20 green:0.84 blue:0.64 alpha:1];
+    // 深浅色各一套：浅色模式下要压暗，否则白底上偏浅的紫/绿几乎看不见
+    UIColor *(^dyn)(CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat) =
+    ^UIColor *(CGFloat rD, CGFloat gD, CGFloat bD, CGFloat rL, CGFloat gL, CGFloat bL) {
+        return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
+            BOOL dark = tc.userInterfaceStyle == UIUserInterfaceStyleDark;
+            return [UIColor colorWithRed:(dark ? rD : rL) green:(dark ? gD : gL)
+                                   blue:(dark ? bD : bL) alpha:1.0];
+        }];
+    };
+    UIColor *kw   = dyn(0.80, 0.52, 0.98, 0.55, 0.15, 0.78);   // 关键字：紫
+    UIColor *str  = dyn(0.55, 0.82, 0.52, 0.13, 0.52, 0.22);   // 字符串：绿
+    UIColor *cmt  = dyn(0.45, 0.50, 0.56, 0.45, 0.50, 0.56);   // 注释：灰
+    UIColor *num  = dyn(0.95, 0.70, 0.42, 0.72, 0.40, 0.05);   // 数字：橙
+    UIColor *pre  = dyn(0.45, 0.72, 0.98, 0.10, 0.36, 0.72);   // 预处理：蓝
+    UIColor *lg   = dyn(0.20, 0.84, 0.64, 0.05, 0.50, 0.40);   // Logos：青
 
     [a addAttribute:NSForegroundColorAttributeName value:baseColor range:NSMakeRange(0, a.length)];
 

@@ -5,6 +5,7 @@
 #import "SPToolsViewController.h"
 #import "SPTheme.h"
 #import "SPGlassKit.h"
+#import "SPAnimationKit.h"
 #import "SPToolchain.h"
 #import "SPToolchainInstaller.h"
 #import "SPToolchainViewController.h"
@@ -64,6 +65,13 @@
     [super viewWillAppear:animated];
     [self buildItems];
     [self.table reloadData];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    // 交错入场：可见 cell 依次滑入
+    NSArray *cells = self.table.visibleCells;
+    if (cells.count) [SPAnimationKit stagger:cells offset:14];
 }
 
 - (void)buildItems {

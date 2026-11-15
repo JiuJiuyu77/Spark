@@ -22,10 +22,20 @@ export const ProjectKind = {
 
 /** 包格式 */
 export const PackageFormat = {
-  DEB: 'deb',
-  ROOTLESS: 'rootless',
+  DEB: 'deb',           // 有根 rootful
+  ROOTLESS: 'rootless', // 无根
+  ROOTHIDE: 'roothide', // 隐根（roothide 越狱）
   APP: 'app',
   TIPA: 'tipa',
+};
+
+/** 包布局 → THEOS_PACKAGE_SCHEME 的映射（空串表示 rootful） */
+export const PACKAGE_SCHEMES = {
+  deb: '',
+  rootless: 'rootless',
+  roothide: 'roothide',
+  app: '',
+  tipa: '',
 };
 
 /** 架构 */
@@ -212,8 +222,8 @@ export function makeEnvironment(options = {}) {
   env.ARCHS = archMap[o.arch] || 'arm64';
   env.TARGET = 'iphone:clang:latest:15.0';
 
-  if (o.format === PackageFormat.ROOTLESS) env.THEOS_PACKAGE_SCHEME = 'rootless';
-  else if (o.format === PackageFormat.DEB) env.THEOS_PACKAGE_SCHEME = '';
+  // 三种包布局：rootful（空）/ rootless / roothide
+  env.THEOS_PACKAGE_SCHEME = PACKAGE_SCHEMES[o.format] ?? '';
 
   if (o.debug) {
     env.DEBUG = '1';
@@ -262,8 +272,9 @@ export function makeArguments(options = {}) {
 
 /** 生成完整的构建脚本（Linux/macOS/越狱设备通用） */
 export function buildScript(project, options = {}, profile = {}) {
-  const env = { ...makeEnvironment(options), ...(profile.env || {}) };
-  const args = makeArguments(options);
+  const o = { ...defaultOptions(), ...options };
+  const env = { ...makeEnvironment(o), ...(profile.env || {}) };
+  const args = makeArguments(o);
   const cwd = project.path || '.';
 
   const q = shellQuote;
@@ -306,7 +317,7 @@ export function buildScript(project, options = {}, profile = {}) {
   lines.push('', `cd ${q(cwd)} || { echo "项目目录不存在: ${cwd}"; exit 2; }`);
   lines.push('say "工作目录 $(pwd)"');
 
-  if (options.clean) {
+  if (o.clean) {
     lines.push("say '清理旧产物'", 'rm -rf .theos/_ .theos/obj packages 2>/dev/null || true');
   }
 
@@ -315,6 +326,22 @@ export function buildScript(project, options = {}, profile = {}) {
   lines.push('if [ $rc -ne 0 ]; then echo "[!] 编译失败，退出码 $rc"; exit $rc; fi');
   lines.push('ok "用时 $((end - begin)) 秒"');
   lines.push('', "say '产物'", 'ls -lh packages/*.deb .theos/_/ 2>/dev/null | sed "s/^/    /" || true');
+
+  // 构建报告（report.json）：把关键信息留档，方便事后查
+  lines.push('', "say '生成构建报告'");
+  lines.push(`END=$(date +%s)`);
+  lines.push(`cat > report.json <<__SPARK_REPORT__` );
+  lines.push('{');
+  lines.push(`  "project": "${(project.path || '').replace(/"/g, '')}",`);
+  lines.push('  "options": { "arch": "' + o.arch + '", "format": "' + o.format + '", "debug": ' + (o.debug ? 'true' : 'false') + ' },');
+  lines.push('  "artifacts": [');
+  lines.push(`    $(ls packages/*.deb 2>/dev/null | sed 's/.*/"&",/' | sed '$ s/,$//')`);
+  lines.push('  ],');
+  lines.push('  "durationSec": $((END - begin)),');
+  lines.push('  "exitCode": $rc');
+  lines.push('}');
+  lines.push('__SPARK_REPORT__');
+  lines.push('ok "report.json 已生成"');
   return lines.join('\n') + '\n';
 }
 

@@ -12,6 +12,7 @@
 #import "SPBuilder.h"
 #import "SPCompat.h"
 #import "SPModels.h"
+#import "SPAnimationKit.h"
 
 NSString *const SPOpenToolchainTabNotification = @"SPOpenToolchainTab";
 NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
@@ -45,6 +46,12 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
 }
 
 - (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; }
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    NSArray *cells = self.table.visibleCells;
+    if (cells.count) [SPAnimationKit stagger:cells offset:12];
+}
 
 #pragma mark - 布局
 
@@ -244,6 +251,11 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
     [SPMotion hapticLight];
+    UITableViewCell *cell = [tv cellForRowAtIndexPath:ip];
+    if (cell) {
+        CGPoint p = [tv.panGestureRecognizer locationInView:cell.contentView];
+        [SPAnimationKit rippleIn:cell.contentView at:p color:nil];
+    }
     [self openProjectAtIndexPath:ip];
 }
 

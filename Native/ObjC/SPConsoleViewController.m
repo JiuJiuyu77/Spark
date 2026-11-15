@@ -14,6 +14,7 @@
 #import "SPFileBrowserViewController.h"
 #import "SPModels.h"
 #import "SPToolchain.h"
+#import "SPAnimationKit.h"
 
 @interface SPConsoleViewController ()
 @property (nonatomic, strong) SPProject *project;
@@ -289,9 +290,17 @@
 
     NSDate *start = [NSDate date];
     __weak typeof(self) weakSelf = self;
-    self.ticker = [NSTimer scheduledTimerWithTimeInterval:0.4 repeats:YES block:^(NSTimer *t) {
+    // 构建中：状态卡呼吸光晕
+    [SPAnimationKit breatheGlowOn:self.statusCard color:[SPTheme accent]];
+    __block NSInteger lastSec = 0;
+    self.ticker = [NSTimer scheduledTimerWithTimeInterval:0.25 repeats:YES block:^(NSTimer *t) {
         __strong typeof(weakSelf) self = weakSelf; if (!self) return;
-        self.timerLabel.text = [SPUtil formatDuration:-[start timeIntervalSinceNow]];
+        NSInteger sec = (NSInteger)(-[start timeIntervalSinceNow]);
+        if (sec != lastSec) {
+            lastSec = sec;
+            [SPAnimationKit animateNumberLabel:self.timerLabel from:sec - 1 to:sec
+                                        format:^NSString *(NSInteger v) { return [SPUtil formatDuration:v]; }];
+        }
         if (self.progress.progress < 0.9) {
             [SPMotion animate:^{ self.progress.progress += 0.006; } duration:0.4];
         }

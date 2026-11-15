@@ -11,6 +11,7 @@
 #import "SPEditorViewController.h"
 #import "SPFileBrowserViewController.h"
 #import "SPToolchain.h"
+#import "SPHeaderExport.h"
 
 typedef NS_ENUM(NSInteger, SPRevAction) {
     SPRevActionInfo = 0,
@@ -21,6 +22,7 @@ typedef NS_ENUM(NSInteger, SPRevAction) {
     SPRevActionEntropy,
     SPRevActionInject,
     SPRevActionResign,
+    SPRevActionExportHeaders,
     SPRevActionCount,
 };
 
@@ -57,11 +59,13 @@ typedef NS_ENUM(NSInteger, SPRevAction) {
 
     self.titles = @[@"架构与头信息", @"导出符号与入口", @"字符串与 ObjC 类",
                     @"导入的库与符号", @"段与节", @"熵值（加壳检测）",
-                    @"注入动态库", @"重新签名", @"打开原始输出"];
+                    @"注入动态库", @"重新签名", @"导出 ObjC 头文件", @"打开原始输出"];
     self.subtitles = @[@"rabin2 -I", @"rabin2 -s", @"rabin2 -zz / ic", @"rabin2 -i",
-                       @"rabin2 -S", @"rabin2 -e", @"mt-inject-dylib", @"ldid -S", @"完整文本"];
+                       @"rabin2 -S", @"rabin2 -e", @"mt-inject-dylib", @"ldid -S",
+                       @"类名 + 方法名 → .h", @"完整文本"];
     self.symbols = @[@"info.circle", @"list.bullet.indent", @"text.magnifyingglass", @"link",
-                     @"square.stack.3d.up", @"chart.bar.xaxis", @"syringe", @"signature", @"doc.text"];
+                     @"square.stack.3d.up", @"chart.bar.xaxis", @"syringe", @"signature",
+                     @"doc.badge.plus", @"doc.text"];
 
     [self buildHeader];
     [self buildTable];
@@ -223,6 +227,7 @@ typedef NS_ENUM(NSInteger, SPRevAction) {
         case SPRevActionEntropy: [self runMode:@"entropy"]; break;
         case SPRevActionInject: [self injectDylib]; break;
         case SPRevActionResign: [self resign]; break;
+        case SPRevActionExportHeaders: [self exportHeaders]; break;
         default: [self openFullOutput]; break;
     }
 }
@@ -406,6 +411,42 @@ typedef NS_ENUM(NSInteger, SPRevAction) {
         self.outputView.alpha = 0;
         self.outputView.hidden = NO;
     });
+}
+
+
+#pragma mark - 导出头文件
+
+- (void)exportHeaders {
+    NSString *dir = [[[SPStore shared] archivesDirectory]
+                     stringByAppendingPathComponent:
+                     [NSString stringWithFormat:@"headers-%@", [SPUtil timestampSlug]]];
+    [self.spinner startAnimating];
+    self.outputView.text = @"正在提取 ObjC 元数据…";
+    self.segment.selectedSegmentIndex = 1;
+    [self segmentChanged];
+
+    NSString *bin = self.binaryPath;
+    __weak typeof(self) weakSelf = self;
+    [SPHeaderExport exportHeadersFromApp:bin outputDir:dir
+        progress:^(NSString *status) {
+            __strong typeof(weakSelf) self = weakSelf; if (!self) return;
+            self.outputView.text = status;
+        }
+        completion:^(BOOL ok, NSInteger count, NSError *error) {
+            __strong typeof(weakSelf) self = weakSelf; if (!self) return;
+            [self.spinner stopAnimating];
+            if (!ok) {
+                self.outputView.text = [NSString stringWithFormat:@"导出失败：%@", error.localizedDescription];
+                [SPMotion hapticError];
+                return;
+            }
+            [SPMotion hapticSuccess];
+            self.outputView.text = [NSString stringWithFormat:
+                @"已导出 %ld 个头文件到：\n%@\n\n点下面的按钮打开目录。", (long)count, dir];
+            SPFileBrowserViewController *b = [[SPFileBrowserViewController alloc]
+                initWithRootPath:dir pickMode:NO fileFilters:@[@"h"] onPick:nil];
+            [self.navigationController pushViewController:b animated:YES];
+        }];
 }
 
 @end

@@ -13,6 +13,7 @@
 #import "SPMeViewController.h"
 #import "SPToolsViewController.h"
 #import "SPGlassKit.h"
+#import "SPJIT.h"
 #import "SPToolchainInstaller.h"
 #import "SPStore.h"
 #import "SPToolchain.h"
@@ -30,6 +31,11 @@
 
     [self configureAppearance];
     [self setupDefaults];
+
+    // JIT：后台探测一次，结果在「设置 → 显示与反馈」里看
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        [[SPJIT shared] probe];
+    });
 
     // 启动时后台扫一遍工具链，别阻塞首屏
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{

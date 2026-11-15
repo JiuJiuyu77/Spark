@@ -205,10 +205,10 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
-        case SPProjectSectionInfo: return 4;
+        case SPProjectSectionInfo: return 5;
         case SPProjectSectionOptions: return 7;
         case SPProjectSectionObfuscation: return 3;
-        default: return 5;
+        default: return 6;
     }
 }
 
@@ -223,13 +223,14 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
 
     switch (ip.section) {
         case SPProjectSectionInfo: {
-            NSArray *titles = @[@"类型", @"包标识", @"版本", @"源文件"];
+            NSArray *titles = @[@"类型", @"包标识", @"版本", @"源文件", @"最低 iOS"];
             cell.textLabel.text = titles[ip.row];
             switch (ip.row) {
                 case 0: cell.detailTextLabel.text = [self.project kindString]; break;
                 case 1: cell.detailTextLabel.text = self.project.packageId ?: @"—"; break;
                 case 2: cell.detailTextLabel.text = self.project.version ?: @"—"; break;
-                default: cell.detailTextLabel.text = [NSString stringWithFormat:@"%lu 个", (unsigned long)self.project.sourceFiles.count]; break;
+                case 3: cell.detailTextLabel.text = [NSString stringWithFormat:@"%lu 个", (unsigned long)self.project.sourceFiles.count]; break;
+                default: cell.detailTextLabel.text = [self minimumIOSFromMakefile] ?: @"15.0"; break;
             }
             if (ip.row == 3) { cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault; }
             break;
@@ -238,7 +239,7 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
             switch (ip.row) {
                 case 0: cell.textLabel.text = @"架构"; cell.detailTextLabel.text = @[@"arm64", @"arm64e", @"arm64 + arm64e"][o.arch];
                     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault; break;
-                case 1: cell.textLabel.text = @"包格式"; cell.detailTextLabel.text = @[@"deb（传统）", @"deb（rootless）", @".app", @".tipa"][o.format];
+                case 1: cell.textLabel.text = @"包格式"; cell.detailTextLabel.text = @[@"deb（有根）", @"deb（无根 rootless）", @"deb（隐根 roothide）", @".app", @".tipa"][o.format];
                     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault; break;
                 case 2: cell.textLabel.text = @"编译配置"; cell.detailTextLabel.text = o.debug ? @"Debug" : @"Release";
                     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault; break;
@@ -261,7 +262,8 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
             break;
         }
         default: {
-            NSArray *titles = @[@"查看源码", @"查看 Makefile", @"构建历史", @"复制编译命令", @"浏览工程目录"];
+            NSArray *titles = @[@"查看源码", @"查看 Makefile", @"构建历史", @"复制编译命令",
+                                @"浏览工程目录", @"查看构建报告"];
             cell.textLabel.text = titles[ip.row];
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             cell.selectionStyle = UITableViewCellSelectionStyleDefault;
@@ -314,7 +316,7 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
         if (ip.row == 0) [self pickFrom:@[@"arm64", @"arm64e", @"arm64 + arm64e"] title:@"架构" apply:^(NSInteger i) {
             self.project.options.arch = i;
         }];
-        else if (ip.row == 1) [self pickFrom:@[@"deb（传统）", @"deb（rootless）", @".app", @".tipa"] title:@"包格式" apply:^(NSInteger i) {
+        else if (ip.row == 1) [self pickFrom:@[@"deb（有根）", @"deb（无根 rootless）", @"deb（隐根 roothide）", @".app", @".tipa"] title:@"包格式" apply:^(NSInteger i) {
             self.project.options.format = i;
         }];
         else if (ip.row == 2) { self.project.options.debug = !self.project.options.debug; [self persist]; }
@@ -334,10 +336,20 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
         case 1: [self openFile:self.project.makefilePath]; break;
         case 2: [self showHistory]; break;
         case 3: [self copyBuildCommand]; break;
-        default: {
+        case 4: {
             SPFileBrowserViewController *b = [[SPFileBrowserViewController alloc] initWithRootPath:self.project.path
                                                                                      pickMode:NO fileFilters:nil onPick:nil];
             [self.navigationController pushViewController:b animated:YES];
+            break;
+        }
+        default: {
+            NSString *report = [self.project.path stringByAppendingPathComponent:@"report.json"];
+            if (![[NSFileManager defaultManager] fileExistsAtPath:report]) {
+                [self alert:@"还没有构建报告" message:@"编译一次之后才会生成 report.json。"];
+                break;
+            }
+            SPEditorViewController *e = [[SPEditorViewController alloc] initWithFilePath:report];
+            [self.navigationController pushViewController:e animated:YES];
             break;
         }
     }
@@ -415,6 +427,30 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
     }
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"构建历史"
         message:(text.length ? text : @"还没有构建记录") preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
+}
+
+
+/// 从 Makefile 的 TARGET 行解析最低 iOS 版本（iphone:clang:latest:15.0 → 15.0）
+- (nullable NSString *)minimumIOSFromMakefile {
+    NSString *mk = self.project.makefilePath;
+    if (!mk.length) return nil;
+    NSString *text = [NSString stringWithContentsOfFile:mk encoding:NSUTF8StringEncoding error:NULL];
+    if (!text.length) return nil;
+    NSRegularExpression *re = [NSRegularExpression regularExpressionWithPattern:
+        @"TARGET\\s*=\\s*iphone:clang:[^:]+:(\\d+(?:\\.\\d+)?)" options:0 error:NULL];
+    NSTextCheckingResult *m = [re firstMatchInString:text options:0 range:NSMakeRange(0, text.length)];
+    if (m.numberOfRanges > 1) {
+        return [text substringWithRange:[m rangeAtIndex:1]];
+    }
+    return nil;
+}
+
+
+- (void)alert:(NSString *)title message:(NSString *)message {
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:title
+        message:message preferredStyle:UIAlertControllerStyleAlert];
     [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
     [self presentViewController:a animated:YES completion:nil];
 }

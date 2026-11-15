@@ -177,7 +177,9 @@
         cfg.image = [UIImage systemImageNamed:@"arrow.down.circle.fill"];
         cfg.imagePadding = 6;
         cfg.baseBackgroundColor = [SPTheme accent];
-        cfg.baseForegroundColor = [UIColor whiteColor];
+        cfg.baseForegroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
+            return tc.userInterfaceStyle == UIUserInterfaceStyleDark ? [UIColor whiteColor] : [SPTheme text];
+        }];
         cfg.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
         cfg.contentInsets = NSDirectionalEdgeInsetsMake(6, 12, 6, 12);
         b.configuration = cfg;

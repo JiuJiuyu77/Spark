@@ -23,8 +23,9 @@ typedef NS_ENUM(NSInteger, SPProjectKind) {
 
 /// 打包格式
 typedef NS_ENUM(NSInteger, SPPackageFormat) {
-    SPPackageFormatDeb = 0,
-    SPPackageFormatRootlessDeb,  // THEOS_PACKAGE_SCHEME = rootless
+    SPPackageFormatDeb = 0,      // 有根 rootful
+    SPPackageFormatRootlessDeb,  // 无根 rootless
+    SPPackageFormatRootHideDeb,  // 隐根 roothide
     SPPackageFormatApp,          // 不打包，直接产出 .app
     SPPackageFormatTIPA,
 };

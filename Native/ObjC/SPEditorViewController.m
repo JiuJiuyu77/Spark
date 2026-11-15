@@ -16,6 +16,11 @@
 @property (nonatomic, strong) UILabel *statusLabel;
 @property (nonatomic, assign) BOOL dirty;
 @property (nonatomic, assign) BOOL editing;
+@property (nonatomic, strong) UIView *findBar;
+@property (nonatomic, strong) UITextField *findField;
+@property (nonatomic, strong) UILabel *findCount;
+@property (nonatomic, strong) NSArray<NSValue *> *findRanges;
+@property (nonatomic, assign) NSInteger findIndex;
 @end
 
 @implementation SPEditorViewController
@@ -35,9 +40,14 @@
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
 
     if (!self.readOnly) {
-        self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"编辑"
+        self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"编辑"
             style:UIBarButtonItemStylePlain target:self action:@selector(toggleEditing)];
     }
+    UIBarButtonItem *find = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"magnifyingglass"]
+                                                             style:UIBarButtonItemStylePlain
+                                                            target:self action:@selector(toggleFind)];
+    find.accessibilityLabel = @"查找";
+    self.navigationItem.rightBarButtonItem = find;
 
     [self buildTextView];
     [self buildGutter];
@@ -219,6 +229,163 @@
     self.textView.backgroundColor = [SPTheme codeBackground];
     self.gutter.backgroundColor = [SPTheme background];
     [self loadFile];
+}
+
+
+#pragma mark - 查找 / 定位
+
+- (void)toggleFind {
+    if (self.findBar) {
+        UIView *bar = self.findBar;
+        self.findBar = nil;
+        [SPMotion disappear:^{ bar.alpha = 0; } completion:^{ [bar removeFromSuperview]; }];
+        self.findRanges = nil;
+        return;
+    }
+    UIView *bar = [[UIView alloc] init];
+    bar.backgroundColor = [SPTheme surface];
+    bar.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:bar];
+    self.findBar = bar;
+
+    self.findField = [[UITextField alloc] init];
+    self.findField.placeholder = @"查找";
+    self.findField.font = [SPTheme mono:13];
+    self.findField.textColor = [SPTheme text];
+    self.findField.backgroundColor = [SPTheme background];
+    self.findField.layer.cornerRadius = 8;
+    self.findField.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 8, 1)];
+    self.findField.leftViewMode = UITextFieldViewModeAlways;
+    self.findField.clearButtonMode = UITextFieldViewModeWhileEditing;
+    self.findField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+    self.findField.autocorrectionType = UITextAutocorrectionTypeNo;
+    self.findField.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.findField addTarget:self action:@selector(doFind) forControlEvents:UIControlEventEditingChanged];
+    [bar addSubview:self.findField];
+
+    self.findCount = [[UILabel alloc] init];
+    self.findCount.font = [SPTheme mono:11];
+    self.findCount.textColor = [SPTheme textDim];
+    self.findCount.text = @"—";
+    self.findCount.translatesAutoresizingMaskIntoConstraints = NO;
+    [bar addSubview:self.findCount];
+
+    UIButton *prev = [UIButton buttonWithType:UIButtonTypeSystem];
+    [prev setImage:[UIImage systemImageNamed:@"chevron.up"] forState:UIControlStateNormal];
+    [prev addTarget:self action:@selector(findPrev) forControlEvents:UIControlEventTouchUpInside];
+    prev.translatesAutoresizingMaskIntoConstraints = NO;
+    [bar addSubview:prev];
+
+    UIButton *next = [UIButton buttonWithType:UIButtonTypeSystem];
+    [next setImage:[UIImage systemImageNamed:@"chevron.down"] forState:UIControlStateNormal];
+    [next addTarget:self action:@selector(findNext) forControlEvents:UIControlEventTouchUpInside];
+    next.translatesAutoresizingMaskIntoConstraints = NO;
+    [bar addSubview:next];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [bar.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [bar.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [bar.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+        [bar.heightAnchor constraintEqualToConstant:44],
+
+        [self.findField.leadingAnchor constraintEqualToAnchor:bar.leadingAnchor constant:12],
+        [self.findField.centerYAnchor constraintEqualToAnchor:bar.centerYAnchor],
+        [self.findField.heightAnchor constraintEqualToConstant:30],
+
+        [self.findCount.leadingAnchor constraintEqualToAnchor:self.findField.trailingAnchor constant:8],
+        [self.findCount.centerYAnchor constraintEqualToAnchor:bar.centerYAnchor],
+        [self.findCount.widthAnchor constraintEqualToConstant:52],
+
+        [prev.leadingAnchor constraintEqualToAnchor:self.findCount.trailingAnchor constant:4],
+        [prev.centerYAnchor constraintEqualToAnchor:bar.centerYAnchor],
+        [prev.widthAnchor constraintEqualToConstant:32],
+
+        [next.leadingAnchor constraintEqualToAnchor:prev.trailingAnchor constant:2],
+        [next.centerYAnchor constraintEqualToAnchor:bar.centerYAnchor],
+        [next.widthAnchor constraintEqualToConstant:32],
+        [next.trailingAnchor constraintEqualToAnchor:bar.trailingAnchor constant:-8],
+    ]];
+
+    // 正文下移：重新绑定 textView 顶部到查找栏底部
+    for (NSLayoutConstraint *c in [self.view.constraints copy]) {
+        if (c.firstItem == self.textView && c.firstAttribute == NSLayoutAttributeTop) [self.view removeConstraint:c];
+    }
+    [NSLayoutConstraint activateConstraints:@[
+        [self.textView.topAnchor constraintEqualToAnchor:bar.bottomAnchor],
+    ]];
+
+    bar.alpha = 0;
+    [SPMotion appear:^{ bar.alpha = 1; }];
+    [self.findField becomeFirstResponder];
+}
+
+- (void)doFind {
+    NSString *needle = self.findField.text ?: @"";
+    NSString *haystack = self.textView.text ?: @"";
+    if (!needle.length) { self.findRanges = nil; self.findCount.text = @"—"; return; }
+
+    NSMutableArray *ranges = [NSMutableArray array];
+    NSRange search = NSMakeRange(0, haystack.length);
+    while (search.length > 0) {
+        NSRange r = [haystack rangeOfString:needle options:NSCaseInsensitiveSearch range:search];
+        if (r.location == NSNotFound) break;
+        [ranges addObject:[NSValue valueWithRange:r]];
+        NSUInteger nextStart = NSMaxRange(r);
+        if (nextStart >= haystack.length) break;
+        search = NSMakeRange(nextStart, haystack.length - nextStart);
+    }
+    self.findRanges = ranges;
+    self.findIndex = ranges.count ? 0 : -1;
+    [self highlightCurrentMatch];
+}
+
+- (void)highlightCurrentMatch {
+    if (!self.findRanges.count || self.findIndex < 0) {
+        self.findCount.text = @"无结果";
+        return;
+    }
+    NSRange cur = [self.findRanges[self.findIndex] rangeValue];
+    [self.textView scrollRangeToVisible:cur];
+
+    NSMutableAttributedString *a = [[NSMutableAttributedString alloc] initWithAttributedString:self.textView.attributedText];
+    if (a.length) {
+        [a removeAttribute:NSBackgroundColorAttributeName range:NSMakeRange(0, a.length)];
+        for (NSInteger i = 0; i < (NSInteger)self.findRanges.count; i++) {
+            NSRange rr = [self.findRanges[i] rangeValue];
+            if (NSMaxRange(rr) > a.length) continue;
+            UIColor *c = (i == self.findIndex) ? [[SPTheme warn] colorWithAlphaComponent:0.55]
+                                               : [[SPTheme warn] colorWithAlphaComponent:0.22];
+            [a addAttribute:NSBackgroundColorAttributeName value:c range:rr];
+        }
+        self.textView.attributedText = a;
+    }
+    self.findCount.text = [NSString stringWithFormat:@"%ld/%lu", (long)(self.findIndex + 1),
+                           (unsigned long)self.findRanges.count];
+}
+
+- (void)findNext {
+    if (!self.findRanges.count) return;
+    self.findIndex = (self.findIndex + 1) % (NSInteger)self.findRanges.count;
+    [self highlightCurrentMatch];
+}
+
+- (void)findPrev {
+    if (!self.findRanges.count) return;
+    self.findIndex = (self.findIndex - 1 + (NSInteger)self.findRanges.count) % (NSInteger)self.findRanges.count;
+    [self highlightCurrentMatch];
+}
+
+/// 构建失败时：跳到第一条 error: 所在行
+- (void)jumpToFirstError { [self jumpToPattern:@"error:"]; }
+
+- (void)jumpToPattern:(NSString *)pattern {
+    NSString *text = self.textView.text ?: @"";
+    NSRange r = [text rangeOfString:pattern options:NSCaseInsensitiveSearch];
+    if (r.location == NSNotFound) { [SPMotion hapticError]; return; }
+    NSRange lineRange = [text lineRangeForRange:r];
+    [self.textView scrollRangeToVisible:lineRange];
+    self.textView.selectedRange = lineRange;
+    [SPMotion hapticSuccess];
 }
 
 @end
