@@ -128,10 +128,9 @@ static void SPHandleSignal(int sig) {
     char bt[8192] = {0};
     SPDumpBacktrace(bt, sizeof(bt));
     char text[9216];
+    NSString *ctx = [[NSUserDefaults standardUserDefaults] stringForKey:kContextKey] ?: @"（未设置）";
     snprintf(text, sizeof(text), "=== Spark 信号崩溃 ===\n信号: %d\n操作上下文: %s\nbacktrace:\n%s\n",
-             sig,
-             [[[NSUserDefaults standardUserDefaults] stringForKey:kContextKey] ?: @"（未设置）"] UTF8String],
-             bt);
+             sig, [ctx UTF8String], bt);
     char name[64];
     time_t now = time(NULL);
     struct tm tmv;
