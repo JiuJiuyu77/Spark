@@ -124,7 +124,34 @@ jobs:
           MIN=15.0
           APP="$RUNNER_TEMP/$SCHEME.app"
           rm -rf "$APP" && mkdir -p "$APP"
-          cp Native/Resources/Info.plist "$APP/"
+
+          echo "==> 资源"
+          # Info.plist 转成二进制（HIG/工具链都认，体积更小）
+          cp Native/Resources/Info.plist "$APP/Info.plist"
+          plutil -convert binary1 "$APP/Info.plist"
+
+          # App 图标（.app 根目录 + Assets.car 生成前先用扁平 png 兜底）
+          cp Native/Resources/AppIcon*.png "$APP/" 2>/dev/null || true
+
+          # 本地化
+          if [ -d Native/Resources/en.lproj ]; then
+            cp -R Native/Resources/en.lproj "$APP/"
+          fi
+
+          # 资源目录（如 Assets.xcassets 里还有其它资源）
+          if [ -d Native/Resources/Assets.xcassets ]; then
+            cp -R Native/Resources/Assets.xcassets "$APP/Assets.xcassets.tmp"
+            rm -rf "$APP/Assets.xcassets.tmp"
+          fi
+
+          # 其它裸资源（json / strings / 配置）
+          for f in Native/Resources/*; do
+            base="$(basename "$f")"
+            case "$base" in
+              Info.plist|*.png|en.lproj|Assets.xcassets) continue ;;
+            esac
+            cp -R "$f" "$APP/" 2>/dev/null || true
+          done
 
           FLAGS=(
             -target "${{ matrix.arch }}-apple-ios${MIN}"
@@ -168,6 +195,15 @@ jobs:
           cp -R "$APP_PATH" "$RUNNER_TEMP/ipa/Payload/"
           ( cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/out/${SCHEME}-${V}-${A}.ipa" Payload )
           ( cd out && shasum -a 256 * > SHA256SUMS.txt && ls -lh && cat SHA256SUMS.txt )
+
+          echo "==> 自检：ipa 内容"
+          unzip -l "out/${SCHEME}-${V}-${A}.ipa"
+          for need in "Payload/${SCHEME}.app/Info.plist" "Payload/${SCHEME}.app/${SCHEME}" \
+                      "Payload/${SCHEME}.app/AppIcon60x60@3x.png"; do
+            unzip -l "out/${SCHEME}-${V}-${A}.ipa" | grep -q "$need" \
+              || { echo "缺少必需文件: $need"; exit 1; }
+          done
+          echo "ipa 结构检查通过"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

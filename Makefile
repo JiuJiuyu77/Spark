@@ -26,7 +26,8 @@ Spark_OBJCFLAGS = $(Spark_CFLAGS)
 Spark_LIBRARIES = MobileCoreServices
 Spark_CODESIGN_FLAGS = -Ssign.plist
 Spark_INSTALL_PATH = /Applications
-Spark_RESOURCE_DIRS = Native/Resources
+Spark_RESOURCE_FILES = $(wildcard Native/Resources/*.png)
+Spark_RESOURCE_DIRS = Native/Resources/en.lproj Native/Resources/Assets.xcassets
 
 include $(THEOS_MAKE_PATH)/application.mk
 
