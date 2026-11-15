@@ -81,6 +81,8 @@ typedef NS_ENUM(NSInteger, SPObfuscation) {
 @property (nonatomic, assign) NSInteger jobs;
 
 - (NSArray<NSString *> *)makeArguments;
+/// 优化等级名（@"O0" / @"O2" / @"Os" …）
+- (NSString *)optimizationName;
 - (NSDictionary<NSString *, NSString *> *)makeEnvironment;
 - (NSString *)displaySummary;
 - (NSDictionary *)dictionaryRepresentation;
