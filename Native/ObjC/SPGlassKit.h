@@ -21,8 +21,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// @param tint 可选的色调（nil = 中性玻璃）
 + (void)applyTo:(UIView *)view cornerRadius:(CGFloat)radius tint:(nullable UIColor *)tint;
 
-/// 高光描边（上亮下暗，模拟玻璃边缘的折射）
-+ (CAGradientLayer *)specularBorderForBounds:(CGRect)bounds cornerRadius:(CGFloat)radius;
+/// 玻璃描边（1pt，深浅色各一套颜色）
++ (CALayer *)specularBorderForBounds:(CGRect)bounds cornerRadius:(CGFloat)radius;
+/// 玻璃内部高光渐变（上亮下暗）
++ (CAGradientLayer *)specularHighlightForBounds:(CGRect)bounds cornerRadius:(CGFloat)radius;
 
 @end
 

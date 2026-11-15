@@ -52,12 +52,14 @@
     ]];
 
     // 3) 折射高光：上亮下暗的描边
-    // 先移除旧的描边，避免每次 layout 叠加
+    // 先移除旧的描边/高光，避免每次 layout 叠加
     for (CALayer *l in [view.layer.sublayers copy]) {
-        if ([l.name isEqualToString:@"sp.glass.border"]) [l removeFromSuperlayer];
+        if ([l.name isEqualToString:@"sp.glass.border"] ||
+            [l.name isEqualToString:@"sp.glass.highlight"]) [l removeFromSuperlayer];
     }
-    CAGradientLayer *border = [self specularBorderForBounds:view.bounds cornerRadius:radius];
-    border.name = @"sp.glass.border";
+    CAGradientLayer *highlight = [self specularHighlightForBounds:view.bounds cornerRadius:radius];
+    [view.layer addSublayer:highlight];
+    CALayer *border = [self specularBorderForBounds:view.bounds cornerRadius:radius];
     [view.layer addSublayer:border];
 
     view.clipsToBounds = NO;
@@ -72,36 +74,50 @@
     view.layer.masksToBounds = NO;
 }
 
-+ (CAGradientLayer *)specularBorderForBounds:(CGRect)bounds cornerRadius:(CGFloat)radius {
+/// 玻璃描边：用 CAShapeLayer 描一圈，颜色随深浅色切换
+/// （CAGradientLayer 没有 strokeColor，所以这里单独用形状层）
++ (CALayer *)specularBorderForBounds:(CGRect)bounds cornerRadius:(CGFloat)radius {
+    CAShapeLayer *border = [CAShapeLayer layer];
+    border.name = @"sp.glass.border";
+    border.frame = bounds;
+    UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(bounds, 0.5, 0.5)
+                                                    cornerRadius:radius];
+    border.path = path.CGPath;
+    border.fillColor = UIColor.clearColor.CGColor;
+    border.lineWidth = 1.0;
+
+    BOOL dark = (UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark);
+    border.strokeColor = dark
+        ? [UIColor colorWithWhite:1.0 alpha:0.28].CGColor
+        : [UIColor colorWithWhite:0.0 alpha:0.07].CGColor;
+    return border;
+}
+
+/// 玻璃内部的高光渐变（上亮下暗），单独一层铺在模糊层之上
++ (CAGradientLayer *)specularHighlightForBounds:(CGRect)bounds cornerRadius:(CGFloat)radius {
     CAGradientLayer *g = [CAGradientLayer layer];
+    g.name = @"sp.glass.highlight";
     g.frame = bounds;
     g.cornerRadius = radius;
     if (@available(iOS 13.0, *)) g.cornerCurve = kCACornerCurveContinuous;
-    // 深色：白高光更明显；浅色：改用灰描边，否则白底上完全看不见
+
     BOOL dark = (UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark);
     if (dark) {
         g.colors = @[
-            (id)[UIColor colorWithWhite:1.0 alpha:0.55].CGColor,
-            (id)[UIColor colorWithWhite:1.0 alpha:0.10].CGColor,
-            (id)[UIColor colorWithWhite:1.0 alpha:0.02].CGColor,
-            (id)[UIColor colorWithWhite:0.0 alpha:0.10].CGColor,
+            (id)[UIColor colorWithWhite:1.0 alpha:0.12].CGColor,
+            (id)[UIColor colorWithWhite:1.0 alpha:0.03].CGColor,
+            (id)[UIColor clearColor].CGColor,
         ];
-        g.strokeColor = [UIColor colorWithWhite:1.0 alpha:0.35].CGColor;
     } else {
         g.colors = @[
-            (id)[UIColor colorWithWhite:1.0 alpha:0.95].CGColor,
-            (id)[UIColor colorWithWhite:0.85 alpha:0.55].CGColor,
-            (id)[UIColor colorWithWhite:0.75 alpha:0.25].CGColor,
-            (id)[UIColor colorWithWhite:0.55 alpha:0.18].CGColor,
+            (id)[UIColor colorWithWhite:1.0 alpha:0.65].CGColor,
+            (id)[UIColor colorWithWhite:1.0 alpha:0.10].CGColor,
+            (id)[UIColor clearColor].CGColor,
         ];
-        g.strokeColor = [UIColor colorWithWhite:0.0 alpha:0.06].CGColor;
     }
-    g.locations = @[@0.0, @0.35, @0.75, @1.0];
-    g.startPoint = CGPointMake(0.1, 0.0);
-    g.endPoint = CGPointMake(0.9, 1.0);
-    g.type = kCAGradientLayerAxial;
-    g.fillColor = UIColor.clearColor.CGColor;
-    g.lineWidth = 1.0;
+    g.locations = @[@0.0, @0.45, @1.0];
+    g.startPoint = CGPointMake(0.5, 0.0);
+    g.endPoint = CGPointMake(0.5, 1.0);
     return g;
 }
 
