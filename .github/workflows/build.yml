@@ -299,6 +299,35 @@ jobs:
             -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore \
             -o "$APP/$SCHEME"
 
+          # ------------------------------------------------------------------
+          # 关键：TrollStore 用 `ldid -s Payload/Spark.app` 对整个目录签名，
+          # 遇到 #! 开头的 shell 脚本会报 "Unknown header magic" 并整体失败。
+          # 工具链里 egrep/fgrep/gunzip/gzexe/dpkg-realpath 都是脚本，
+          # 去掉可执行位（编译不需要它们）。
+          # ------------------------------------------------------------------
+          echo "==> 降级 shell 脚本（避免 ldid -s 报 Unknown header magic）"
+          DEMOTED=0
+          find "$APP" -type f -perm -u+x 2>/dev/null > /tmp/execlist.txt || true
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            if [ "$(head -c 2 "$f" 2>/dev/null)" = '#!' ]; then
+              chmod 644 "$f"
+              echo "  - ${f#$APP/}"
+              DEMOTED=$((DEMOTED + 1))
+            fi
+          done < /tmp/execlist.txt
+          echo "  共降级 $DEMOTED 个"
+
+          # 自检：签名前不允许再有任何 #! 可执行文件
+          LEFTOVER=$(find "$APP" -type f -perm -u+x 2>/dev/null | while IFS= read -r f; do
+            [ "$(head -c 2 "$f" 2>/dev/null)" = '#!' ] && echo "$f"
+          done | wc -l)
+          if [ "$LEFTOVER" -gt 0 ]; then
+            echo "::error::仍有 $LEFTOVER 个 shell 脚本带可执行位，ldid -s 会失败"
+            exit 1
+          fi
+          echo "  ✓ 无残留脚本"
+
           echo "==> 签名（带平台权限，TrollStore 必需）"
           # 关键：必须带 entitlements，否则 App 会跑在沙盒里、
           # 无法 exec 子进程 —— 编译和注入都会失效。
@@ -421,6 +450,18 @@ jobs:
           unzip -l "out/${SCHEME}-${V}-${A}.ipa" | grep -q "Payload/${SCHEME}.app/PlugIns/SparkShare.appex/SparkShare" \
             && echo "Share Extension 已包含 ✓" \
             || echo "::warning::Share Extension 没进包，分享菜单里不会出现 Spark"
+          # 最终自检：ipa 里不能有 #! 可执行文件（否则用户装不上）
+          rm -rf /tmp/vfy && mkdir -p /tmp/vfy
+          unzip -q "out/${SCHEME}-${V}-${A}.ipa" -d /tmp/vfy
+          BAD=$(find /tmp/vfy/Payload -type f -perm -u+x 2>/dev/null | while IFS= read -r f; do
+            [ "$(head -c 2 "$f" 2>/dev/null)" = '#!' ] && echo "$f"
+          done | wc -l)
+          if [ "$BAD" -gt 0 ]; then
+            echo "::error::ipa 里还有 $BAD 个 shell 脚本带可执行位，TrollStore 安装会失败"
+            exit 1
+          fi
+          echo "✓ 签名前检查通过：无 #! 可执行文件"
+          rm -rf /tmp/vfy
           echo "ipa 结构检查通过"
 
       - name: Upload artifacts

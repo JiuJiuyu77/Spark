@@ -154,6 +154,19 @@ say "5/6 权限与 manifest"
 chmod -R 755 "$PKGROOT/bin" 2>/dev/null || true
 chmod -R 755 "$PKGROOT/usr/bin" 2>/dev/null || true
 
+# ---- 关键：把 shell 脚本「降级」为普通文件 ----
+# TrollStore 用 `ldid -s Payload/Spark.app` 对整个目录签名，
+# 遇到 #! 开头的脚本会报 "Unknown header magic" 而整体失败。
+# 这些脚本（egrep/fgrep/gunzip/gzexe/dpkg-realpath）都不是编译必需的，
+# 去掉可执行位即可，路径仍在但不会被执行。
+SCRIPTS_DEMOTED=0
+find "$PKGROOT" -type f 2>/dev/null | while read -r f; do
+	[ "$(head -c 2 "$f" 2>/dev/null)" = '#!' ] || continue
+	chmod 644 "$f" 2>/dev/null && echo "  降级 $(basename "$f")"
+done
+SCRIPTS_DEMOTED=$(find "$PKGROOT" -type f ! -perm -u+x 2>/dev/null | wc -l | tr -d ' ')
+ok "非可执行文件 $SCRIPTS_DEMOTED 个（含被降级的脚本）"
+
 STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 SDKLIST=$(ls "$PKGROOT/theos/sdks" 2>/dev/null | tr '\n' ' ')
 cat > "$PKGROOT/manifest.json" <<EOF
