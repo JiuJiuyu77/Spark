@@ -116,6 +116,37 @@ jobs:
       # 直接 xcrun clang 手工编译：仓库不放 .xcodeproj，
       # 编译细节全在这个脚本里，PR diff 干净、也方便对着日志排错。
       # -----------------------------------------------------------------------
+      # -----------------------------------------------------------------------
+      # 内置工具链（方案 B：工具链全内置，SDK 由用户导入）
+      #   TOOLCHAIN_SOURCE 三种形态：
+      #     1) https://.../toolchain.tar.gz —— 从 Release 附件拉取（推荐）
+      #     2) 仓库内 Native/Resources/Toolchain 已存在 —— 直接用
+      #     3) 都没有 —— 构建出「不含工具链」的瘦包，App 里会提示导入
+      # -----------------------------------------------------------------------
+      - name: Prepare bundled toolchain
+        id: tc
+        run: |
+          set -euo pipefail
+          TC="Native/Resources/Toolchain"
+          if [ -d "$TC/bin" ]; then
+            echo "已内置工具链（来自仓库）"
+          elif [ -n "${{ vars.TOOLCHAIN_SOURCE }}" ]; then
+            echo "从 ${{ vars.TOOLCHAIN_SOURCE }} 下载工具链"
+            mkdir -p "$TC"
+            curl -fL --retry 3 -o /tmp/tc.tar.gz "${{ vars.TOOLCHAIN_SOURCE }}"
+            tar xzf /tmp/tc.tar.gz -C "$TC"
+            rm -f /tmp/tc.tar.gz
+          else
+            echo "::warning::没有配置 TOOLCHAIN_SOURCE，本次产物不含内置工具链"
+          fi
+          if [ -d "$TC" ]; then
+            du -sh "$TC" || true
+            ls "$TC" || true
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Compile (plain clang, no Xcode project)
         run: |
           set -euo pipefail
@@ -142,6 +173,15 @@ jobs:
           if [ -d Native/Resources/Assets.xcassets ]; then
             cp -R Native/Resources/Assets.xcassets "$APP/Assets.xcassets.tmp"
             rm -rf "$APP/Assets.xcassets.tmp"
+          fi
+
+          # 内置工具链：整目录拷进 .app/Toolchain
+          if [ -d Native/Resources/Toolchain ]; then
+            echo "==> 拷入内置工具链"
+            cp -R Native/Resources/Toolchain "$APP/Toolchain"
+            du -sh "$APP/Toolchain"
+          else
+            echo "::warning::产物不含内置工具链"
           fi
 
           # 其它裸资源（json / strings / 配置）
@@ -238,6 +278,11 @@ jobs:
             unzip -l "out/${SCHEME}-${V}-${A}.ipa" | grep -q "$need" \
               || { echo "缺少必需文件: $need"; exit 1; }
           done
+          if [ -d Native/Resources/Toolchain/bin ]; then
+            unzip -l "out/${SCHEME}-${V}-${A}.ipa" | grep -q "Payload/${SCHEME}.app/Toolchain/bin/" \
+              || { echo "缺少内置工具链"; exit 1; }
+            echo "内置工具链已包含"
+          fi
           echo "ipa 结构检查通过"
 
       - name: Upload artifacts

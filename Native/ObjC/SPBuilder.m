@@ -4,6 +4,7 @@
 
 #import "SPBuilder.h"
 #import "SPCompat.h"
+#import "SPToolchainInstaller.h"
 #import "SPModels.h"
 #import "SPSession.h"
 #import "SPToolchain.h"
@@ -39,6 +40,18 @@
         [lines addObject:[NSString stringWithFormat:@"export %@=%@", k, [SPUtil shellQuote:v]]];
     }
 
+    // ---- 内置工具链（ipa 里的，首启展开到 Documents/Spark/Toolchain）----
+    SPToolchainInstaller *inst = [SPToolchainInstaller shared];
+    if (inst.isInstalled) {
+        [lines addObject:[NSString stringWithFormat:@"export SPARK_TC=%@", [SPUtil shellQuote:inst.installRoot]]];
+        [lines addObject:@"[ -d \"$SPARK_TC/bin\" ] && export PATH=\"$SPARK_TC/bin:$PATH\""];
+        // clang 运行时：libLLVM 就在 SPARK_TC/lib/llvm-16/lib
+        [lines addObject:@"[ -d \"$SPARK_TC/lib\" ] && export LD_LIBRARY_PATH=\"$SPARK_TC/lib:$SPARK_TC/lib/llvm-16/lib:${LD_LIBRARY_PATH:-}\""];
+        [lines addObject:@"[ -d \"$SPARK_TC/lib\" ] && export DYLD_LIBRARY_PATH=\"$SPARK_TC/lib:$SPARK_TC/lib/llvm-16/lib:${DYLD_LIBRARY_PATH:-}\""];
+        // perl：logos.pl / nic.pl 需要
+        [lines addObject:@"[ -d \"$SPARK_TC/lib/perl5\" ] && export PERL5LIB=\"$SPARK_TC/lib/perl5:${PERL5LIB:-}\""];
+    }
+
     NSString *pathPrefix = [[SPToolchain shared] pathPrefixForProfile:profile];
     if (pathPrefix.length) {
         [lines addObject:[NSString stringWithFormat:@"export PATH=%@:\"$PATH\"", [SPUtil shellQuote:pathPrefix]]];
@@ -55,6 +68,7 @@
 
     // ---- 工具链自检 ----
     [lines addObject:@"say '工具链自检'"];
+    [lines addObject:@"ok \"内置工具链 $([ -d \"$SPARK_TC/bin\" ] && echo 就绪 || echo 未就绪)\""];
     [lines addObject:@"for t in make ldid; do command -v $t >/dev/null 2>&1 && ok \"$t $(command -v $t)\" || warn \"缺少 $t\"; done"];
     [lines addObject:@"CCBIN=\"${CA_TOOL_OLLVM_CLANG:-clang}\"; \"$CCBIN\" --version >/dev/null 2>&1 && ok \"编译器 $($CCBIN --version | head -1)\" || warn \"编译器不可用: $CCBIN\""];
     if (options.useOLLVM) {

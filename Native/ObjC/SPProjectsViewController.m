@@ -351,7 +351,9 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
         }
         [SPMotion hapticSuccess];
         SPProject *p = [SPProject projectAtPath:path error:NULL];
-        p.options = [[SPStore shared] optionsForProjectPath:p.path];
+        // 新建项目套用「设置 → 编译默认值 + 混淆」
+        p.options = [[SPStore shared] optionsForProjectPath:@"__defaults__"];
+        [[SPStore shared] saveOptions:p.options forProjectPath:p.path];
         [[SPStore shared] pushRecentProject:p];
         [self reloadAll];
         SPProjectViewController *vc = [[SPProjectViewController alloc] initWithProject:p];

@@ -98,7 +98,7 @@
 
 - (void)prepare {
     NSFileManager *fm = NSFileManager.defaultManager;
-    for (NSString *sub in @[@"", @"projects", @"artifacts", @"logs", @"archives", @"options"]) {
+    for (NSString *sub in @[@"", @"projects", @"artifacts", @"logs", @"archives", @"options", @"inbox", @"SDKs"]) {
         [fm createDirectoryAtPath:[self.base stringByAppendingPathComponent:sub]
       withIntermediateDirectories:YES attributes:nil error:NULL];
     }
@@ -108,6 +108,8 @@
 - (NSString *)artifactsDirectory { return [self.base stringByAppendingPathComponent:@"artifacts"]; }
 - (NSString *)logsDirectory { return [self.base stringByAppendingPathComponent:@"logs"]; }
 - (NSString *)archivesDirectory { return [self.base stringByAppendingPathComponent:@"archives"]; }
+- (NSString *)inboxDirectory { return [self.base stringByAppendingPathComponent:@"inbox"]; }
+- (NSString *)sdksDirectory { return [self.base stringByAppendingPathComponent:@"SDKs"]; }
 
 #pragma mark JSON 读写小工具
 

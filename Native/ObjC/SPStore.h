@@ -58,6 +58,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSString *)artifactsDirectory;
 - (NSString *)logsDirectory;
 - (NSString *)archivesDirectory;
+/// 收件箱：用户从文件 App 导入的 dylib/deb/zip/ipa
+- (NSString *)inboxDirectory;
+/// 用户导入的 iPhoneOS SDK 存放处
+- (NSString *)sdksDirectory;
 
 /// 把字符串写进日志文件，返回路径
 - (nullable NSString *)persistLogText:(NSString *)text jobId:(NSString *)jobId;

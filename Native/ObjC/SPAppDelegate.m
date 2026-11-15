@@ -9,6 +9,8 @@
 #import "SPReverseViewController.h"
 #import "SPTrollViewController.h"
 #import "SPProjectViewController.h"
+#import "SPSettingsViewController.h"
+#import "SPToolchainInstaller.h"
 #import "SPStore.h"
 #import "SPToolchain.h"
 #import "SPCompat.h"
@@ -39,6 +41,19 @@
 
     self.window.rootViewController = self.tabs;
     [self.window makeKeyAndVisible];
+
+    // 内置工具链：首启后台静默展开（约 480MB，一分钟内），完成后自动重扫
+    SPToolchainInstaller *inst = [SPToolchainInstaller shared];
+    if (inst.hasBundledToolchain && !inst.isInstalled) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [inst installWithProgress:nil completion:^(BOOL ok, NSError *err) {
+                if (ok) {
+                    [[SPToolchain shared] rescan];
+                    [[NSNotificationCenter defaultCenter] postNotificationName:@"SPToolchainInstalled" object:nil];
+                }
+            }];
+        });
+    }
 
     // 首次启动的「一句话说明」，别让用户面对空列表发懵
     if (![[NSUserDefaults standardUserDefaults] boolForKey:@"Spark.onboarded"]) {
@@ -103,7 +118,12 @@
     UINavigationController *nav4 = [[UINavigationController alloc] initWithRootViewController:troll];
     nav4.tabBarItem = [self tabItem:@"注入" symbol:@"syringe" selected:@"syringe.fill"];
 
-    self.tabs.viewControllers = @[nav1, nav2, nav3, nav4];
+    // 5. 设置
+    SPSettingsViewController *settings = [[SPSettingsViewController alloc] init];
+    UINavigationController *nav5 = [[UINavigationController alloc] initWithRootViewController:settings];
+    nav5.tabBarItem = [self tabItem:@"设置" symbol:@"gearshape" selected:@"gearshape.fill"];
+
+    self.tabs.viewControllers = @[nav1, nav2, nav3, nav4, nav5];
     self.tabs.selectedIndex = 0;
 }
 
@@ -126,7 +146,7 @@
                                  @"• 一键编译 Theos / Logos 工程\n"
                                  @"• OLLVM 混淆与逆向工具\n"
                                  @"• 巨魔（TrollStore）注入\n\n"
-                                 @"先从「工具链」页确认环境，再回「项目」页新建或导入工程。"
+                                 @"内置编译工具链会在首次启动时自动展开；SDK 需要你在「设置 → 工具链」里导入。"
                   preferredStyle:UIAlertControllerStyleAlert];
     [a addAction:[UIAlertAction actionWithTitle:@"知道了" style:UIAlertActionStyleDefault handler:nil]];
     [a addAction:[UIAlertAction actionWithTitle:@"去检查工具链" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {

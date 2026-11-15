@@ -10,7 +10,9 @@
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>文件夹</string>
+			<string>Theos 工程目录</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
 			<key>LSHandlerRank</key>
 			<string>Alternate</string>
 			<key>LSItemContentTypes</key>
@@ -20,12 +22,52 @@
 		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
+			<string>动态库</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.apple.mach-o-dylib</string>
+				<string>public.data</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
 			<string>Debian 包</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
 			<key>LSHandlerRank</key>
 			<string>Alternate</string>
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>org.debian.deb</string>
+				<string>public.data</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>压缩包</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.zip-archive</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>iPhoneOS SDK</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.folder</string>
 				<string>public.data</string>
 			</array>
 		</dict>
@@ -90,6 +132,8 @@
 	<array>
 		<string>_ssh._tcp</string>
 	</array>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>接收你导入的 dylib / deb / SDK 等文件</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>保护项目与远程编译凭据</string>
 	<key>NSLocalNetworkUsageDescription</key>

@@ -4,6 +4,7 @@
 
 #import "SPToolchain.h"
 #import "SPCompat.h"
+#import "SPToolchainInstaller.h"
 
 static NSString *const kDefaultsHomeRoot = @"Spark.homeRoot";
 static NSString *const kDefaultsReinRoot = @"Spark.reinRoot";
@@ -137,7 +138,19 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
 
 - (NSArray<NSString *> *)candidateRoots {
     NSMutableArray *roots = [NSMutableArray array];
+
+    // 1) 内置工具链（ipa 里带的，首启展开到 Documents/Spark/Toolchain）
+    SPToolchainInstaller *inst = [SPToolchainInstaller shared];
+    if (inst.isInstalled) {
+        // 安装目录的布局是 <root>/bin、<root>/theos、<root>/ollvm、<root>/reverse
+        // 为了让下面的相对路径探测直接命中，这里把它的上级目录塞进来
+        [roots addObject:[inst.installRoot stringByDeletingLastPathComponent]];
+        [roots addObject:inst.installRoot];
+    }
+
+    // 2) 用户指定的安装目录
     if (self.homeRoot.length) [roots addObject:self.homeRoot];
+    // 3) 设备上的 Rein
     if (self.reinRoot.length) [roots addObject:self.reinRoot];
     // App 包内（Rein 把 theos-root 一起打进了 DSH.app）
     NSString *bundle = [NSBundle mainBundle].bundlePath;
@@ -177,8 +190,10 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     NSFileManager *fm = NSFileManager.defaultManager;
 
     // 1) Theos：tools/theos-local、tools/theos-full、theos-root/theos、…/theos
-    NSString *theos = [self firstExistingDirectory:@[@"tools/theos-full", @"tools/theos-local",
-                                                     @"theos-root/theos", @"theos", @"tools/theos-root/theos",
+    NSString *theos = [self firstExistingDirectory:@[@"Spark/Toolchain/theos", @"Toolchain/theos",
+                                                     @"theos",
+                                                     @"tools/theos-full", @"tools/theos-local",
+                                                     @"theos-root/theos", @"tools/theos-root/theos",
                                                      @"Theos"] fromRoots:roots];
     if (!theos) {
         // 包内 DSH.app/theos-root/theos 可能只读，但也能用
@@ -194,13 +209,14 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
         sdk = [self firstExistingDirectory:[self sdkNamesInDirectory:sdks] fromRoots:@[sdks]];
     }
     if (!sdk) {
-        NSString *store = [self firstExistingDirectory:@[@"sdks-store"] fromRoots:roots];
+        NSString *store = [self firstExistingDirectory:@[@"Spark/SDKs", @"SDKs", @"sdks-store"] fromRoots:roots];
         if (store) sdk = [self firstExistingDirectory:[self sdkNamesInDirectory:store] fromRoots:@[store]];
     }
     [scan setPath:sdk for:SPToolchainComponentSDK];
 
     // 3) Darwin bin：theos-root/usr/bin / helpers（真机可执行）
-    NSString *darwin = [self firstExistingDirectory:@[@"tools/theos-root/usr/bin"] fromRoots:roots];
+    NSString *darwin = [self firstExistingDirectory:@[@"Spark/Toolchain/bin", @"Toolchain/bin",
+                                                       @"tools/theos-root/usr/bin"] fromRoots:roots];
     if (!darwin) darwin = [self firstExistingDirectory:@[@"helpers"] fromRoots:[@[[NSBundle mainBundle].bundlePath] arrayByAddingObjectsFromArray:roots]];
     // 至少要真有 clang/ld64 才算
     if (darwin && ![[darwin stringByAppendingPathComponent:@"ld64"] isKindOfClass:NSNull.class]
@@ -213,13 +229,15 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     [scan setPath:darwin for:SPToolchainComponentDarwin];
 
     // 4) OLLVM
-    NSString *ollvm = [self firstExistingDirectory:@[@"tools/ollvm", @"ollvm"] fromRoots:roots];
+    NSString *ollvm = [self firstExistingDirectory:@[@"Spark/Toolchain/ollvm", @"Toolchain/ollvm",
+                                                     @"tools/ollvm", @"ollvm"] fromRoots:roots];
     if (ollvm && ![fm fileExistsAtPath:[ollvm stringByAppendingPathComponent:@"bin/clang"]]) ollvm = nil;
     self.resolvedOLLVM = ollvm;
     [scan setPath:ollvm for:SPToolchainComponentOLLVM];
 
     // 5) 逆向工具
-    NSString *rev = [self firstExistingDirectory:@[@"tools/reverse/bin"] fromRoots:roots];
+    NSString *rev = [self firstExistingDirectory:@[@"Spark/Toolchain/reverse/bin", @"Toolchain/reverse/bin",
+                                                    @"tools/reverse/bin"] fromRoots:roots];
     if (rev && ![fm fileExistsAtPath:[rev stringByAppendingPathComponent:@"rabin2"]] &&
         ![fm fileExistsAtPath:[rev stringByAppendingPathComponent:@"mt-macho"]]) rev = nil;
     self.resolvedReverse = rev;
@@ -252,7 +270,8 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     NSMutableArray *out = [NSMutableArray array];
     NSArray *roots = [self candidateRoots];
     for (NSString *root in roots) {
-        for (NSString *rel in @[@"tools/theos-full/sdks", @"tools/theos-local/sdks", @"sdks-store", @"sdks"]) {
+        for (NSString *rel in @[@"Spark/SDKs", @"SDKs",
+                                @"tools/theos-full/sdks", @"tools/theos-local/sdks", @"sdks-store"]) {
             NSString *dir = [root stringByAppendingPathComponent:rel];
             BOOL isDir = NO;
             if ([NSFileManager.defaultManager fileExistsAtPath:dir isDirectory:&isDir] && isDir) {
