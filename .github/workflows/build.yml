@@ -385,11 +385,50 @@ jobs:
           fi
           echo "  ✓ 无符号链接"
 
+          # ------------------------------------------------------------------
+          # Helper 必须单独签名！
+          # bin/spark-jitd 是独立进程，继承不到主 App 的签名；
+          # 不给它签，ldid -s 遍历到未签名的 Mach-O 就会报
+          # "Unknown header magic"，导致 TrollStore 安装失败（实测踩坑）。
+          # ------------------------------------------------------------------
+          echo "==> 单独签名 Helper（用独立的 entitlements）"
+          if [ -f Native/JIT/helper.entitlements.plist ]; then
+            HELPER_ENT="Native/JIT/helper.entitlements.plist"
+            plutil -lint "$HELPER_ENT"
+            python3 scripts/check-entitlements.py "$HELPER_ENT" || {
+              echo "::error::Helper entitlements 校验失败"; exit 1; }
+          else
+            HELPER_ENT="entitlements.plist"
+          fi
+
+          SIGNDIR="$APP/bin"
+          if [ -d "$SIGNDIR" ]; then
+            find "$SIGNDIR" -type f 2>/dev/null > /tmp/helpers.txt || true
+            while IFS= read -r h; do
+              [ -n "$h" ] || continue
+              # 只签 Mach-O
+              MAGIC=$(head -c 4 "$h" 2>/dev/null | od -An -tx1 | tr -d ' \n')
+              case "$MAGIC" in
+                cffaedfe|cefaedfe|feedfacf|feedface)
+                  chmod 755 "$h"
+                  echo "  签名 $(basename "$h")"
+                  codesign --force --sign - --timestamp=none \
+                    --entitlements "$HELPER_ENT" \
+                    --generate-entitlement-der "$h" || {
+                      echo "::error::Helper 签名失败：$h"; exit 1; }
+                  ;;
+                *) echo "  跳过（非 Mach-O）$(basename "$h")" ;;
+              esac
+            done < /tmp/helpers.txt
+          fi
+          echo "  ✓ Helper 签名完成"
+
           echo "==> 签名（带平台权限，TrollStore 必需）"
           # 关键：必须带 entitlements，否则 App 会跑在沙盒里、
           # 无法 exec 子进程 —— 编译和注入都会失效。
           if [ -f entitlements.plist ]; then
             plutil -lint entitlements.plist
+            python3 scripts/check-entitlements.py entitlements.plist
             codesign --force --sign - --timestamp=none \
               --entitlements entitlements.plist \
               --generate-entitlement-der "$APP" || true
@@ -531,6 +570,18 @@ jobs:
             find /tmp/vfy/Payload -type l
             exit 1
           fi
+          # 每个 Mach-O 都必须有 LC_CODE_SIGNATURE，否则 TrollStore 的 ldid -s 会失败
+          if ! python3 scripts/check-macho-signed.py /tmp/vfy/Payload; then
+            echo "::error::存在未签名的 Mach-O，ldid -s 会失败"
+            exit 1
+          fi
+          if [ -n "$UNSIGNED" ]; then
+            echo "::error::以下 Mach-O 没有签名，ldid -s 会失败："
+            echo "$UNSIGNED"
+            exit 1
+          fi
+          echo "✓ 所有 Mach-O 均已签名"
+
           echo "✓ 签名前检查通过：无 #! 可执行文件、无符号链接"
           # unzip 出来的文件权限是只读，清理前要先改权限
           chmod -R u+w /tmp/vfy 2>/dev/null || true

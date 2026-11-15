@@ -45,6 +45,7 @@ jobs:
         run: python3 scripts/check-imports.py
           python3 scripts/check-header-selfcontained.py
           python3 scripts/check-objc-syntax.py
+          python3 scripts/check-entitlements.py
 
       - name: Validate plists
         run: |
