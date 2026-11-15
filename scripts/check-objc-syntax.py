@@ -103,6 +103,9 @@ def check(path: str):
 
     # 4b. 已知不存在的系统方法
     for lineno, line in enumerate(lines, 1):
+        # 方括号后残留属性访问：[self.view addSubview:self].table
+        if re.search(r'\[\s*self\.[\w.]+\s+addSubview:[\w.]+\]\s*\.', line):
+            PROBLEMS.append(f'{name}:{lineno}: addSubview 后多了 .属性，应写 [self.view addSubview:view]')
         for owner, member, hint in KNOWN_BAD:
             if owner in line and member in line:
                 PROBLEMS.append(f'{name}:{lineno}: {hint}')
