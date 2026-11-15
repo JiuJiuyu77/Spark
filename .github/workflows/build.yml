@@ -279,6 +279,10 @@ jobs:
           set -euo pipefail
           SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
           MIN=15.0
+          # 注意：GITHUB_ENV 里写的 APP_PATH 在同一步内可用，但 $APP 是上一步的局部变量，
+          # 这里重新算一遍，避免 unbound variable
+          APP="$RUNNER_TEMP/${SCHEME}.app"
+          [ -d "$APP" ] || { echo "主 App 不存在：$APP"; exit 1; }
           EXT="$APP/PlugIns/SparkShare.appex"
           rm -rf "$EXT" && mkdir -p "$EXT"
 
