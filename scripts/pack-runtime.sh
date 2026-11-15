@@ -112,14 +112,25 @@ if [ -d "$THEOS_ROOT/usr/lib/llvm-16" ]; then
 fi
 
 # 去重：libLLVM.dylib 与 libLLVM-16.dylib 同内容（各 108MB）
+#
+# 注意：**不能用符号链接**！TrollStore 安装时执行
+#   ldid -s Payload/Spark.app
+# 它会递归签名目录里每个文件，读到符号链接时同样报
+# "Unknown header magic" 导致整个安装失败（已实测踩坑）。
+# 用硬链接：两个名字指向同一份数据，ldid 看到的是普通文件。
 LLVM_LIB="$PKGROOT/usr/lib/llvm-16/lib"
 if [ -f "$LLVM_LIB/libLLVM.dylib" ] && [ -f "$LLVM_LIB/libLLVM-16.dylib" ]; then
 	A=$(stat -c %s "$LLVM_LIB/libLLVM.dylib" 2>/dev/null || echo 0)
 	B=$(stat -c %s "$LLVM_LIB/libLLVM-16.dylib" 2>/dev/null || echo 1)
 	if [ "$A" = "$B" ]; then
 		rm -f "$LLVM_LIB/libLLVM.dylib"
-		ln -s libLLVM-16.dylib "$LLVM_LIB/libLLVM.dylib"
-		ok "libLLVM 去重（省 108MB）"
+		if ln "$LLVM_LIB/libLLVM-16.dylib" "$LLVM_LIB/libLLVM.dylib" 2>/dev/null; then
+			ok "libLLVM 去重（硬链接，省 108MB）"
+		else
+			# 硬链接不可用（跨卷）时宁可复制，也不能留符号链接
+			cp "$LLVM_LIB/libLLVM-16.dylib" "$LLVM_LIB/libLLVM.dylib"
+			warn "硬链接失败，改为复制（包体 +108MB）"
+		fi
 	fi
 fi
 

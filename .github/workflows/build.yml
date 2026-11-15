@@ -306,6 +306,33 @@ jobs:
           # 去掉可执行位（编译不需要它们）。
           # ------------------------------------------------------------------
           echo "==> 降级 shell 脚本（避免 ldid -s 报 Unknown header magic）"
+          # ------------------------------------------------------------------
+          # 先处理符号链接：ldid -s 递归签名时读到符号链接会报
+          # "Unknown header magic"，整个安装失败（实测踩过）。
+          # 一律「实体化」：符号链接换成真实文件。
+          # ------------------------------------------------------------------
+          echo "==> 实体化符号链接（ldid -s 不认符号链接）"
+          LINKS=$(find "$APP" -type l 2>/dev/null | wc -l | tr -d ' ')
+          if [ "${LINKS:-0}" -gt 0 ]; then
+            find "$APP" -type l 2>/dev/null > /tmp/links.txt
+            while IFS= read -r l; do
+              [ -n "$l" ] || continue
+              tgt=$(readlink "$l")
+              echo "  $l -> $tgt"
+              rm -f "$l"
+              if [ -e "$(dirname "$l")/$tgt" ]; then
+                cp "$(dirname "$l")/$tgt" "$l"
+              elif [ -e "$tgt" ]; then
+                cp "$tgt" "$l"
+              else
+                echo "::warning::链接目标不存在，跳过 $l"
+              fi
+            done < /tmp/links.txt
+            echo "  实体化 $LINKS 个"
+          else
+            echo "  无符号链接"
+          fi
+
           # 工具链里很多文件是只读的，chmod 前先加写权限
           chmod -R u+w "$APP" 2>/dev/null || true
           DEMOTED=0
@@ -338,6 +365,14 @@ jobs:
             exit 1
           fi
           echo "  ✓ 无残留脚本"
+
+          LINKLEFT=$(find "$APP" -type l 2>/dev/null | wc -l | tr -d ' ')
+          if [ "${LINKLEFT:-0}" -gt 0 ]; then
+            echo "::error::仍有 $LINKLEFT 个符号链接，ldid -s 会失败"
+            find "$APP" -type l
+            exit 1
+          fi
+          echo "  ✓ 无符号链接"
 
           echo "==> 签名（带平台权限，TrollStore 必需）"
           # 关键：必须带 entitlements，否则 App 会跑在沙盒里、
@@ -479,7 +514,13 @@ jobs:
             echo "::error::ipa 里还有 $BAD 个 shell 脚本带可执行位，TrollStore 安装会失败"
             exit 1
           fi
-          echo "✓ 签名前检查通过：无 #! 可执行文件"
+          LK=$(find /tmp/vfy/Payload -type l 2>/dev/null | wc -l | tr -d ' ')
+          if [ "${LK:-0}" -gt 0 ]; then
+            echo "::error::ipa 里有 $LK 个符号链接，TrollStore 安装会失败"
+            find /tmp/vfy/Payload -type l
+            exit 1
+          fi
+          echo "✓ 签名前检查通过：无 #! 可执行文件、无符号链接"
           # unzip 出来的文件权限是只读，清理前要先改权限
           chmod -R u+w /tmp/vfy 2>/dev/null || true
           rm -rf /tmp/vfy 2>/dev/null || true
