@@ -43,6 +43,7 @@ jobs:
 
       - name: ObjC imports complete
         run: python3 scripts/check-imports.py
+          python3 scripts/check-header-selfcontained.py
 
       - name: Validate plists
         run: |
