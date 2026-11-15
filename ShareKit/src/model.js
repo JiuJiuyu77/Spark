@@ -303,6 +303,9 @@ export function buildScript(project, options = {}, profile = {}) {
   for (const [k, v] of Object.entries(env)) lines.push(`export ${k}=${q(v)}`);
 
   lines.push('', "say '工具链自检'");
+  // 内存遥测：编译大工程时能提前看到内存压力（Rein 的 boot.js 也这么干）
+  lines.push('mem() { free=$(vm_stat 2>/dev/null | awk \'/Pages free/{gsub("\\.","",$3);print int($3*16384/1048576)}\' 2>/dev/null); [ -n "$free" ] && echo "    内存可用 ${free}MB"; }');
+  lines.push('mem');
   lines.push('command -v make >/dev/null 2>&1 && ok "make $(command -v make)" || { warn "缺少 make"; exit 3; }');
   // 编译器自检：有 OLLVM 就认真检查它，没有就只看 Theos 侧的 clang
   if (profile.ollvmRoot) {

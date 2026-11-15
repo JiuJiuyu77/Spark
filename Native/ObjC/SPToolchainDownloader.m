@@ -19,25 +19,27 @@ static NSArray<NSDictionary *> *SPRuntimeManifest(void) {
     static NSArray *m;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
+        // 与 ProjectKit/src/runtimes.mjs 一一对应；地址指向自己的运行时仓库
+        NSString *base = @"https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v1";
         m = @[
-          @{@"id": @"core_tools", @"name": @"核心工具集", @"size": @(9.5*1024*1024), @"order": @5,
-            @"archive": @"https://github.com/susu123oss/CodexApp-Runtime/releases/download/runtime-core-tools-a7e97567217a/CoreToolsRuntime.tar.gz",
-            @"probe": @"bin/sh", @"detail": @"sh / tar / cp 等基础命令", @"symbol": @"terminal.fill"},
-          @{@"id": @"reverse_tools", @"name": @"逆向工具", @"size": @(16.6*1024*1024), @"order": @10,
-            @"archive": @"https://github.com/susu123oss/CodexApp-Runtime/releases/download/runtime-reverse-tools-9d3ca9ea3340/ReverseToolsRuntime.tar.gz",
+          @{@"id": @"coretools", @"name": @"核心工具集", @"size": @(40*1024*1024), @"order": @5,
+            @"archive": [base stringByAppendingString:@"/coretools/CoreTools.tar.gz"],
+            @"probe": @"usr/bin/sh", @"detail": @"sh / tar / cp 等基础命令", @"symbol": @"terminal.fill"},
+          @{@"id": @"reverse", @"name": @"逆向工具", @"size": @(60*1024*1024), @"order": @10,
+            @"archive": [base stringByAppendingString:@"/reverse/ReverseTools.tar.gz"],
             @"probe": @"bin/rabin2", @"detail": @"radare2 / mt-macho / 注入 dylib", @"symbol": @"binoculars.fill"},
-          @{@"id": @"node", @"name": @"Node.js 24.5.0", @"size": @(28.1*1024*1024), @"order": @15,
-            @"archive": @"https://github.com/susu123oss/CodexApp-Runtime/releases/download/runtime-node-24.5.0-e3a6c25fac33/NodeRuntime.tar.gz",
-            @"probe": @"bin/node", @"detail": @"Node 24.5.0 + npm 11.5.1 + corepack", @"symbol": @"curlybraces"},
-          @{@"id": @"build_tools", @"name": @"构建工具", @"size": @(7.2*1024*1024), @"order": @15,
-            @"archive": @"https://github.com/susu123oss/CodexApp-Runtime/releases/download/runtime-build-tools-3.27.9-fb0f29cea7b2/BuildToolsRuntime.tar.gz",
-            @"probe": @"bin/ninja", @"detail": @"CMake 3.27.9 + Ninja 1.11.1", @"symbol": @"hammer.fill"},
-          @{@"id": @"python", @"name": @"Python 3.13", @"size": @(10.1*1024*1024), @"order": @20,
-            @"archive": @"https://github.com/susu123oss/CodexApp-Runtime/releases/download/runtime-python-3.13.14-3c834a2c8964/PythonRuntime.tar.gz",
+          @{@"id": @"node", @"name": @"Node.js 24.5.0", @"size": @(28*1024*1024), @"order": @15,
+            @"archive": [base stringByAppendingString:@"/node/NodeRuntime.tar.gz"],
+            @"probe": @"bin/node", @"detail": @"Node 24.5.0 + npm + corepack", @"symbol": @"curlybraces"},
+          @{@"id": @"buildtools", @"name": @"构建工具", @"size": @(8*1024*1024), @"order": @15,
+            @"archive": [base stringByAppendingString:@"/buildtools/BuildTools.tar.gz"],
+            @"probe": @"bin/ninja", @"detail": @"CMake + Ninja", @"symbol": @"hammer.fill"},
+          @{@"id": @"python", @"name": @"Python 3.13", @"size": @(10*1024*1024), @"order": @20,
+            @"archive": [base stringByAppendingString:@"/python/PythonRuntime.tar.gz"],
             @"probe": @"bin/python3", @"detail": @"Python 3.13.14", @"symbol": @"chevron.left.forwardslash.chevron.right"},
-          @{@"id": @"ollvm", @"name": @"OLLVM 混淆", @"size": @(34.7*1024*1024), @"order": @30,
-            @"archive": @"https://github.com/susu123oss/CodexApp-Runtime/releases/download/runtime-ollvm-23.1.1-e54f2878240e/OLLVMRuntime.tar.gz",
-            @"probe": @"bin/clang", @"detail": @"Arkari OLLVM 23.1.1，5 个 pass", @"symbol": @"wand.and.stars"},
+          @{@"id": @"ollvm", @"name": @"OLLVM 混淆", @"size": @(80*1024*1024), @"order": @30,
+            @"archive": [base stringByAppendingString:@"/ollvm/OLLVMRuntime.tar.gz"],
+            @"probe": @"bin/clang", @"detail": @"Arkari OLLVM，5 个 pass", @"symbol": @"wand.and.stars"},
         ];
     });
     return m;

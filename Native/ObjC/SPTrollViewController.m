@@ -86,7 +86,10 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
     UIBarButtonItem *refresh = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"arrow.clockwise"]
                                                                style:UIBarButtonItemStylePlain
                                                               target:self action:@selector(reloadApps)];
-    self.navigationItem.rightBarButtonItem = refresh;
+    UIBarButtonItem *more = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"ellipsis.circle"]
+                                                             style:UIBarButtonItemStylePlain
+                                                            target:self action:@selector(showMoreMenu)];
+    self.navigationItem.rightBarButtonItems = @[more, refresh];
 
     [self reloadApps];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(reloadApps)
@@ -218,6 +221,66 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
     SPTrollInjectPanel *panel = [[SPTrollInjectPanel alloc] initWithApp:a];
     panel.onFinished = ^{ [self reloadApps]; };
     [self.navigationController pushViewController:panel animated:YES];
+}
+
+
+#pragma mark - 卸载注入
+
+/// 列出所有带 .sparkbak 备份的 App
+
+- (void)showMoreMenu {
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:nil message:nil
+                                                           preferredStyle:UIAlertControllerStyleActionSheet];
+    [a addAction:[UIAlertAction actionWithTitle:@"卸载注入（恢复备份）" style:UIAlertActionStyleDestructive
+                                          handler:^(UIAlertAction *x) { [self showRestorableApps]; }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"刷新 App 列表" style:UIAlertActionStyleDefault
+                                          handler:^(UIAlertAction *x) { [self reloadApps]; }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    a.popoverPresentationController.barButtonItem = self.navigationItem.rightBarButtonItems.firstObject;
+    [self presentViewController:a animated:YES completion:nil];
+}
+
+- (void)showRestorableApps {
+    NSMutableArray<NSString *> *list = [NSMutableArray array];
+    NSFileManager *fm = NSFileManager.defaultManager;
+    for (NSString *root in @[@"/private/var/containers/Bundle/Application", @"/Applications"]) {
+        for (NSString *uuid in [fm contentsOfDirectoryAtPath:root error:NULL] ?: @[]) {
+            NSString *dir = [root stringByAppendingPathComponent:uuid];
+            for (NSString *name in [fm contentsOfDirectoryAtPath:dir error:NULL] ?: @[]) {
+                if (![name hasSuffix:@".app.sparkbak"]) continue;
+                [list addObject:[dir stringByAppendingPathComponent:name]];
+            }
+        }
+    }
+    if (!list.count) {
+        [self alert:@"没有可恢复的 App" message:@"目前没有找到 .sparkbak 备份。"];
+        return;
+    }
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"卸载注入"
+        message:@"会删除当前注入过的 App，并把 .sparkbak 恢复回去。" preferredStyle:UIAlertControllerStyleActionSheet];
+    for (NSString *bak in list) {
+        NSString *target = [bak stringByDeletingPathExtension];   // 去掉 .sparkbak
+        [a addAction:[UIAlertAction actionWithTitle:target.lastPathComponent style:UIAlertActionStyleDestructive
+                                            handler:^(UIAlertAction *x) {
+            [self restoreFromBackup:bak to:target];
+        }]];
+    }
+    [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    a.popoverPresentationController.sourceView = self.view;
+    [self presentViewController:a animated:YES completion:nil];
+}
+
+- (void)restoreFromBackup:(NSString *)backup to:(NSString *)target {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSError *err = nil;
+    [fm removeItemAtPath:target error:NULL];
+    if (![fm moveItemAtPath:backup toPath:target error:&err]) {
+        [self alert:@"恢复失败" message:err.localizedDescription ?: @"未知错误"];
+        return;
+    }
+    [SPMotion hapticSuccess];
+    [self alert:@"已卸载注入" message:[NSString stringWithFormat:@"%@ 已恢复为注入前的状态。", target.lastPathComponent]];
+    [self reloadApps];
 }
 
 @end
@@ -514,6 +577,32 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
                 @"[ -x \"$INT\" ] && \"$INT\" -id \"@executable_path/%@\" %@ 2>/dev/null || true\n", base, dest]];
         }
     }
+
+    // ---- 准备 CydiaSubstrate 框架 ----
+    // 没有它，注入的 dylib 里的 %hook 没有运行时去接管，等于没注入
+    [s appendString:@"say '准备 CydiaSubstrate'\n"];
+    [s appendString:@"mkdir -p \"$APP/Frameworks\"\n"];
+    [s appendString:@"SUB=\"\"\n"];
+    [s appendString:@"for c in \"$APP/Frameworks/CydiaSubstrate.framework\" \\\n"
+                 "         \"$(dirname \"$APP\")/CydiaSubstrate.framework\" \\\n"
+                 "         /Library/Frameworks/CydiaSubstrate.framework \\\n"
+                 "         /var/jb/Library/Frameworks/CydiaSubstrate.framework \\\n"
+                 "         /usr/lib/libsubstrate.dylib; do\n"
+                 "  [ -e \"$c\" ] && { SUB=\"$c\"; break; }\n"
+                 "done\n"];
+    [s appendString:@"if [ -n \"$SUB\" ]; then\n"
+                 "  if [ -d \"$SUB\" ]; then\n"
+                 "    [ -d \"$APP/Frameworks/CydiaSubstrate.framework\" ] || cp -R \"$SUB\" \"$APP/Frameworks/\"\n"
+                 "    echo \"  使用 $SUB\"\n"
+                 "  else\n"
+                 "    mkdir -p \"$APP/Frameworks/CydiaSubstrate.framework\"\n"
+                 "    cp \"$SUB\" \"$APP/Frameworks/CydiaSubstrate.framework/CydiaSubstrate\"\n"
+                 "    printf '{\"CFBundleExecutable\":\"CydiaSubstrate\",\"CFBundleIdentifier\":\"org.coolstar.CydiaSubstrate\"}' > \"$APP/Frameworks/CydiaSubstrate.framework/Info.plist\"\n"
+                 "    echo \"  从 libsubstrate.dylib 构造 framework\"\n"
+                 "  fi\n"
+                 "else\n"
+                 "  echo '[!] 找不到 CydiaSubstrate：注入后 tweak 不会加载（可从 TrollStore 版的 App 里拷一份）'\n"
+                 "fi\n"];
 
     // 插入加载命令
     [s appendString:@"say '插入加载命令'\n"];

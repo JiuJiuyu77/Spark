@@ -13,9 +13,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 可下载的组件
 typedef NS_ENUM(NSInteger, SPComponent) {
-    SPComponentCoreTools = 0,   // 基础命令（sh/tar/cp…）
+    SPComponentCoreTools = 0,   // 基础命令
     SPComponentReverse,         // radare2 / mt-macho
-    SPComponentNode,            // Node 24.5.0 + npm 11.5.1 + corepack
+    SPComponentNode,            // Node 24.5.0
     SPComponentBuildTools,      // CMake + Ninja
     SPComponentPython,          // Python 3.13
     SPComponentOLLVM,           // Arkari OLLVM
