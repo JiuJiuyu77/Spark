@@ -566,12 +566,6 @@ jobs:
             echo "::error::存在未签名的 Mach-O，ldid -s 会失败"
             exit 1
           fi
-          if [ -n "$UNSIGNED" ]; then
-            echo "::error::以下 Mach-O 没有签名，ldid -s 会失败："
-            echo "$UNSIGNED"
-            exit 1
-          fi
-          echo "✓ 所有 Mach-O 均已签名"
 
           echo "✓ 签名前检查通过：无 #! 可执行文件、无符号链接"
           # unzip 出来的文件权限是只读，清理前要先改权限
