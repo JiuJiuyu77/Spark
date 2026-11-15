@@ -319,11 +319,20 @@ jobs:
           echo "  共降级 $DEMOTED 个"
 
           # 自检：签名前不允许再有任何 #! 可执行文件
-          LEFTOVER=$(find "$APP" -type f -perm -u+x 2>/dev/null | while IFS= read -r f; do
-            [ "$(head -c 2 "$f" 2>/dev/null)" = '#!' ] && echo "$f"
-          done | wc -l)
-          if [ "$LEFTOVER" -gt 0 ]; then
+          # 注意：set -e 下 while/&& 返回非零会让 $(...) 整体失败，
+          # 所以先把残留写进文件再数，别用管道接 wc。
+          : > /tmp/leftover.txt
+          find "$APP" -type f -perm -u+x 2>/dev/null > /tmp/execlist2.txt || true
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            if [ "$(head -c 2 "$f" 2>/dev/null)" = '#!' ]; then
+              echo "$f" >> /tmp/leftover.txt
+            fi
+          done < /tmp/execlist2.txt
+          LEFTOVER=$(wc -l < /tmp/leftover.txt | tr -d ' ')
+          if [ "${LEFTOVER:-0}" -gt 0 ]; then
             echo "::error::仍有 $LEFTOVER 个 shell 脚本带可执行位，ldid -s 会失败"
+            cat /tmp/leftover.txt
             exit 1
           fi
           echo "  ✓ 无残留脚本"
@@ -453,10 +462,16 @@ jobs:
           # 最终自检：ipa 里不能有 #! 可执行文件（否则用户装不上）
           rm -rf /tmp/vfy && mkdir -p /tmp/vfy
           unzip -q "out/${SCHEME}-${V}-${A}.ipa" -d /tmp/vfy
-          BAD=$(find /tmp/vfy/Payload -type f -perm -u+x 2>/dev/null | while IFS= read -r f; do
-            [ "$(head -c 2 "$f" 2>/dev/null)" = '#!' ] && echo "$f"
-          done | wc -l)
-          if [ "$BAD" -gt 0 ]; then
+          : > /tmp/badscript.txt
+          find /tmp/vfy/Payload -type f -perm -u+x 2>/dev/null > /tmp/vfyexec.txt || true
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            if [ "$(head -c 2 "$f" 2>/dev/null)" = '#!' ]; then
+              echo "$f" >> /tmp/badscript.txt
+            fi
+          done < /tmp/vfyexec.txt
+          BAD=$(wc -l < /tmp/badscript.txt | tr -d ' ')
+          if [ "${BAD:-0}" -gt 0 ]; then
             echo "::error::ipa 里还有 $BAD 个 shell 脚本带可执行位，TrollStore 安装会失败"
             exit 1
           fi
