@@ -13,6 +13,7 @@
 #import "SPToolchain.h"
 #import "SPCompat.h"
 #import "SPModels.h"
+#import "SPDiagnostics.h"
 
 typedef NS_ENUM(NSInteger, SPProjectSection) {
     SPProjectSectionInfo = 0,
@@ -208,7 +209,7 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
         case SPProjectSectionInfo: return 5;
         case SPProjectSectionOptions: return 7;
         case SPProjectSectionObfuscation: return 3;
-        default: return 6;
+        default: return 7;
     }
 }
 
@@ -263,7 +264,7 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
         }
         default: {
             NSArray *titles = @[@"查看源码", @"查看 Makefile", @"构建历史", @"复制编译命令",
-                                @"浏览工程目录", @"查看构建报告"];
+                                @"浏览工程目录", @"查看构建报告", @"运行诊断"];
             cell.textLabel.text = titles[ip.row];
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             cell.selectionStyle = UITableViewCellSelectionStyleDefault;
@@ -340,6 +341,10 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
             SPFileBrowserViewController *b = [[SPFileBrowserViewController alloc] initWithRootPath:self.project.path
                                                                                      pickMode:NO fileFilters:nil onPick:nil];
             [self.navigationController pushViewController:b animated:YES];
+            break;
+        }
+        case 6: {
+            [self showDiagnostics];
             break;
         }
         default: {
@@ -452,6 +457,38 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
     UIAlertController *a = [UIAlertController alertControllerWithTitle:title
         message:message preferredStyle:UIAlertControllerStyleAlert];
     [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
+}
+
+
+/// 运行诊断：把风险清单以可读文本弹出来，同时把 JSON 报告写进工程目录
+- (void)showDiagnostics {
+    NSArray<SPRiskItem *> *risks = [SPDiagnostics runtimeRisksForProject:self.project.path];
+    NSMutableString *text = [NSMutableString string];
+    if (!risks.count) {
+        [text appendString:@"没有发现明显风险。\n\n（这只覆盖静态检查：进程过滤、包布局、私有 API、最低系统）"];
+    } else {
+        for (SPRiskItem *r in risks) {
+            NSString *mark = r.level == SPRiskLevelError ? @"✗" : (r.level == SPRiskLevelWarn ? @"⚠" : @"·");
+            [text appendFormat:@"%@ %@\n%@\n", mark, r.title, r.detail];
+            if (r.suggestion.length) [text appendFormat:@"  → %@\n", r.suggestion];
+            [text appendString:@"\n"];
+        }
+    }
+
+    NSDictionary *report = [SPDiagnostics reportForProject:self.project.path binary:nil];
+    NSData *data = [NSJSONSerialization dataWithJSONObject:report
+                                                   options:NSJSONWritingPrettyPrinted error:NULL];
+    if (data) {
+        [data writeToFile:[self.project.path stringByAppendingPathComponent:@"diagnostics.json"] atomically:YES];
+    }
+
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"运行诊断"
+        message:text preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"复制" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
+        UIPasteboard.generalPasteboard.string = text;
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:a animated:YES completion:nil];
 }
 

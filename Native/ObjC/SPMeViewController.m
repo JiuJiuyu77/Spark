@@ -9,6 +9,9 @@
 #import "SPLogsViewController.h"
 #import "SPMountsViewController.h"
 #import "SPInboxViewController.h"
+#import "SPStorageViewController.h"
+#import "SPDiagnostics.h"
+#import "SPStorage.h"
 #import "SPIncoming.h"
 #import "SPToolchain.h"
 #import "SPToolchainInstaller.h"
@@ -60,7 +63,7 @@
     self.titles = @[@"", @"通用", @"关于"];
     self.groups = @[
         @[@"设置"],
-        @[@"收件箱", @"日志", @"外部文件夹", @"数据目录"],
+        @[@"收件箱", @"日志", @"存储空间", @"外部文件夹", @"数据目录"],
         @[@"版本信息", @"运行环境自检"],
     ];
 }
@@ -99,6 +102,11 @@
             NSUInteger n = [[SPIncoming shared] items].count;
             cell.detailTextLabel.text = n ? [NSString stringWithFormat:@"%lu 个文件", (unsigned long)n] : @"空";
             cell.imageView.image = [self tile:@"tray.and.arrow.down.fill" tint:[SPTheme accent]];
+        } else if ([title isEqualToString:@"存储空间"]) {
+            NSDictionary *disk = [[SPStorage shared] diskSpace];
+            cell.detailTextLabel.text = [NSString stringWithFormat:@"可用 %@",
+                                         [SPUtil formatBytes:[disk[@"free"] unsignedLongLongValue]]];
+            cell.imageView.image = [self tile:@"internaldrive.fill" tint:[SPTheme info]];
         } else if ([title isEqualToString:@"日志"]) {
             NSUInteger n = [NSFileManager.defaultManager contentsOfDirectoryAtPath:[[SPStore shared] logsDirectory]
                                                                             error:NULL].count;
@@ -146,6 +154,7 @@
 
     if ([title isEqualToString:@"设置"]) vc = [SPSettingsViewController new];
     else if ([title isEqualToString:@"收件箱"]) vc = [SPInboxViewController new];
+    else if ([title isEqualToString:@"存储空间"]) vc = [SPStorageViewController new];
     else if ([title isEqualToString:@"日志"]) vc = [SPLogsViewController new];
     else if ([title isEqualToString:@"外部文件夹"]) vc = [SPMountsViewController new];
     else if ([title isEqualToString:@"数据目录"]) {
@@ -166,10 +175,23 @@
         [self presentViewController:a animated:YES completion:nil];
         return;
     } else {
-        NSString *msg = [NSString stringWithFormat:@"内置工具链：%@\n已展开：%@\n\n%@",
-                         [SPToolchainInstaller shared].hasBundledToolchain ? @"有" : @"无",
-                         [SPToolchainInstaller shared].isInstalled ? @"是" : @"否",
-                         [[SPToolchain shared].scan summary]];
+        NSMutableString *msg = [NSMutableString stringWithFormat:
+            @"内置工具链：%@\n已展开：%@\n\n%@\n",
+            [SPToolchainInstaller shared].hasBundledToolchain ? @"有" : @"无",
+            [SPToolchainInstaller shared].isInstalled ? @"是" : @"否",
+            [[SPToolchain shared].scan summary]];
+        // 附上最近项目的运行风险（如果只有一个项目就顺手扫一下）
+        NSArray *recent = [[SPStore shared] recentProjects];
+        if (recent.count) {
+            NSString *path = recent.firstObject[@"path"];
+            NSArray *risks = [SPDiagnostics runtimeRisksForProject:path];
+            if (risks.count) {
+                [msg appendFormat:@"\n最近项目风险（%lu）：\n", (unsigned long)risks.count];
+                for (SPRiskItem *r in risks) {
+                    [msg appendFormat:@"• %@\n  %@\n", r.title, r.detail];
+                }
+            }
+        }
         UIAlertController *a = [UIAlertController alertControllerWithTitle:@"环境自检" message:msg
                                                                preferredStyle:UIAlertControllerStyleAlert];
         [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
