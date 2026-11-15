@@ -374,13 +374,32 @@ jobs:
           fi
           echo "  ✓ 无残留脚本"
 
-          # 空壳 bundle 复查：还有就说明清理没生效
-          EMPTY=$(python3 scripts/fix-bundles.py "$APP" 2>/dev/null | grep -c '^    - ' || true)
-          if [ "${EMPTY:-0}" -gt 0 ]; then
-            echo "::error::仍有空壳 bundle，ldid -s 会失败"
-            exit 1
-          fi
-          echo "  ✓ 无空壳 bundle"
+          # 空壳 bundle 复查：用独立探测，不依赖 fix-bundles 的输出格式
+          python3 - "$APP" <<'PYCHK'
+import os, plistlib, sys
+root = sys.argv[1]
+bad = []
+for base, _d, files in os.walk(root):
+    if 'Info.plist' not in files:
+        continue
+    ip = os.path.join(base, 'Info.plist')
+    try:
+        with open(ip, 'rb') as f:
+            d = plistlib.load(f)
+    except Exception:
+        continue
+    if not isinstance(d, dict):
+        continue
+    exe = d.get('CFBundleExecutable')
+    if exe and not os.path.exists(os.path.join(base, exe)):
+        bad.append(os.path.relpath(ip, root))
+if bad:
+    print('::error::仍有 %d 个空壳 bundle，ldid -s 会失败' % len(bad))
+    for b in bad:
+        print('  ' + b)
+    sys.exit(1)
+print('  ✓ 无空壳 bundle')
+PYCHK
 
           LINKLEFT=$(find "$APP" -type l 2>/dev/null | wc -l | tr -d ' ')
           if [ "${LINKLEFT:-0}" -gt 0 ]; then
