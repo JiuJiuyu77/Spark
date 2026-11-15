@@ -76,11 +76,22 @@ def fix_root(root: str) -> int:
             continue
 
         rel = os.path.relpath(ip, root)
+        # Theos 分发包里文件普遍是只读（444），删之前先加写权限
+        try:
+            os.chmod(ip, 0o644)
+        except OSError:
+            pass
         try:
             os.remove(ip)
             removed.append(rel)
         except OSError as e:
-            print(f'  [!] 删除失败 {rel}: {e}', file=sys.stderr)
+            # 目录只读也会导致删除失败，连父目录一起放开
+            try:
+                os.chmod(base, 0o755)
+                os.remove(ip)
+                removed.append(rel)
+            except OSError as e2:
+                print(f'  [!] 删除失败 {rel}: {e2}', file=sys.stderr)
 
     print(f'  扫描 Info.plist {scanned} 个，移除空壳 {len(removed)} 个')
     for r in removed:
