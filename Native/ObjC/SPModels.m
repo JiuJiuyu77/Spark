@@ -288,7 +288,8 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
     if (!self.packageId) {
         NSString *plist = [self.path stringByAppendingPathComponent:@"Resources/Info.plist"];
         if (![fm fileExistsAtPath:plist]) plist = [self.path stringByAppendingPathComponent:@"layout/Library/Application Support/X/Info.plist"];
-        self.packageId = [SPUtil stringFromPlistAtPath:plist key:@"CFBundleIdentifier" default:nil];
+        self.packageId = [SPUtil stringFromPlistAtPath:plist key:@"CFBundleIdentifier" default:@""];
+        if (!self.packageId.length) self.packageId = nil;
     }
 
     // ---- 扫源码 ----

@@ -22,7 +22,7 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
     SPProjectSectionCount,
 };
 
-@interface SPProjectViewController ()
+@interface SPProjectViewController () <UITableViewDataSource, UITableViewDelegate>
 @property (nonatomic, strong) SPProject *project;
 @property (nonatomic, strong) UITableView *table;
 @property (nonatomic, strong) SPToolchainProfile *profile;
@@ -61,7 +61,9 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
 
 - (void)refreshProfile {
     NSString *sdk = SPSettings.shared.defaultSDK.length ? SPSettings.shared.defaultSDK : nil;
-    self.profile = [[SPToolchain shared] localProfileWithSDK:sdk error:&self.profileError];
+    NSError *err = nil;
+    self.profile = [[SPToolchain shared] localProfileWithSDK:sdk error:&err];
+    self.profileError = err;
     if (!self.profile && SPSettings.shared.sshHost.length) {
         self.profile = [[SPToolchain shared] remoteProfileWithHost:SPSettings.shared.sshHost
                                                               user:SPSettings.shared.sshUser
