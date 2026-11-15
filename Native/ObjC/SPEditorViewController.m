@@ -5,6 +5,7 @@
 #import "SPEditorViewController.h"
 #import "SPTheme.h"
 #import "SPSyntax.h"
+#import "SPCompat.h"
 
 @interface SPEditorViewController () <UITextViewDelegate, UIScrollViewDelegate>
 @property (nonatomic, copy) NSString *filePath;

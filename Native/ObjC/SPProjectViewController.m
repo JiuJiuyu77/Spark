@@ -11,6 +11,7 @@
 #import "SPFileBrowserViewController.h"
 #import "SPToolchain.h"
 #import "SPCompat.h"
+#import "SPModels.h"
 
 @interface SPProjectViewController () <UITableViewDataSource, UITableViewDelegate>
 @property (nonatomic, strong) SPProject *project;

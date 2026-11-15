@@ -4,6 +4,7 @@
 
 #import "SPStore.h"
 #import "SPCompat.h"
+#import "SPModels.h"
 #import <CommonCrypto/CommonDigest.h>
 
 #pragma mark - SPSettings

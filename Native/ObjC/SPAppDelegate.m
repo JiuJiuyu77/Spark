@@ -12,6 +12,7 @@
 #import "SPToolchain.h"
 #import "SPCompat.h"
 #import "SPProjectViewController.h"
+#import "SPModels.h"
 
 @interface SPAppDelegate ()
 @property (nonatomic, strong) UITabBarController *tabs;

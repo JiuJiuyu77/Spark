@@ -4,6 +4,7 @@
 
 #import "SPLogView.h"
 #import "SPTheme.h"
+#import "SPModels.h"
 
 @interface SPLogCell : UICollectionViewCell
 @property (nonatomic, strong) UILabel *label;

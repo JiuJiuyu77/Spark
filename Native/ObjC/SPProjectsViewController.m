@@ -10,6 +10,7 @@
 #import "SPToolchain.h"
 #import "SPBuilder.h"
 #import "SPCompat.h"
+#import "SPModels.h"
 
 NSString *const SPOpenToolchainTabNotification = @"SPOpenToolchainTab";
 NSString *const SPProjectCreatedNotification = @"SPProjectCreated";

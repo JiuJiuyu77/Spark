@@ -11,6 +11,8 @@
 #import "SPCompat.h"
 #import "SPEditorViewController.h"
 #import "SPFileBrowserViewController.h"
+#import "SPModels.h"
+#import "SPToolchain.h"
 
 @interface SPConsoleViewController () <UISearchBarDelegate>
 @property (nonatomic, strong) SPProject *project;

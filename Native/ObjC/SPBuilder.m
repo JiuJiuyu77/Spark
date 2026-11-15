@@ -4,6 +4,9 @@
 
 #import "SPBuilder.h"
 #import "SPCompat.h"
+#import "SPModels.h"
+#import "SPSession.h"
+#import "SPToolchain.h"
 
 @implementation SPBuilder
 

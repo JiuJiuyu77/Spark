@@ -9,6 +9,7 @@
 #import "SPCompat.h"
 #import "SPEditorViewController.h"
 #import "SPFileBrowserViewController.h"
+#import "SPToolchain.h"
 
 typedef NS_ENUM(NSInteger, SPRMode) {
     SPRModeInfo = 0, SPRModeSymbols, SPRModeStrings, SPRModeImports, SPRModeSections, SPRModeEntropy,
