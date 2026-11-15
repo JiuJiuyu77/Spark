@@ -152,9 +152,12 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
                 if (([fm copyItemAtPath:from toPath:to error:NULL])) {
                     NSDictionary *attrs = [fm attributesOfItemAtPath:from error:NULL];
                     if (attrs) {
-                        NSMutableDictionary *newAttrs = [NSMutableDictionary dictionary];
-                        newAttrs[NSFilePosixPermissions] = @(attrs[NSFilePosixPermissions]);
-                        [fm setAttributes:newAttrs ofItemAtPath:to error:NULL];
+                        id perm = attrs[NSFilePosixPermissions];
+                        if ([perm isKindOfClass:[NSNumber class]]) {
+                            NSMutableDictionary *newAttrs = [NSMutableDictionary dictionary];
+                            newAttrs[NSFilePosixPermissions] = (NSNumber *)perm;
+                            [fm setAttributes:newAttrs ofItemAtPath:to error:NULL];
+                        }
                     }
                 }
             }
