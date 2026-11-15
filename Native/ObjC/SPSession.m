@@ -30,6 +30,7 @@ extern char **environ;
 @property (nonatomic, strong) NSMutableString *errBuf;
 @property (nonatomic, strong) NSDate *startTime;
 @property (nonatomic, assign) BOOL cancelRequested;
+@property (nonatomic, assign) BOOL timedOut;
 @property (nonatomic, copy) SPCommandResult *result;
 @property (nonatomic, strong) dispatch_queue_t readQueue;
 @property (nonatomic, assign) BOOL finished;
@@ -84,9 +85,8 @@ extern char **environ;
     posix_spawn_file_actions_adddup2(&actions, efd[1], STDERR_FILENO);
     posix_spawn_file_actions_addclose(&actions, pfd[0]);
     posix_spawn_file_actions_addclose(&actions, efd[0]);
-    if (self.workingDirectory.length) {
-        posix_spawn_file_actions_addchdir_np(&actions, self.workingDirectory.fileSystemRepresentation);
-    }
+    // 注意：posix_spawn_file_actions_addchdir_np 在 iOS 上不可用（SDK 标记为 unavailable），
+    // 所以工作目录统一在 runShell 里用 `cd` 完成，这里不再处理。
 
     // 会话独立，方便整组 kill
     posix_spawnattr_t attr;
@@ -177,7 +177,7 @@ extern char **environ;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(t * NSEC_PER_SEC)),
                        dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
             __strong typeof(weakSelf) self = weakSelf;
-            if (self && self.isRunning) { self.result.timeoutFlag = YES; [self cancel]; }
+            if (self && self.isRunning) { self.timedOut = YES; [self cancel]; }
         });
     }
 }
@@ -237,6 +237,7 @@ extern char **environ;
     @synchronized (self.outBuf) { r.stdoutText = [self.outBuf copy]; }
     @synchronized (self.errBuf) { r.stderrText = [self.errBuf copy]; }
     r.cancelled = self.cancelRequested;
+    r.timedOut = self.timedOut;
     if (!r.launchError && !r.cancelled && code != 0) {
         r.launchError = nil; // 非零退出不当作启动错误
     }
@@ -255,7 +256,15 @@ extern char **environ;
 - (int)runShell:(NSString *)script {
     NSString *sh = @"/bin/sh";
     if (![[NSFileManager defaultManager] isExecutableFileAtPath:sh]) sh = @"/var/jb/bin/sh";
-    return [self launch:sh args:@[@"-c", script ?: @""]];
+
+    // posix_spawn 在 iOS 上没有可用的 chdir，改在脚本前面拼一句 cd；
+    // exec 失败时 cd 也失败，脚本会立刻以非 0 退出，语义一样。
+    NSString *body = script ?: @"";
+    if (self.workingDirectory.length) {
+        NSString *quoted = [self.workingDirectory stringByReplacingOccurrencesOfString:@"'" withString:@"'\\''"];
+        body = [NSString stringWithFormat:@"cd '%@' || exit 200\n%@", quoted, body];
+    }
+    return [self launch:sh args:@[@"-c", body]];
 }
 
 - (int)runExecutable:(NSString *)exe arguments:(NSArray<NSString *> *)args {
