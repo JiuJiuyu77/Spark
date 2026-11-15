@@ -14,6 +14,8 @@
 #import "SPCompat.h"
 #import "SPModels.h"
 #import "SPDiagnostics.h"
+#import "SPGitViewController.h"
+#import "SPInstall.h"
 
 typedef NS_ENUM(NSInteger, SPProjectSection) {
     SPProjectSectionInfo = 0,
@@ -209,7 +211,7 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
         case SPProjectSectionInfo: return 5;
         case SPProjectSectionOptions: return 8;
         case SPProjectSectionObfuscation: return 3;
-        default: return 7;
+        default: return 8;
     }
 }
 
@@ -266,7 +268,7 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
         }
         default: {
             NSArray *titles = @[@"查看源码", @"查看 Makefile", @"构建历史", @"复制编译命令",
-                                @"浏览工程目录", @"查看构建报告", @"运行诊断"];
+                                @"浏览工程目录", @"查看构建报告", @"运行诊断", @"Git 版本管理"];
             cell.textLabel.text = titles[ip.row];
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             cell.selectionStyle = UITableViewCellSelectionStyleDefault;
@@ -352,6 +354,11 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
         }
         case 6: {
             [self showDiagnostics];
+            break;
+        }
+        case 7: {
+            SPGitViewController *g = [[SPGitViewController alloc] initWithProjectRoot:self.project.path];
+            [self.navigationController pushViewController:g animated:YES];
             break;
         }
         default: {

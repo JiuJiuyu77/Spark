@@ -17,6 +17,7 @@
 #import "SPAnimationKit.h"
 #import "SPBackground.h"
 #import "SPAutofix.h"
+#import "SPInstall.h"
 
 @interface SPConsoleViewController ()
 @property (nonatomic, strong) SPProject *project;
@@ -422,7 +423,7 @@
         row.configuration = cfg;
         row.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeading;
         row.tag = [artifacts indexOfObject:path];
-        [row addTarget:self action:@selector(shareArtifact:) forControlEvents:UIControlEventTouchUpInside];
+        [row addTarget:self action:@selector(artifactTapped:) forControlEvents:UIControlEventTouchUpInside];
         [stack addArrangedSubview:row];
     }
 
@@ -436,6 +437,65 @@
 
     // 让日志区跟着往下挪
     [self.view setNeedsLayout];
+}
+
+- (void)artifactTapped:(UIButton *)sender {
+    if (!self.job.artifacts.count) return;
+    NSInteger idx = sender.tag;
+    if (idx < 0 || idx >= (NSInteger)self.job.artifacts.count) return;
+    NSString *path = self.job.artifacts[idx];
+    NSError *err = nil;
+    SPInstallTask *task = [[SPInstall shared] inspectPath:path error:&err];
+
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:path.lastPathComponent
+        message:task ? [NSString stringWithFormat:@"%@%@", task.kind == SPInstallKindDeb ? @"Debian 包" :
+                        (task.kind == SPInstallKindApp ? @"App 包" : @"动态库"),
+                        task.version.length ? [@" · " stringByAppendingString:task.version] : @""]
+        : err.localizedDescription
+        preferredStyle:UIAlertControllerStyleActionSheet];
+
+    if (task) {
+        [a addAction:[UIAlertAction actionWithTitle:(task.kind == SPInstallKindDeb ? @"安装到本机（dpkg）" :
+                                                                              (task.kind == SPInstallKindApp ? @"交给 TrollStore" : @"装为插件"))
+            style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
+            [self installTask:task];
+        }]];
+    }
+    [a addAction:[UIAlertAction actionWithTitle:@"分享 / 导出" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
+        [self shareArtifact:sender];
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    a.popoverPresentationController.sourceView = sender;
+    a.popoverPresentationController.sourceRect = sender.bounds;
+    [self presentViewController:a animated:YES completion:nil];
+}
+
+- (void)installTask:(SPInstallTask *)task {
+    NSString *msg = [NSString stringWithFormat:@"将执行：\n%@\n\n这会修改本机已安装的内容。",
+                     task.kind == SPInstallKindDeb
+                        ? [NSString stringWithFormat:@"dpkg -i --force-overwrite %@", task.path.lastPathComponent]
+                        : task.kind == SPInstallKindApp ? @"troller install（TrollStore 覆盖安装）"
+                        : @"复制到 MobileSubstrate 插件目录"];
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"确认安装"
+        message:msg preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"安装" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
+        [self.logView appendLine:[NSString stringWithFormat:@"== 安装 %@", task.title] level:SPLogLevelStep];
+        __weak typeof(self) weakSelf = self;
+        [[SPInstall shared] installTask:task completion:^(BOOL ok, NSString *log) {
+            __strong typeof(weakSelf) self = weakSelf; if (!self) return;
+            for (NSString *line in [log componentsSeparatedByString:@"\n"]) {
+                if (line.length) {
+                    [self.logView appendLine:line level:(ok ? SPLogLevelOut : SPLogLevelErr)];
+                }
+            }
+            if (ok) [SPMotion hapticSuccess]; else [SPMotion hapticError];
+            NSString *summary = ok ? @"[ok] 安装完成" : @"[!] 安装失败";
+            [self.logView appendLine:summary level:(ok ? SPLogLevelStep : SPLogLevelErr)];
+            [self.logView scrollToBottomAnimated:YES];
+        }];
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
 }
 
 - (void)shareArtifact:(UIButton *)sender {
