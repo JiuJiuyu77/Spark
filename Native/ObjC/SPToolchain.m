@@ -359,4 +359,10 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     return [dirs componentsJoinedByString:@":"];
 }
 
+
+NSString *SPToolchainInstallerBinDir(void) {
+    SPToolchainInstaller *i = [SPToolchainInstaller shared];
+    return i.isInstalled ? i.binDir : @"";
+}
+
 @end

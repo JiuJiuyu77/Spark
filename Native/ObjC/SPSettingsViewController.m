@@ -8,6 +8,7 @@
 #import "SPModels.h"
 #import "SPToolchain.h"
 #import "SPToolchainInstaller.h"
+#import "SPToolchainDownloader.h"
 #import "SPCompat.h"
 #import "SPSession.h"
 #import "SPFileBrowserViewController.h"
@@ -100,8 +101,9 @@ typedef NS_ENUM(NSInteger, SPSection) {
         case SPSectionToolchain: {
             SPToolchainInstaller *i = [SPToolchainInstaller shared];
             if (!i.hasBundledToolchain) return @"这个安装包里没有内置工具链。可以从「从文件导入工具链」补装。";
-            if (!i.isInstalled) return @"内置工具链尚未展开，点上面「展开工具链」开始（约 480MB，需要几十秒）。";
-            return [NSString stringWithFormat:@"已安装到 %@\nSDK 需要单独导入（Apple 的 SDK 不再分发）。",
+            if (!i.isInstalled) return @"内置工具链尚未展开，点上面「展开工具链」开始（Theos + 最小编译链，几秒）。";
+            return [NSString stringWithFormat:
+                    @"已安装到 %@\n\nTheos 与最小编译链随包内置；OLLVM / 逆向工具 / 完整工具集\n按需点下方下载。SDK 需自行导入。",
                     [i.installRoot stringByReplacingOccurrencesOfString:NSHomeDirectory() withString:@"~"]];
         }
         case SPSectionFiles:
@@ -117,7 +119,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
     switch (s) {
         case SPSectionBuildDefaults: return 7;
         case SPSectionObfuscation:   return 4;
-        case SPSectionToolchain:     return 6;
+        case SPSectionToolchain:     return 6 + (NSInteger)[[SPToolchainDownloader shared] components].count;
         case SPSectionFiles:         return 5;
         case SPSectionTarget:        return 4;
         case SPSectionDisplay:       return 4;
@@ -445,7 +447,28 @@ typedef NS_ENUM(NSInteger, SPSection) {
             case 2: [self showToolchainDetail]; break;
             case 3: [self importSDK]; break;
             case 4: [[SPToolchain shared] rescan]; [self.table reloadData]; [self toast:@"已重新扫描"]; break;
-            default: [self showToolchainDetail]; break;
+            case 5: [self showToolchainDetail]; break;
+            default: {
+                NSArray<SPComponentInfo *> *comps = [[SPToolchainDownloader shared] components];
+                NSInteger idx = ip.row - 6;
+                if (idx >= 0 && idx < (NSInteger)comps.count) {
+                    SPComponentInfo *c = comps[idx];
+                    if (c.isInstalled) {
+                        UIAlertController *a = [UIAlertController alertControllerWithTitle:c.title
+                            message:@"该组件已下载，要删除释放空间吗？" preferredStyle:UIAlertControllerStyleActionSheet];
+                        [a addAction:[UIAlertAction actionWithTitle:@"删除" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *x) {
+                            [[SPToolchainDownloader shared] remove:c.component];
+                            [self.table reloadData];
+                        }]];
+                        [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+                        a.popoverPresentationController.sourceView = self.view;
+                        [self presentViewController:a animated:YES completion:nil];
+                    } else {
+                        [self downloadComponent:c];
+                    }
+                }
+                break;
+            }
         }
         return;
     }
@@ -605,6 +628,53 @@ typedef NS_ENUM(NSInteger, SPSection) {
     [self.table reloadData];
     if (force) [inst reinstallWithProgress:prog completion:done];
     else [inst installWithProgress:prog completion:done];
+}
+
+- (void)downloadComponent:(SPComponentInfo *)c {
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:c.title
+        message:[NSString stringWithFormat:@"%@\n\n下载约 %@，需要联网。", c.detail, [SPUtil formatBytes:c.approxSize]]
+        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"下载" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
+        // 进度条（复用安装工具链那套 UI）
+        self.installStatus = @"准备下载…";
+        self.installProgress = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
+        self.installProgress.progressTintColor = [SPTheme accent];
+        CGFloat w = self.view.bounds.size.width - 120;
+        CGRect f = CGRectMake((self.view.bounds.size.width - w) / 2, self.view.bounds.size.height / 2 - 8, w, 4);
+        self.installProgress.frame = f;
+        [self.view addSubview:self.installProgress];
+
+        UILabel *label = [[UILabel alloc] init];
+        label.tag = 9002;
+        label.text = c.title;
+        label.font = [SPTheme scaled:UIFontTextStyleFootnote weight:UIFontWeightMedium];
+        label.textColor = [SPTheme text];
+        label.textAlignment = NSTextAlignmentCenter;
+        label.frame = CGRectMake(20, CGRectGetMinY(f) - 28, self.view.bounds.size.width - 40, 20);
+        [self.view addSubview:label];
+
+        __weak typeof(self) weakSelf = self;
+        [[SPToolchainDownloader shared] download:c.component progress:^(CGFloat frac, NSString *status) {
+            __strong typeof(weakSelf) self = weakSelf; if (!self) return;
+            self.installProgress.progress = frac;
+            [(UILabel *)[self.view viewWithTag:9002] setText:status];
+        } completion:^(BOOL ok, NSError *error) {
+            __strong typeof(weakSelf) self = weakSelf; if (!self) return;
+            [self.installProgress removeFromSuperview];
+            [[self.view viewWithTag:9002] removeFromSuperview];
+            self.installProgress = nil;
+            [self.table reloadData];
+            if (ok) {
+                [SPMotion hapticSuccess];
+                [self toast:[NSString stringWithFormat:@"%@ 已就绪", c.title]];
+            } else {
+                [SPMotion hapticError];
+                [self alert:@"下载失败" message:error.localizedDescription ?: @"未知错误"];
+            }
+        }];
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
 }
 
 - (void)showToolchainDetail {

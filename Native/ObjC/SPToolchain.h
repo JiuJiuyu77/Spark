@@ -98,4 +98,7 @@ typedef NS_ENUM(NSInteger, SPBuildTarget) {
 
 @end
 
+/// 内置工具链的 bin 目录（未安装时返回空串）
+FOUNDATION_EXPORT NSString *SPToolchainInstallerBinDir(void);
+
 NS_ASSUME_NONNULL_END

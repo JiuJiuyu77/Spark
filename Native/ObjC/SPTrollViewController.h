@@ -1,20 +1,28 @@
 //
 //  SPTrollViewController.h
 //  Spark —— 巨魔（TrollStore）注入器
-//
-//  参考 Lessica/TrollFools（MIT）的注入流程，用设备上现成的
-//  insert_dylib / install_name_tool / ldid / chown 一步步完成：
-//    选 App → 选插件（dylib / framework / bundle / .deb / .zip）→ 预览计划 → 注入
+//  交互照搬 TrollFools：App 列表 → 注入面板
 //
 
 #import <UIKit/UIKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface SPTrollViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
+@class SPTrollApp;
+@class SPTrollInjectPanel;
 
-/// 工具探测结果摘要（用于顶部状态条）
-- (void)refreshTools;
+/// 首页：已安装 App 列表（搜索 + 点击进入注入面板）
+@interface SPTrollViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
+- (void)reloadApps;
+@end
+
+/// 注入面板：插件列表 + 选项 + 执行
+@interface SPTrollInjectPanel : UIViewController <UITableViewDataSource, UITableViewDelegate>
+
+- (instancetype)initWithApp:(SPTrollApp *)app;
+
+/// 注入结束（无论成败）回调
+@property (nonatomic, copy, nullable) void (^onFinished)(void);
 
 @end
 

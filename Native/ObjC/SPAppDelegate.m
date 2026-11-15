@@ -10,13 +10,17 @@
 #import "SPTrollViewController.h"
 #import "SPProjectViewController.h"
 #import "SPSettingsViewController.h"
+#import "SPMeViewController.h"
+#import "SPToolsViewController.h"
+#import "SPGlassKit.h"
 #import "SPToolchainInstaller.h"
 #import "SPStore.h"
 #import "SPToolchain.h"
 #import "SPCompat.h"
 
-@interface SPAppDelegate ()
+@interface SPAppDelegate () <SPFloatTabBarDelegate>
 @property (nonatomic, strong) UITabBarController *tabs;
+@property (nonatomic, strong) SPFloatTabBar *floatBar;
 @end
 
 @implementation SPAppDelegate
@@ -97,47 +101,40 @@
 
 - (void)buildTabBar {
     self.tabs = [[UITabBarController alloc] init];
+    self.tabs.tabBar.hidden = YES;   // 用悬浮玻璃栏替代系统 tab bar
 
-    // 1. 项目
     SPProjectsViewController *projects = [[SPProjectsViewController alloc] init];
     UINavigationController *nav1 = [[UINavigationController alloc] initWithRootViewController:projects];
-    nav1.tabBarItem = [self tabItem:@"项目" symbol:@"hammer" selected:@"hammer.fill"];
 
-    // 2. 工具链
-    SPToolchainViewController *tools = [[SPToolchainViewController alloc] init];
+    SPToolsViewController *tools = [[SPToolsViewController alloc] init];
     UINavigationController *nav2 = [[UINavigationController alloc] initWithRootViewController:tools];
-    nav2.tabBarItem = [self tabItem:@"工具链" symbol:@"cpu" selected:@"cpu.fill"];
 
-    // 3. 逆向
-    SPReverseViewController *rev = [[SPReverseViewController alloc] initWithBinaryPath:nil profile:nil];
-    UINavigationController *nav3 = [[UINavigationController alloc] initWithRootViewController:rev];
-    nav3.tabBarItem = [self tabItem:@"逆向" symbol:@"binoculars" selected:@"binoculars.fill"];
+    SPMeViewController *me = [[SPMeViewController alloc] init];
+    UINavigationController *nav3 = [[UINavigationController alloc] initWithRootViewController:me];
 
-    // 4. 注入
-    SPTrollViewController *troll = [[SPTrollViewController alloc] init];
-    UINavigationController *nav4 = [[UINavigationController alloc] initWithRootViewController:troll];
-    nav4.tabBarItem = [self tabItem:@"注入" symbol:@"syringe" selected:@"syringe.fill"];
+    self.tabs.viewControllers = @[nav1, nav2, nav3];
 
-    // 5. 设置
-    SPSettingsViewController *settings = [[SPSettingsViewController alloc] init];
-    UINavigationController *nav5 = [[UINavigationController alloc] initWithRootViewController:settings];
-    nav5.tabBarItem = [self tabItem:@"设置" symbol:@"gearshape" selected:@"gearshape.fill"];
-
-    self.tabs.viewControllers = @[nav1, nav2, nav3, nav4, nav5];
-    self.tabs.selectedIndex = 0;
+    self.floatBar = [[SPFloatTabBar alloc] initWithTitles:@[@"项目", @"工具", @"我的"]
+                                                  symbols:@[@"square.grid.2x2", @"wrench.and.screwdriver", @"person.crop.circle"]
+                                          selectedSymbols:@[@"square.grid.2x2.fill", @"wrench.and.screwdriver.fill", @"person.crop.circle.fill"]];
+    self.floatBar.delegate = self;
+    self.floatBar.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.window addSubview:self.floatBar];
+    [NSLayoutConstraint activateConstraints:@[
+        [self.floatBar.leadingAnchor constraintEqualToAnchor:self.window.leadingAnchor constant:28],
+        [self.floatBar.trailingAnchor constraintEqualToAnchor:self.window.trailingAnchor constant:-28],
+        [self.floatBar.bottomAnchor constraintEqualToAnchor:self.window.safeAreaLayoutGuide.bottomAnchor constant:-6],
+    ]];
 }
 
-/// HIG：SF Symbols + 稳定标题，iOS 15 起用 UITabBarItem 的 image/selectedImage
-- (UITabBarItem *)tabItem:(NSString *)title symbol:(NSString *)symbol selected:(NSString *)selected {
-    UITabBarItem *item = [[UITabBarItem alloc] initWithTitle:title image:nil selectedImage:nil];
-    if (@available(iOS 13.0, *)) {
-        UIImage *img = [UIImage systemImageNamed:symbol];
-        UIImage *sel = [UIImage systemImageNamed:selected];
-        item.image = img;
-        item.selectedImage = sel;
-    }
-    return item;
+#pragma mark - SPFloatTabBarDelegate
+
+- (void)floatTabBar:(SPFloatTabBar *)bar didSelectIndex:(NSInteger)index {
+    if (index < 0 || index >= (NSInteger)self.tabs.viewControllers.count) return;
+    self.tabs.selectedIndex = index;
 }
+
+
 
 - (void)showWelcome {
     UIAlertController *a = [UIAlertController

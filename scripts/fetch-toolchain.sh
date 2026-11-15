@@ -1,8 +1,12 @@
 #!/bin/sh
 # fetch-toolchain.sh —— 把 Rein 目录里那套编译工具集装进 App 的 Resources/Toolchain
 #
-# 只做「拷贝 + 去重 + 瘦身」，不改动源目录。仓库里不存这些二进制，
-# CI 上用 TOOLCHAIN_SOURCE 指向一台已经装好 Rein 的机器（或预先上传的 tar）。
+# 分级（对应设置里的「工具链」页）：
+#   CORE  必带：Theos 本体 + make/ldid/ld64/clang 最小集  → 内置进 ipa（约 600KB~5MB）
+#   EXTRA 可选：OLLVM / radare2 / 完整 lsdk 工具集          → App 内按需下载
+#
+# 只做「拷贝 + 去重 + 瘦身」，不改动源目录。仓库里不存这些二进制。
+# CI：TOOLCHAIN_SOURCE 指向预先上传的 core.tar.gz（只含 CORE 部分）。
 #
 # 用法：
 #   sh scripts/fetch-toolchain.sh [/var/mobile/Documents/Rein]
@@ -13,6 +17,8 @@ set -eu
 
 ROOT="${1:-${TOOLCHAIN_SOURCE:-/var/mobile/Documents/Rein}}"
 OUT="Native/Resources/Toolchain"
+# 只打包 CORE（Theos + 最小编译链），其余由 App 内下载
+CORE_ONLY="${CORE_ONLY:-1}"
 
 say() { printf '\033[1;36m==> %s\033[0m\n' "$1"; }
 warn() { printf '\033[1;33m[!] %s\033[0m\n' "$1"; }
@@ -44,11 +50,20 @@ copy() { # copy <相对路径> <目标>
 # ---- 1. Darwin 交叉编译工具（clang/ld64/ldid/strip/ar/make/tar/dpkg…）----
 say "1/6 交叉编译工具"
 mkdir -p "$OUT/bin"
+# CORE 模式只保留编译链路必需的那几个，其余由 App 按需下载
+CORE_BINS="make ldid ld64 ld clang-16 clang++-16 clang clang++ ar strip tar gzip "
+CORE_BINS="$CORE_BINS cp mv rm mkdir chmod chown ln basename dirname cat tee unzip dpkg"
 if [ -d "$ROOT/tools/theos-root/usr/bin" ]; then
 	for f in "$ROOT"/tools/theos-root/usr/bin/*; do
 		[ -f "$f" ] || continue
-		case "$(basename "$f")" in
-			# 只留构建链路需要的，跳过无关的（zsh/find/rsync/perldoc…）
+		base="$(basename "$f")"
+		if [ "$CORE_ONLY" = "1" ]; then
+			case " $CORE_BINS " in
+				*" $base "*) : ;;   # 在名单里，保留
+				*) continue ;;
+			esac
+		fi
+		case "$base" in
 			perlbug|perldoc|perlivp|perlthanks|perl5.*|pod2*|splain|cpan*|prove|corelist|enc2xs|instmodsh|json_pp|libnetcfg|piconv|pstruct|psed|zipdetails) continue ;;
 		esac
 		cp "$f" "$OUT/bin/" 2>/dev/null || true
@@ -105,7 +120,9 @@ fi
 
 # ---- 5. OLLVM ----
 say "5/6 OLLVM"
-if [ -d "$ROOT/tools/ollvm" ]; then
+if [ "$CORE_ONLY" = "1" ]; then
+	say "  CORE 模式跳过 OLLVM（App 内按需下载）"
+elif [ -d "$ROOT/tools/ollvm" ]; then
 	mkdir -p "$OUT/ollvm"
 	cp -R "$ROOT"/tools/ollvm/* "$OUT/ollvm/" 2>/dev/null || true
 	du -sh "$OUT/ollvm" | awk '{print "    ollvm 小计 " $1}'
@@ -115,7 +132,9 @@ fi
 
 # ---- 6. 逆向工具 ----
 say "6/6 逆向工具"
-if [ -d "$ROOT/tools/reverse" ]; then
+if [ "$CORE_ONLY" = "1" ]; then
+	say "  CORE 模式跳过逆向工具（App 内按需下载）"
+elif [ -d "$ROOT/tools/reverse" ]; then
 	mkdir -p "$OUT/reverse"
 	cp -R "$ROOT"/tools/reverse/* "$OUT/reverse/" 2>/dev/null || true
 	du -sh "$OUT/reverse" | awk '{print "    reverse 小计 " $1}'
@@ -132,6 +151,7 @@ say "生成清单"
 	printf '  "theos": "%s",\n' "$(basename "${TH:-none}")"
 	printf '  "binCount": %s,\n' "$(ls "$OUT/bin" 2>/dev/null | wc -l | tr -d ' ')"
 	echo "  \"sdksIncluded\": false,"
+	echo "  \"coreOnly\": $CORE_ONLY,"
 	echo "  \"notes\": \"由 scripts/fetch-toolchain.sh 生成；SDK 需用户自行导入\""
 	echo "}"
 } > "$OUT/manifest.json"

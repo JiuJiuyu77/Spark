@@ -252,8 +252,19 @@ jobs:
             -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore \
             -o "$APP/$SCHEME"
 
-          echo "==> 临时签名"
-          codesign --force --sign - --timestamp=none "$APP" || true
+          echo "==> 签名（带平台权限，TrollStore 必需）"
+          # 关键：必须带 entitlements，否则 App 会跑在沙盒里、
+          # 无法 exec 子进程 —— 编译和注入都会失效。
+          if [ -f entitlements.plist ]; then
+            plutil -lint entitlements.plist
+            codesign --force --sign - --timestamp=none \
+              --entitlements entitlements.plist \
+              --generate-entitlement-der "$APP" || true
+            echo "==> 校验签名权限"
+            codesign -d --entitlements :- "$APP" 2>/dev/null | head -40 || true
+          else
+            codesign --force --sign - --timestamp=none "$APP" || true
+          fi
           echo "==> 产物"
           du -sh "$APP"
           file "$APP/$SCHEME"
@@ -282,6 +293,13 @@ jobs:
             unzip -l "out/${SCHEME}-${V}-${A}.ipa" | grep -q "Payload/${SCHEME}.app/Toolchain/bin/" \
               || { echo "缺少内置工具链"; exit 1; }
             echo "内置工具链已包含"
+          fi
+          echo "==> 校验 entitlements 是否带进包"
+          unzip -p "out/${SCHEME}-${V}-${A}.ipa" "Payload/${SCHEME}.app/${SCHEME}" > /tmp/chk.bin
+          if codesign -d --entitlements :- /tmp/chk.bin 2>/dev/null | grep -q "platform-application"; then
+            echo "platform-application 已带上 ✓"
+          else
+            echo "::warning::可执行文件里没有 platform-application，TrollStore 里可能仍显示沙盒内运行"
           fi
           echo "ipa 结构检查通过"
 
