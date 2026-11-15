@@ -11,6 +11,8 @@
 #import "SPCompat.h"
 #import "SPSession.h"
 #import "SPFileBrowserViewController.h"
+#import "SPMountsViewController.h"
+#import "SPMount.h"
 
 typedef NS_ENUM(NSInteger, SPSection) {
     SPSectionBuildDefaults = 0,
@@ -116,7 +118,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
         case SPSectionBuildDefaults: return 7;
         case SPSectionObfuscation:   return 4;
         case SPSectionToolchain:     return 6;
-        case SPSectionFiles:         return 4;
+        case SPSectionFiles:         return 5;
         case SPSectionTarget:        return 4;
         case SPSectionDisplay:       return 4;
         default:                     return 3;
@@ -327,11 +329,18 @@ typedef NS_ENUM(NSInteger, SPSection) {
             cell.detailTextLabel.text = [SPUtil formatBytes:total];
             break;
         }
-        default: {
+        case 3: {
             unsigned long long total = [self directorySize:[SPToolchainInstaller shared].installRoot];
             cell.textLabel.text = @"工具链占用";
             cell.detailTextLabel.text = [SPUtil formatBytes:total];
             cell.selectionStyle = UITableViewCellSelectionStyleNone;
+            break;
+        }
+        default: {
+            NSUInteger n = [[SPMountManager shared] mounts].count;
+            cell.textLabel.text = @"外部文件夹（WebDAV / SMB）";
+            cell.detailTextLabel.text = n ? [NSString stringWithFormat:@"%lu 个挂载", (unsigned long)n] : @"未挂载";
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             break;
         }
     }
@@ -451,7 +460,12 @@ typedef NS_ENUM(NSInteger, SPSection) {
                 break;
             }
             case 2: [self clearCache]; break;
-            default: break;
+            case 3: break;   // 只读占位
+            default: {
+                SPMountsViewController *vc = [[SPMountsViewController alloc] init];
+                [self.navigationController pushViewController:vc animated:YES];
+                break;
+            }
         }
         return;
     }

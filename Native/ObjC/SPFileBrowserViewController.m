@@ -7,12 +7,15 @@
 #import "SPTheme.h"
 #import "SPEditorViewController.h"
 #import "SPCompat.h"
+#import "SPMount.h"
+#import "SPMountsViewController.h"
 
 @interface SPFileRow : NSObject
 @property (nonatomic, copy) NSString *name;
 @property (nonatomic, copy) NSString *fullPath;
 @property (nonatomic, assign) BOOL isDirectory;
 @property (nonatomic, assign) unsigned long long size;
+@property (nonatomic, copy, nullable) NSString *mountDescriptor;
 @end
 @implementation SPFileRow
 @end
@@ -96,6 +99,11 @@
             }
             if (!match) continue;
         }
+        // 目录里有 .sparkmount 就当作挂载点（点进去走远端浏览）
+        NSString *desc = [full stringByAppendingPathComponent:@".sparkmount"];
+        if (isDir && [fm fileExistsAtPath:desc]) {
+            r.mountDescriptor = desc;
+        }
         SPFileRow *r = [SPFileRow new];
         r.name = n;
         r.fullPath = full;
@@ -130,6 +138,7 @@
 }
 
 - (NSString *)symbolForRow:(SPFileRow *)r {
+    if (r.mountDescriptor) return @"externaldrive.connected.to.line.below";
     if (r.isDirectory) return @"folder.fill";
     NSString *ext = r.name.pathExtension.lowercaseString;
     if ([ext isEqualToString:@"deb"]) return @"shippingbox.fill";
@@ -147,6 +156,14 @@
     [tv deselectRowAtIndexPath:ip animated:YES];
     SPFileRow *r = self.rows[ip.row];
 
+    if (r.mountDescriptor) {
+        NSData *d = [NSData dataWithContentsOfFile:r.mountDescriptor];
+        NSDictionary *j = d ? [NSJSONSerialization JSONObjectWithData:d options:0 error:NULL] : nil;
+        SPMount *m = [SPMount mountFromDictionary:j ?: @{}];
+        SPMountBrowser *b = [[SPMountBrowser alloc] initWithMount:m path:@"/"];
+        [self.navigationController pushViewController:b animated:YES];
+        return;
+    }
     if (r.isDirectory) {
         SPFileBrowserViewController *next = [[SPFileBrowserViewController alloc]
             initWithRootPath:r.fullPath pickMode:self.pickMode fileFilters:self.filters onPick:self.onPick];
