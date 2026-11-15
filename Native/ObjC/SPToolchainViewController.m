@@ -337,7 +337,7 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
     [script writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:NULL];
 
     NSMutableDictionary *env = [NSMutableDictionary dictionary];
-    env[@"THEOS"] = [SPToolchain shared].scan.pathFor(SPToolchainComponentTheos) ?: @"";
+    env[@"THEOS"] = [[SPToolchain shared].scan pathFor:SPToolchainComponentTheos] ?: @"";
     env[@"PATH"] = [[SPToolchain shared] pathPrefixForProfile:[[SPToolchainProfile alloc] init]];
 
     NSDate *start = [NSDate date];
