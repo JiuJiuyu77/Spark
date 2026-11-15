@@ -2,15 +2,14 @@ name: build
 
 # Spark —— iOS 原生 App 的云端构建
 #
-# 为什么必须 macos runner：Spark 是链接 UIKit 的 iOS 应用，
-# 只能由 Xcode 的 iPhoneOS SDK + ld64 产出 Mach-O；Linux 跑不了。
+# 为什么必须 macos runner：Spark 是链接 UIKit 的 iOS 应用，只能由 Xcode 的
+# iPhoneOS SDK + ld64 产出 Mach-O；Linux 跑不了。
 #
 # 触发方式：
 #   · push / PR / tag：自动构建并留档产物
 #   · workflow_dispatch：给手机端 Spark（或 Cloudflare Worker）远程触发
-#   · workflow_call：可以被别的 workflow 复用
 #
-# 产物：Spark-<版本>-<arch>.ipa、*.app.zip、可选 .deb
+# 产物：Spark-<版本>-<arch>.ipa、*.app.zip、SHA256SUMS.txt
 
 on:
   push:
@@ -25,59 +24,62 @@ on:
         required: false
         default: ''
       note:
-        description: '备注'
+        description: '备注（会在 Actions 列表里显示）'
         required: false
         default: ''
       options_json:
-        description: '构建选项 JSON（debug / arch / obfuscation ...）'
+        description: '构建选项 JSON'
         required: false
         default: '{}'
-  workflow_call: {}
 
 permissions:
   contents: write
   actions: write
 
+# 注意：这里刻意不用 cancel-in-progress —— macOS runner 排队很慢，
+# 中途取消会把已经排到队的任务一起废掉，重跑又得再等十分钟。
 concurrency:
-  group: build-${{ github.ref }}-${{ inputs.job_id || github.run_id }}
-  cancel-in-progress: true
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   # ---------------------------------------------------------------------------
-  # 1. 逻辑层测试：ShareKit + Worker，跑在 ubuntu 上，秒级
+  # 1. 逻辑层测试：ShareKit + Worker，跑在 ubuntu 上，几十秒
   # ---------------------------------------------------------------------------
   test:
-    name: Logic tests (ShareKit + Worker)
+    name: Logic tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Run unit tests
+      - name: Unit tests
         run: |
           node --test ShareKit/test/model.test.mjs
           node --test Workers/test/worker.test.mjs
-      - name: Syntax check Worker
+      - name: Worker syntax
         run: node --check Workers/SPCloudWorker.js
       - name: Toolchain detector smoke
-        run: node scripts/detect-toolchain.mjs --json | head -c 400
+        run: node scripts/detect-toolchain.mjs --json | head -c 300
 
   # ---------------------------------------------------------------------------
-  # 2. 真机构建：在 macOS runner 上用 iPhoneOS SDK 编译 Spark
+  # 2. 真机构建：macOS runner 上用 iPhoneOS SDK 编译 Spark
   # ---------------------------------------------------------------------------
   build:
     name: Build Spark (${{ matrix.arch }})
     needs: test
-    runs-on: macos-14
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        arch: [arm64]
+        include:
+          - runner: macos-15
+            arch: arm64
     env:
       SCHEME: Spark
       BUNDLE_ID: com.HuQing.Spark
-      TEAM_ID: ''
     steps:
       - uses: actions/checkout@v4
         with:
@@ -87,11 +89,13 @@ jobs:
         run: |
           sw_vers
           xcodebuild -version
-          xcodebuild -showsdks | sed -n '1,40p'
+          xcrun --sdk iphoneos --show-sdk-path
+          echo "archs: $(uname -m)"
 
       - name: Inject build info
         id: info
         run: |
+          set -euo pipefail
           VERSION="$(sed -n 's/^Version: *//p' control | head -1)"
           VERSION="${VERSION:-1.0.0}"
           GIT="$(git describe --tags --always --dirty)"
@@ -106,13 +110,14 @@ jobs:
           echo "版本 $VERSION / $GIT"
 
       # -----------------------------------------------------------------------
-      # 编译方式 A：直接用 xcrun clang 手工编（不依赖 .xcodeproj）
-      # 这样仓库里不用塞一个二进制工程文件，PR diff 干净，构建脚本也透明。
+      # 直接 xcrun clang 手工编译：仓库不放 .xcodeproj，
+      # 编译细节全在这个脚本里，PR diff 干净、也方便对着日志排错。
       # -----------------------------------------------------------------------
       - name: Compile (plain clang, no Xcode project)
         run: |
           set -euo pipefail
           SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          echo "SDK = $SDK"
           MIN=15.0
           APP="$RUNNER_TEMP/$SCHEME.app"
           rm -rf "$APP" && mkdir -p "$APP"
@@ -126,7 +131,6 @@ jobs:
             -O2 -DNDEBUG
             -INative/ObjC
             -Wno-deprecated-declarations
-            -Werror=return-type
           )
 
           echo "==> 编译源文件"
@@ -138,16 +142,15 @@ jobs:
             OBJECTS+=("$out")
           done
 
-          echo "==> 链接"
+          echo "==> 链接 (${{ matrix.arch }})"
           xcrun clang "${FLAGS[@]}" "${OBJECTS[@]}" \
             -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore \
             -o "$APP/$SCHEME"
 
-          echo "==> 自签（模拟器/研究用，真机安装请用你自己的证书重签）"
+          echo "==> 临时签名"
           codesign --force --sign - --timestamp=none "$APP" || true
-
-          SIZE=$(du -sh "$APP" | cut -f1)
-          echo "APP = $APP ($SIZE)"
+          echo "==> 产物"
+          du -sh "$APP"
           file "$APP/$SCHEME"
           echo "APP_PATH=$APP" >> "$GITHUB_ENV"
 
@@ -157,15 +160,11 @@ jobs:
           mkdir -p out
           V="${{ steps.info.outputs.version }}"
           A="${{ matrix.arch }}"
-          # 1) 裸 .app（打包成 zip，保留权限位）
-          (cd "$(dirname "$APP_PATH")" && ditto -c -k --sequesterRsrc --keepParent "$(basename "$APP_PATH")" "$GITHUB_WORKSPACE/out/${SCHEME}-${V}-${A}.app.zip")
-          # 2) .ipa（Payload/ 目录结构）
+          ( cd "$(dirname "$APP_PATH")" && ditto -c -k --sequesterRsrc --keepParent "$(basename "$APP_PATH")" "$GITHUB_WORKSPACE/out/${SCHEME}-${V}-${A}.app.zip" )
           mkdir -p "$RUNNER_TEMP/ipa/Payload"
           cp -R "$APP_PATH" "$RUNNER_TEMP/ipa/Payload/"
-          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/out/${SCHEME}-${V}-${A}.ipa" Payload)
-          # 3) 校验信息
-          ( cd out && shasum -a 256 * > SHA256SUMS.txt && ls -lh )
-          cat out/SHA256SUMS.txt
+          ( cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/out/${SCHEME}-${V}-${A}.ipa" Payload )
+          ( cd out && shasum -a 256 * > SHA256SUMS.txt && ls -lh && cat SHA256SUMS.txt )
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -178,15 +177,16 @@ jobs:
       - name: Write job summary
         run: |
           {
-            echo "## Spark 构建完成"
+            echo "## Spark 构建完成 :sparkles:"
             echo ""
             echo "| 项目 | 值 |"
             echo "|---|---|"
-            echo "| 版本 | ${{ steps.info.outputs.version }} |"
+            echo "| 版本 | \`${{ steps.info.outputs.version }}\` |"
             echo "| git | \`${{ steps.info.outputs.git }}\` |"
+            echo "| Bundle ID | \`com.HuQing.Spark\` |"
             echo "| 架构 | ${{ matrix.arch }} |"
             echo "| 触发任务 | \`${{ inputs.job_id }}\` |"
-            echo "| runner | macOS $(sw_vers -productVersion) |"
+            echo "| runner | $(sw_vers -productName) $(sw_vers -productVersion) |"
             echo ""
             echo '### 产物'
             echo '```'
@@ -195,7 +195,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ---------------------------------------------------------------------------
-  # 3. 打 tag 时顺手建一个 Release，把产物挂上去
+  # 3. 打 tag 时建 Release
   # ---------------------------------------------------------------------------
   release:
     name: Attach to release
