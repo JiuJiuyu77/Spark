@@ -66,7 +66,7 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
     self.table.separatorColor = [SPTheme separator];
     [self.table registerClass:UITableViewCell.class forCellReuseIdentifier:@"app"];
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
-    self.view.addSubview:self.table;
+    [self.view addSubview:self].table;
     [NSLayoutConstraint activateConstraints:@[
         [self.table.topAnchor constraintEqualToAnchor:self.view.topAnchor],
         [self.table.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
@@ -260,7 +260,7 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
     self.table.separatorColor = [SPTheme separator];
     [self.table registerClass:UITableViewCell.class forCellReuseIdentifier:@"c"];
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
-    self.view.addSubview:self.table;
+    [self.view addSubview:self].table;
     [NSLayoutConstraint activateConstraints:@[
         [self.table.topAnchor constraintEqualToAnchor:self.view.topAnchor],
         [self.table.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
