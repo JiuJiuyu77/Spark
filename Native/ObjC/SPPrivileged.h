@@ -31,6 +31,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// 提交结果说明（设置页展示）
 @property (nonatomic, readonly) NSString *statusText;
 
+/// 启动时调用：尝试把自己切到 root（有 platform-application 时通常直接成功）
+/// 返回是否真的成了 root
+- (BOOL)elevateSelf;
+
 /// 探活：起一个 `id` 看实际 uid/gid
 - (void)probeWithCompletion:(void (^)(NSString *detail))completion;
 

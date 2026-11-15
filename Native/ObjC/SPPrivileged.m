@@ -36,6 +36,26 @@
     return [NSString stringWithFormat:@"当前 uid %d · 无提权能力（需 TrollStore 安装）", (int)getuid()];
 }
 
+- (BOOL)elevateSelf {
+    if (getuid() == 0) {
+        SPLog(@"已是 root（uid 0）");
+        return YES;
+    }
+
+    uid_t before = getuid();
+    // 顺序很重要：先 setgid 再 setuid，否则降权后无法再改 gid
+    if (setgid(0) != 0) SPLog(@"setgid(0) 失败：%s", strerror(errno));
+    if (setuid(0) != 0) {
+        SPLog(@"setuid(0) 失败：%s（TrollStore 里显示「以 mobile 用户执行」就是这个原因）",
+              strerror(errno));
+        // 退回原 uid，避免半吊子状态
+        setuid(before);
+        return NO;
+    }
+    SPLog(@"已提权：uid %d → %d", (int)before, (int)getuid());
+    return getuid() == 0;
+}
+
 #pragma mark - 探活
 
 - (void)probeWithCompletion:(void (^)(NSString *))completion {

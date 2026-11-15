@@ -61,10 +61,18 @@ NSString *const SPErrorDomain = @"Spark.Error";
 
 + (NSArray<NSString *> *)envPairsFromDictionary:(NSDictionary<NSString *, NSString *> *)dict {
     NSMutableArray *out = [NSMutableArray array];
-    NSArray *keys = [dict.allKeys sortedArrayUsingSelector:@selector(compare:)];
+    if (![dict isKindOfClass:[NSDictionary class]]) return out;
+    // 只取字符串 key，且比较时也按 NSString 处理（避免数字 key 调用 compare: 崩）
+    NSMutableArray *keys = [NSMutableArray array];
+    for (id k in dict.allKeys) if ([k isKindOfClass:[NSString class]]) [keys addObject:k];
+    [keys sortUsingSelector:@selector(compare:)];
     for (NSString *k in keys) {
-        NSString *v = dict[k];
-        if (![v isKindOfClass:[NSString class]]) continue;
+        id raw = dict[k];
+        if (![raw isKindOfClass:[NSString class]]) {
+            if ([raw isKindOfClass:[NSNumber class]]) raw = [raw stringValue];
+            else continue;
+        }
+        NSString *v = (NSString *)raw;
         // env 值里不能有换行，统统压成空格
         v = [v stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
         [out addObject:[NSString stringWithFormat:@"%@=%@", k, v]];

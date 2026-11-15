@@ -18,6 +18,7 @@
 #import "SPGlassKit.h"
 #import "SPJIT.h"
 #import "SPCrashGuard.h"
+#import "SPPrivileged.h"
 #import "SPEditorViewController.h"
 #import "SPToolchainInstaller.h"
 #import "SPStore.h"
@@ -33,6 +34,11 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+
+    // 第一件事：尝试提权到 root（TrollStore 环境下通常直接成功）
+    // 必须在任何子进程启动之前做，否则子进程会继承 mobile 身份
+    BOOL isRoot = [[SPPrivileged shared] elevateSelf];
+    SPLog(@"启动身份：uid=%d gid=%d root=%@", (int)getuid(), (int)getgid(), isRoot ? @"是" : @"否");
 
     // 崩溃兜底：尽早装，才能捕获启动期异常
     [[SPCrashGuard shared] install];

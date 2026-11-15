@@ -108,11 +108,20 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
         NSRange r = [kv rangeOfString:@"="]; if (r.location == NSNotFound) continue;
         merged[[kv substringToIndex:r.location]] = [kv substringFromIndex:r.location + 1];
     }
-    [merged addEntriesFromDictionary:self.environment];
+    [merged addEntriesFromDictionary:SPSanitizeEnvironment(self.environment)];
     if (!merged[@"HOME"]) merged[@"HOME"] = NSHomeDirectory();
     if (!merged[@"LANG"]) merged[@"LANG"] = @"en_US.UTF-8";
     if (!merged[@"TERM"]) merged[@"TERM"] = @"dumb";
-    return [SPUtil envPairsFromDictionary:merged];
+    // 逐个确认是 NSString —— 只要有一个非字符串，setenv/strdup 就会崩
+    NSMutableDictionary *safe = [NSMutableDictionary dictionary];
+    for (id k in merged) {
+        if (![k isKindOfClass:NSString.class]) continue;
+        id v = merged[k];
+        if ([v isKindOfClass:NSString.class]) safe[k] = v;
+        else if ([v isKindOfClass:NSNumber.class]) safe[k] = [v stringValue];
+        else safe[k] = @"";
+    }
+    return [SPUtil envPairsFromDictionary:safe];
 }
 
 #pragma mark 启动

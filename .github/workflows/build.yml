@@ -128,23 +128,44 @@ jobs:
         run: |
           set -euo pipefail
           TC="Native/Resources/Toolchain"
-          if [ -d "$TC/bin" ]; then
-            echo "已内置工具链（来自仓库）"
-          elif [ -n "${{ vars.TOOLCHAIN_SOURCE }}" ]; then
-            echo "从 ${{ vars.TOOLCHAIN_SOURCE }} 下载工具链"
+
+          # 默认从 Spark-Runtime 拿 Theos（含 16.5 + 17.0 双 SDK）
+          # 可用仓库变量 TOOLCHAIN_SOURCE 覆盖为任意直链
+          SRC="${{ vars.TOOLCHAIN_SOURCE }}"
+          if [ -z "$SRC" ]; then
+            SRC="https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v1/TheosRuntime.tar.gz"
+          fi
+
+          if [ -d "$TC/theos/bin" ]; then
+            echo "仓库内已有工具链"
+          else
+            echo "下载：$SRC"
             mkdir -p "$TC"
-            curl -fL --retry 3 -o /tmp/tc.tar.gz "${{ vars.TOOLCHAIN_SOURCE }}"
+            ok=0
+            for U in "$SRC" "https://gh-proxy.org/$SRC" "https://ghproxy.net/$SRC"; do
+              echo "  尝试 $U"
+              if curl -fL --retry 2 --max-time 600 -o /tmp/tc.tar.gz "$U"; then ok=1; break; fi
+            done
+            if [ "$ok" != "1" ]; then
+              echo "::error::工具链下载失败（三个源都试过）"
+              exit 1
+            fi
             tar xzf /tmp/tc.tar.gz -C "$TC"
             rm -f /tmp/tc.tar.gz
-          else
-            echo "::warning::没有配置 TOOLCHAIN_SOURCE，本次产物不含内置工具链"
           fi
-          if [ -d "$TC" ]; then
-            du -sh "$TC" || true
-            ls "$TC" || true
+
+          # TheosRuntime.tar.gz 里是 theos/ 目录，直接当 THEOS 根
+          if [ -d "$TC/theos" ]; then
+            du -sh "$TC/theos"
+            ls "$TC/theos/sdks" || true
+            # 校验必须有 logos.pl 与至少一个 SDK
+            [ -f "$TC/theos/bin/logos.pl" ] || { echo "::error::包内缺 logos.pl"; exit 1; }
+            ls "$TC/theos/sdks"/iPhoneOS*.sdk >/dev/null 2>&1 || { echo "::error::包内缺 SDK"; exit 1; }
             echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "theos=Native/Resources/Toolchain/theos" >> "$GITHUB_OUTPUT"
           else
-            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::error::解包后没有 theos 目录"
+            exit 1
           fi
 
       - name: Compile (plain clang, no Xcode project)

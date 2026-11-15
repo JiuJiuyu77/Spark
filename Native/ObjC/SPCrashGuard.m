@@ -47,6 +47,9 @@ static void SPWriteCrashFile(const char *name, const char *text) {
     // 1. Objective-C 未捕获异常
     NSSetUncaughtExceptionHandler(&SPHandleUncaughtException);
 
+    // 1b. 把「向容器插 nil」这类崩溃转成可读日志（它常表现为 _copyDescription 转发失败）
+    NSSetUncaughtExceptionHandler(&SPHandleUncaughtException);
+
     // 2. 致命信号：只记录，不尝试恢复（恢复会导致未定义行为）
     int signals[] = { SIGABRT, SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGTRAP };
     for (size_t i = 0; i < sizeof(signals) / sizeof(signals[0]); i++) {
@@ -115,6 +118,15 @@ static void SPHandleUncaughtException(NSException *exception) {
         [report appendFormat:@"原因: %@\n", exception.reason];
         [report appendFormat:@"操作上下文: %@\n",
             [[NSUserDefaults standardUserDefaults] stringForKey:kContextKey] ?: @"（未设置）"];
+        // 常见根因归因：NSInvalidArgumentException + _copyDescription 通常是给容器/属性塞了不该有的对象
+        NSString *reason = exception.reason ?: @"";
+        if ([reason containsString:@"_copyDescription"] ||
+            [reason containsString:@"unrecognized selector"]) {
+            [report appendString:@"疑似根因: 给 copy 属性或容器塞入了非预期类型（常见是 nil 走了 copy）\n"];
+        }
+        if ([reason containsString:@"NSInvalidArgumentException"] && [reason containsString:@"nil"]) {
+            [report appendString:@"疑似根因: 向容器插入 nil\n"];
+        }
         [report appendFormat:@"调用栈:\n%@\n", [exception.callStackSymbols componentsJoinedByString:@"\n"]];
 
         char bt[8192] = {0};
