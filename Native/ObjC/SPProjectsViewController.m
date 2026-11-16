@@ -308,7 +308,7 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
 
 - (void)installGlassHeader {
     SPGlassHeaderView *header = [[SPGlassHeaderView alloc] initWithFrame:CGRectMake(0, 0, 320, 96)];
-    NSUInteger n = self.projects.count;
+    NSUInteger n = self.items.count;
     [header configureWithSymbol:@"folder.fill.badge.gearshape"
                           title:@"项目"
                        subtitle:(n ? [NSString stringWithFormat:@"%lu 个工程", (unsigned long)n]
