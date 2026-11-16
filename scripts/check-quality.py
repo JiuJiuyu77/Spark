@@ -198,6 +198,24 @@ def check_file(path: str):
         warnings.append(
             f'{name}:{i}: {code.strip()[:60]}… 忽略返回值且丢弃 error，失败会静默成功。')
 
+    # 3e. 跨线程共享的 NSMutable* 必须加锁
+    #
+    # 典型模式：onLine / onFinish 是不同线程的回调，
+    # 共同读写一个 NSMutableString / NSMutableArray。
+    # 不加锁会拿到半写状态：日志乱码、丢行、甚至崩溃。
+    for i, line in enumerate(lines, 1):
+        if 'NSMutableString *log' in line or 'NSMutableArray *log' in line:
+            # 看后续 30 行内是否存在“写”且没有 synchronized
+            window = '\n'.join(lines[i - 1:i + 30])
+            writes = window.count('appendString') + window.count('addObject')
+            # 只有存在异步回调（block 赋值给 onXxx）才可能跨线程
+            is_async = re.search(r'\^\(.*\)\s*\{', window) and (
+                'onLine' in window or 'onFinish' in window or 'completionHandler' in window)
+            if writes >= 2 and is_async and '@synchronized' not in window:
+                problems.append(
+                    f'{name}:{i}: 日志缓冲被多处写入但没加锁，'
+                    f'跨线程回调时会读到半写状态。加 @synchronized。')
+
     # 4. 统计
     n_null = text.count('error:NULL')
     if n_null:

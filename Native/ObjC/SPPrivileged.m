@@ -80,12 +80,18 @@
 
     SPSession *session = [[SPSession alloc] initWithEnvironment:@{} workingDirectory:NSTemporaryDirectory()];
     NSMutableString *log = [NSMutableString string];
+    // NSMutableString 不是线程安全的：onLine 在后台读线程回调，
+    // onFinish 在另一线程读它，必须加锁，否则可能拿到半写状态
+    // （表现是日志乱码、丢行，甚至崩溃）。
     session.onLine = ^(NSString *line, SPLogLevel level) {
-        [log appendString:line];
-        [log appendString:@"\n"];
+        @synchronized (log) {
+            [log appendString:line];
+            [log appendString:@"\n"];
+        }
     };
     session.onFinish = ^(SPCommandResult *r) {
-        NSString *out = log.length ? log : (r.stderrText ?: @"");
+        NSString *out = nil;
+        @synchronized (log) { out = log.length ? [log copy] : (r.stderrText ?: @""); }
         BOOL wasRoot = [out containsString:@"SPARK_UID=0"];
         dispatch_async(dispatch_get_main_queue(), ^{
             if (completion) completion(r.exitCode == 0, wasRoot, out);

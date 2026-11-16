@@ -47,6 +47,26 @@
 
 @implementation SPConsoleViewController
 
+- (void)dealloc {
+    // ticker 是 repeats:YES 的 NSTimer，会一直被 runloop 持有。
+    // 不在 dealloc 里 invalidate 的话：
+    //   · 页面退出后仍在每 0.25 秒回调一次
+    //   · self 无法释放（timer 持有 block，block 里 weakSelf 虽不持有，
+    //     但 timer 本身会持续跑，白白耗电）
+    [_ticker invalidate];
+    _ticker = nil;
+    [NSObject cancelPreviousPerformRequestsWithTarget:self];
+}
+
+- (void)viewDidDisappear:(BOOL)animated {
+    [super viewDidDisappear:animated];
+    // 离开页面就停掉计时器；回来时 startBuild 会重新建。
+    if (!self.session.isRunning && self.ticker) {
+        [self.ticker invalidate];
+        self.ticker = nil;
+    }
+}
+
 - (instancetype)initWithProject:(SPProject *)project profile:(SPToolchainProfile *)profile {
     if ((self = [super initWithNibName:nil bundle:nil])) {
         _project = project;

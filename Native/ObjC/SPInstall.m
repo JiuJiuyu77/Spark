@@ -111,11 +111,15 @@
     SPSession *s = [[SPSession alloc] initWithEnvironment:env workingDirectory:NSTemporaryDirectory()];
     NSMutableString *log = [NSMutableString string];
     s.onLine = ^(NSString *line, SPLogLevel level) {
-        [log appendString:line];
-        [log appendString:@"\n"];
+        // 后台读线程回调，与 onFinish 的读取互斥
+        @synchronized (log) {
+            [log appendString:line];
+            [log appendString:@"\n"];
+        }
     };
     s.onFinish = ^(SPCommandResult *r) {
-        NSString *out = log.length ? log : (r.stderrText ?: @"");
+        NSString *out = nil;
+        @synchronized (log) { out = log.length ? [log copy] : (r.stderrText ?: @""); }
         dispatch_async(dispatch_get_main_queue(), ^{
             if (completion) completion(r.exitCode == 0, out);
         });

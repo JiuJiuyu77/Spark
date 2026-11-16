@@ -22,24 +22,50 @@ extern char **environ;
 
 #pragma mark - SPSession
 
-/// 记录所有活着的子进程 pid，App 退出时统一清理
-static NSMutableSet<NSNumber *> *SPSessionLivePids(void) {
+/// 记录所有活着的子进程 pid，App 退出时统一清理。
+///
+/// 线程安全：这个集合会被三处并发访问
+///   · launch: 在调用方线程登记 pid
+///   · 读线程结束后回收 pid
+///   · applicationWillTerminate 在主线程遍历清理
+/// 直接用 NSMutableSet 会出现「边遍历边修改」的异常
+/// （Collection was mutated while being enumerated），
+/// 也可能丢 pid 导致子进程清理不干净（App 退了 clang 还在跑）。
+/// 所有访问都必须走下面三个带锁的入口。
+static NSMutableSet<NSNumber *> *SPSessionPidSet(void) {
     static NSMutableSet *set;
     static dispatch_once_t once;
     dispatch_once(&once, ^{ set = [NSMutableSet set]; });
     return set;
 }
 
+static void SPSessionPidAdd(pid_t pid) {
+    if (pid <= 0) return;
+    NSMutableSet *set = SPSessionPidSet();
+    @synchronized (set) { [set addObject:@(pid)]; }
+}
+
+static void SPSessionPidRemove(pid_t pid) {
+    NSMutableSet *set = SPSessionPidSet();
+    @synchronized (set) { [set removeObject:@(pid)]; }
+}
+
+/// 取快照（遍历时用这个，不要在持锁状态下 kill）
+static NSArray<NSNumber *> *SPSessionPidSnapshot(void) {
+    NSMutableSet *set = SPSessionPidSet();
+    @synchronized (set) { return set.allObjects; }
+}
+
 /// 在 applicationWillTerminate / 进入后台超时时调用：
 /// 杀掉所有我们自己起的子进程组，避免 App 被杀后 clang/make 还在跑
 void SPSessionReapAllChildren(void) {
-    NSArray *pids = SPSessionLivePids().allObjects;
+    NSArray *pids = SPSessionPidSnapshot();
     for (NSNumber *n in pids) {
         pid_t p = (pid_t)n.intValue;
         kill(-p, SIGKILL);
         kill(p, SIGKILL);
     }
-    [SPSessionLivePids() removeAllObjects];
+    @synchronized (SPSessionPidSet()) { [SPSessionPidSet() removeAllObjects]; }
     SPLog(@"已清理 %lu 个残留子进程", (unsigned long)pids.count);
 }
 
@@ -201,7 +227,7 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
     }
 
     self.pid = child;
-    [SPSessionLivePids() addObject:@(child)];   // 登记，供退出时清理
+    SPSessionPidAdd(child);   // 登记，供退出时清理
     self.outFd = pfd[0];
     self.errFd = efd[0];
     self.startTime = [NSDate date];
@@ -237,7 +263,7 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
             if (WIFEXITED(status)) code = WEXITSTATUS(status);
             else if (WIFSIGNALED(status)) code = 128 + WTERMSIG(status);
         }
-        [SPSessionLivePids() removeObject:@(self.pid)];
+        SPSessionPidRemove(self.pid);
         self.pid = -1;
         [self completeWithExitCode:code];
     });

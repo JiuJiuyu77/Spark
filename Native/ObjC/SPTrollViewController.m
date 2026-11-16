@@ -792,13 +792,19 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
 
     SPSession *session = [[SPSession alloc] initWithEnvironment:@{} workingDirectory:NSTemporaryDirectory()];
     NSMutableString *log = [NSMutableString string];
-    session.onLine = ^(NSString *line, SPLogLevel level) { [log appendString:line]; [log appendString:@"\n"]; };
+    // onLine 在后台读线程回调，onFinish 之后也要读 log，
+    // NSMutableString 非线程安全，必须互斥。
+    session.onLine = ^(NSString *line, SPLogLevel level) {
+        @synchronized (log) { [log appendString:line]; [log appendString:@"\n"]; }
+    };
     __weak typeof(self) weakSelf = self;
     session.onFinish = ^(SPCommandResult *r) {
         __strong typeof(weakSelf) self = weakSelf; if (!self) return;
         if (r.exitCode == 0) [SPMotion hapticSuccess]; else [SPMotion hapticError];
+        NSString *logSnapshot = nil;
+        @synchronized (log) { logSnapshot = [log copy]; }
         NSString *text = [NSString stringWithFormat:@"sh %@\n退出码 %ld\n\n%@\n%@",
-                          path, (long)r.exitCode, log, r.stderrText ?: @""];
+                          path, (long)r.exitCode, logSnapshot, r.stderrText ?: @""];
         [[SPBackground shared] endKeepAlive:@"inject"];
         NSString *p = [[SPStore shared] persistLogText:text jobId:@"inject"];
         SPEditorViewController *e = [[SPEditorViewController alloc] initWithFilePath:p];
