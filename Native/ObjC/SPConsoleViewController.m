@@ -220,10 +220,12 @@
         [self.actionBar.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.actionBar.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
 
+        // 按钮必须约束在 actionBar.contentView 内部，
+        // 不能绑到 self.view.safeArea，否则按钮会跑出操作条、层级错乱
         [self.primaryButton.topAnchor constraintEqualToAnchor:self.actionBar.contentView.topAnchor constant:10],
         [self.primaryButton.leadingAnchor constraintEqualToAnchor:self.actionBar.contentView.leadingAnchor constant:16],
         [self.primaryButton.heightAnchor constraintEqualToConstant:48],
-        [self.primaryButton.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-10],
+        [self.primaryButton.bottomAnchor constraintEqualToAnchor:self.actionBar.contentView.bottomAnchor constant:-10],
 
         [self.secondaryButton.centerYAnchor constraintEqualToAnchor:self.primaryButton.centerYAnchor],
         [self.secondaryButton.leadingAnchor constraintEqualToAnchor:self.primaryButton.trailingAnchor constant:10],

@@ -98,6 +98,7 @@
 
 - (void)appendLines:(NSArray<SPLogLine *> *)lines {
     if (!lines.count) return;
+
     NSInteger before = self.lines.count;
     [self.lines addObjectsFromArray:lines];
 
@@ -108,16 +109,38 @@
         trimmed = YES;
     }
 
-    if (trimmed) {
-        [_collection reloadData];
-    } else {
+    // 为什么不能无条件 performBatchUpdates：
+    //   UICollectionView 在首次 layout 之前（例如父控制器的 viewDidLoad 里）
+    //   还没有完成内部初始批次计数。此时插入 N 个 item，UIKit 会认为
+    //   「数据源数量与更新后数量不一致」，抛
+    //     Invalid update: invalid number of items in section 0
+    //   并直接 abort —— 这是真实发生过的崩溃。
+    //
+    // 因此只有满足以下条件才走增量插入：
+    //   1. 已经被加到 window 上（view 有 superlayer）
+    //   2. 已经完成过至少一次 layout
+    //   3. 本次没有被裁剪（裁剪会整体前移，索引对不上，直接 reload）
+    BOOL canBatch = !trimmed
+                 && _collection.window != nil
+                 && _collection.bounds.size.height > 0
+                 && before + (NSInteger)lines.count == (NSInteger)self.lines.count;
+
+    if (canBatch) {
         NSMutableArray *ips = [NSMutableArray array];
         for (NSInteger i = before; i < (NSInteger)self.lines.count; i++) {
             [ips addObject:[NSIndexPath indexPathForItem:i inSection:0]];
         }
-        [_collection performBatchUpdates:^{
-            [self->_collection insertItemsAtIndexPaths:ips];
-        } completion:nil];
+        // 再包一层兜底：万一 UIKit 仍然认为不一致，退回 reloadData 而不是崩
+        @try {
+            [_collection performBatchUpdates:^{
+                [self->_collection insertItemsAtIndexPaths:ips];
+            } completion:nil];
+        } @catch (NSException *e) {
+            SPLog(@"批量插入失败，退回 reloadData：%@", e.reason);
+            [_collection reloadData];
+        }
+    } else {
+        [_collection reloadData];
     }
     [self scheduleAutoscroll];
 }

@@ -160,12 +160,23 @@
                                           selectedSymbols:@[@"square.grid.2x2.fill", @"wrench.and.screwdriver.fill", @"person.crop.circle.fill"]];
     self.floatBar.delegate = self;
     self.floatBar.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.window addSubview:self.floatBar];
+    self.floatBar.selectedIndex = 0;
+
+    // 为什么挂在 tabs.view 而不是 window：
+    //   1. window 上直接加子视图会被 UITabBarController 的根视图压住
+    //   2. window.safeAreaLayoutGuide 在 buildTabBar 时就取值是 0，
+    //      底栏会被顶到屏幕外面（表现就是「底栏不见了」）
+    // 挂到 tabs.view 上用 safeArea 约束，布局时机与系统一致。
+    [self.tabs.view addSubview:self.floatBar];
+    UILayoutGuide *safe = self.tabs.view.safeAreaLayoutGuide;
     [NSLayoutConstraint activateConstraints:@[
-        [self.floatBar.leadingAnchor constraintEqualToAnchor:self.window.leadingAnchor constant:28],
-        [self.floatBar.trailingAnchor constraintEqualToAnchor:self.window.trailingAnchor constant:-28],
-        [self.floatBar.bottomAnchor constraintEqualToAnchor:self.window.safeAreaLayoutGuide.bottomAnchor constant:-6],
+        [self.floatBar.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:28],
+        [self.floatBar.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-28],
+        [self.floatBar.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-6],
     ]];
+
+    // 让内容底部留出悬浮栏的高度，避免最后一行被挡住
+    self.tabs.additionalSafeAreaInsets = UIEdgeInsetsMake(0, 0, 74, 0);
 }
 
 #pragma mark - SPFloatTabBarDelegate
