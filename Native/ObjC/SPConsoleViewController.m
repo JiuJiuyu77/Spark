@@ -520,11 +520,25 @@
         }]];
     }
     [a addAction:[UIAlertAction actionWithTitle:@"分享 / 导出" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
-        [self shareArtifact:sender];
+        // 拆分后 sender 已不在作用域：直接按路径分享即可
+        NSURL *u = [NSURL fileURLWithPath:path];
+        UIActivityViewController *share = [[UIActivityViewController alloc]
+            initWithActivityItems:@[u] applicationActivities:nil];
+        if (share.popoverPresentationController) {
+            share.popoverPresentationController.sourceView = self.view;
+            share.popoverPresentationController.sourceRect = CGRectMake(
+                CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds), 1, 1);
+        }
+        [self presentViewController:share animated:YES completion:nil];
     }]];
     [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
-    a.popoverPresentationController.sourceView = sender;
-    a.popoverPresentationController.sourceRect = sender.bounds;
+
+    // iPad / 大屏弹窗需要锚点
+    if (a.popoverPresentationController) {
+        a.popoverPresentationController.sourceView = self.view;
+        a.popoverPresentationController.sourceRect = CGRectMake(
+            CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds), 1, 1);
+    }
     [self presentViewController:a animated:YES completion:nil];
 }
 
