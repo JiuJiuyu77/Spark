@@ -67,6 +67,22 @@ typedef NS_ENUM(NSInteger, SPMountKind) {
 
 @property (nonatomic, readonly) NSArray<SPMount *> *mounts;
 
+/// 是否把挂载点暴露到「文件」App（Documents 根下的软链接）
+/// 默认开启：文件 App 的「我的 iPhone → Spark」里能直接看到挂载的网络磁盘
+@property (nonatomic, assign) BOOL exposeToFilesApp;
+
+/// 刷新文件 App 可见性（新增/删除挂载、开关切换后调用）
+- (void)refreshFilesAppLinks;
+
+/// 把远端目录同步到本地挂载点（文件 App 里看到的就是这份内容）
+/// 完成后回调，progress 在后台线程
+- (void)syncMount:(SPMount *)mount
+         progress:(nullable void (^)(NSString *status))progress
+       completion:(void (^)(BOOL ok, NSError *_Nullable error))completion;
+
+/// 本地挂载点里当前有多少条目（未同步时为 0）
+- (NSUInteger)localItemCountForMount:(SPMount *)mount;
+
 - (void)reload;
 - (void)addMount:(SPMount *)mount password:(nullable NSString *)password;
 - (void)removeMount:(SPMount *)mount;

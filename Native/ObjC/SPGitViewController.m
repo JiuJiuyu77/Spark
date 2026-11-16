@@ -5,6 +5,7 @@
 #import "SPGitViewController.h"
 #import "SPTheme.h"
 #import "SPGit.h"
+#import "SPDiffViewController.h"
 #import "SPEditorViewController.h"
 #import "SPCompat.h"
 
@@ -307,11 +308,20 @@ typedef NS_ENUM(NSInteger, SPGitSection) {
         NSString *diff = [[SPGit shared] diffRoot:weakSelf.root path:file.path staged:file.staged];
         dispatch_async(dispatch_get_main_queue(), ^{
             __strong typeof(weakSelf) self = weakSelf; if (!self) return;
-            NSString *name = file ? file.path.lastPathComponent : @"all-changes.diff";
-            NSString *path = [NSTemporaryDirectory() stringByAppendingPathComponent:name];
-            [diff writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:NULL];
-            SPEditorViewController *e = [[SPEditorViewController alloc] initWithFilePath:path];
-            [self.navigationController pushViewController:e animated:YES];
+            NSString *name = file ? file.path.lastPathComponent : @"全部改动";
+
+            if (!diff.length) {
+                UIAlertController *a = [UIAlertController alertControllerWithTitle:@"没有差异"
+                    message:@"该文件与暂存区/HEAD 一致。" preferredStyle:UIAlertControllerStyleAlert];
+                [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+                [self presentViewController:a animated:YES completion:nil];
+                return;
+            }
+
+            // 用行级着色视图而不是裸文本编辑器：
+            // 加号绿底、减号红底、@@ 蓝色，一眼看出改了哪几行
+            SPDiffViewController *vc = [[SPDiffViewController alloc] initWithDiff:diff title:name];
+            [self.navigationController pushViewController:vc animated:YES];
         });
     });
 }

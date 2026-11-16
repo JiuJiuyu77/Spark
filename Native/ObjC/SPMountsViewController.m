@@ -51,23 +51,41 @@
 
 #pragma mark - Table
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 1; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 2; }
 
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s {
+    if (s == 1) return @"文件 App";
     return self.items.count ? @"已挂载的远端目录" : @"还没有挂载";
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
+    if (s == 1) {
+        return @"开启后，每个挂载点会在「文件」App 的「我的 iPhone → Spark」下出现一个快捷方式（挂载-xxx）。\n"
+                "点进去就是本地镜像目录；配合「同步到本地」可以离线查看与编译。";
+    }
     if (self.items.count) {
         return @"挂载会出现在「文件」里 Mounts 目录下，能直接当项目目录用。\n凭据保存在钥匙串，不写进配置文件。";
     }
     return @"将 NAS / Mac 共享 / WebDAV 服务器的目录挂到 Spark 里，\n就能像本地文件夹一样浏览、编译、取产物。\n\n点右上角 ＋ 添加。";
 }
 
-- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s { return self.items.count; }
+- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
+    return s == 1 ? 1 : self.items.count;
+}
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:@"c"];
+
+    if (ip.section == 1) {
+        cell.textLabel.text = @"在「文件」App 中显示挂载";
+        cell.detailTextLabel.text = @"我的 iPhone → Spark → 挂载-xxx";
+        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        UISwitch *sw = [[UISwitch alloc] init];
+        sw.on = [SPMountManager shared].exposeToFilesApp;
+        [sw addTarget:self action:@selector(toggleExpose:) forControlEvents:UIControlEventValueChanged];
+        cell.accessoryView = sw;
+        return cell;
+    }
     if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"c"];
     [SPTheme styleCell:cell];
     SPMount *m = self.items[ip.row];
@@ -86,8 +104,27 @@
     return cell;
 }
 
+- (void)toast:(NSString *)text {
+    if (!text.length) return;
+    UIAlertController *hud = [UIAlertController alertControllerWithTitle:nil
+        message:text preferredStyle:UIAlertControllerStyleAlert];
+    [self presentViewController:hud animated:YES completion:^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.4 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            [hud dismissViewControllerAnimated:YES completion:nil];
+        });
+    }];
+}
+
+- (void)toggleExpose:(UISwitch *)sw {
+    [SPMountManager shared].exposeToFilesApp = sw.isOn;
+    [SPMotion hapticLight];
+    [self toast:sw.isOn ? @"已在文件 App 中显示" : @"已从文件 App 中隐藏"];
+}
+
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
+    if (ip.section == 1) return;
     [SPMotion hapticLight];
     SPMount *m = self.items[ip.row];
 
@@ -98,6 +135,9 @@
     }]];
     [a addAction:[UIAlertAction actionWithTitle:@"测试连接" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
         [self test:m];
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"同步到本地（文件 App 可见）" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
+        [self syncLocal:m];
     }]];
     [a addAction:[UIAlertAction actionWithTitle:@"在本地查看挂载点" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
         SPFileBrowserViewController *b = [[SPFileBrowserViewController alloc]
@@ -116,6 +156,27 @@
 - (void)browse:(SPMount *)m path:(NSString *)path {
     SPMountBrowser *b = [[SPMountBrowser alloc] initWithMount:m path:path];
     [self.navigationController pushViewController:b animated:YES];
+}
+
+- (void)syncLocal:(SPMount *)m {
+    UIAlertController *hud = [UIAlertController alertControllerWithTitle:@"正在同步"
+        message:@"首次同步会拉取目录结构与文件…" preferredStyle:UIAlertControllerStyleAlert];
+    [self presentViewController:hud animated:YES completion:nil];
+
+    [[SPMountManager shared] syncMount:m progress:^(NSString *status) {
+        hud.message = status;
+    } completion:^(BOOL ok, NSError *err) {
+        [hud dismissViewControllerAnimated:YES completion:^{
+            if (ok) {
+                [self toast:@"同步完成，文件 App 里可见"];
+            } else {
+                UIAlertController *e = [UIAlertController alertControllerWithTitle:@"同步失败"
+                    message:err.localizedDescription ?: @"未知错误" preferredStyle:UIAlertControllerStyleAlert];
+                [e addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+                [self presentViewController:e animated:YES completion:nil];
+            }
+        }];
+    }];
 }
 
 - (void)test:(SPMount *)m {
@@ -282,8 +343,15 @@
     return cell;
 }
 
+- (void)toggleExpose:(UISwitch *)sw {
+    [SPMountManager shared].exposeToFilesApp = sw.isOn;
+    [SPMotion hapticLight];
+    [self toast:sw.isOn ? @"已在文件 App 中显示" : @"已从文件 App 中隐藏"];
+}
+
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
+    if (ip.section == 1) return;
     SPMountEntry *e = self.entries[ip.row];
     if (e.isDirectory) {
         NSString *next = e.path;

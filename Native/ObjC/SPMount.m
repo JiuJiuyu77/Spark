@@ -12,6 +12,32 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
 #pragma mark - SPMountEntry
 
 @implementation SPMountEntry
+#pragma mark - 同步包装（复用已有的异步接口）
+
+/// 用信号量把异步 listPath 变成同步，供后台线程调用
+- (nullable NSArray<SPMountEntry *> *)syncListWebDAV:(NSString *)path mount:(SPMount *)mount {
+    __block NSArray *result = nil;
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    [self listPath:path ofMount:mount completion:^(NSArray<SPMountEntry *> *e, NSError *err) {
+        result = e;
+        dispatch_semaphore_signal(sem);
+    }];
+    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_SEC));
+    return result;
+}
+
+/// 同步下载到本地文件
+- (BOOL)syncDownloadWebDAV:(NSString *)path mount:(SPMount *)mount to:(NSString *)localPath {
+    __block BOOL ok = NO;
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    [self download:path ofMount:mount toLocal:localPath completion:^(BOOL success, NSError *err) {
+        ok = success;
+        dispatch_semaphore_signal(sem);
+    }];
+    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 60 * NSEC_PER_SEC));
+    return ok;
+}
+
 @end
 
 #pragma mark - SPMount
@@ -86,6 +112,7 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
 @interface SPMountManager ()
 @property (nonatomic, strong) NSMutableArray<SPMount *> *internal;
 @property (nonatomic, strong) NSURLSession *session;
+@property (nonatomic, assign) BOOL exposeToFilesApp;
 @end
 
 @implementation SPMountManager
@@ -99,7 +126,11 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
         cfg.timeoutIntervalForRequest = 20;
         cfg.WaitsForConnectivity = NO;
         m.session = [NSURLSession sessionWithConfiguration:cfg];
+        NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+        m.exposeToFilesApp = [d objectForKey:@"Spark.exposeMountsToFiles"] == nil
+            ? YES : [d boolForKey:@"Spark.exposeMountsToFiles"];
         [m reload];
+        [m refreshFilesAppLinks];
     });
     return m;
 }
@@ -123,6 +154,8 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
             for (NSDictionary *j in arr) [self.internal addObject:[SPMount mountFromDictionary:j]];
         }
     }
+    [self refreshFilesAppLinks];
+
     // 同时把根目录里的 .sparkmount 描述文件也扫一遍（手工拷进来的挂载也能识别）
     NSString *root = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/Mounts"];
     for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:NULL] ?: @[]) {
@@ -394,6 +427,145 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
         if (error) { if (completion) completion(NO, error.localizedDescription); return; }
         if (completion) completion(YES, [NSString stringWithFormat:@"连接正常，根目录 %lu 项", (unsigned long)entries.count]);
     }];
+}
+
+
+#pragma mark - 文件 App 可见性
+
+- (void)setExposeToFilesApp:(BOOL)exposeToFilesApp {
+    _exposeToFilesApp = exposeToFilesApp;
+    [[NSUserDefaults standardUserDefaults] setBool:exposeToFilesApp
+                                            forKey:@"Spark.exposeMountsToFiles"];
+    [self refreshFilesAppLinks];
+}
+
+/// 为什么用软链接而不是直接放挂载点：
+///   文件 App（「我的 iPhone → Spark」）显示的是沙盒 Documents 根目录。
+///   挂载点原本在 Documents/Spark/Mounts/<名字>，
+///   用户要一层层点进去才找得到，体验很割裂。
+///   这里在每个挂载点的同级再建一个软链接到 Documents 根，
+///   文件 App 里就能一眼看到「WebDAV-我的NAS」这样的条目。
+- (void)refreshFilesAppLinks {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSString *documents = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents"];
+    NSString *linkPrefix = @"挂载-";
+
+    // 先清掉旧的链接
+    for (NSString *name in [fm contentsOfDirectoryAtPath:documents error:NULL] ?: @[]) {
+        if (![name hasPrefix:linkPrefix]) continue;
+        NSString *full = [documents stringByAppendingPathComponent:name];
+        NSDictionary *attrs = [fm attributesOfItemAtPath:full error:NULL];
+        if ([attrs[NSFileType] isEqualToString:NSFileTypeSymbolicLink]) {
+            [fm removeItemAtPath:full error:NULL];
+        }
+    }
+
+    if (!self.exposeToFilesApp) return;
+
+    for (SPMount *m in self.internal) {
+        NSString *target = m.localRootPath;
+        if (!target.length) continue;
+        // 确保挂载点目录存在（文件 App 里点进去不会报「找不到」）
+        [fm createDirectoryAtPath:target withIntermediateDirectories:YES attributes:nil error:NULL];
+
+        NSString *safeName = [m.displayName stringByReplacingOccurrencesOfString:@"/" withString:@"_"];
+        NSString *linkPath = [documents stringByAppendingPathComponent:
+                              [linkPrefix stringByAppendingString:safeName]];
+        [fm removeItemAtPath:linkPath error:NULL];
+        NSError *err = nil;
+        [fm createSymbolicLinkAtPath:linkPath withDestinationPath:target error:&err];
+        if (err) SPLog(@"创建文件 App 链接失败 %@：%@", safeName, err.localizedDescription);
+    }
+}
+
+#pragma mark - 同步远端到本地
+
+- (NSUInteger)localItemCountForMount:(SPMount *)mount {
+    NSString *root = mount.localRootPath;
+    if (!root.length) return 0;
+    NSArray *items = [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:NULL];
+    // 不看 .sparkmount 描述文件
+    NSUInteger n = 0;
+    for (NSString *x in items) if (![x hasPrefix:@"."]) n++;
+    return n;
+}
+
+- (void)syncMount:(SPMount *)mount
+         progress:(void (^)(NSString *))progress
+       completion:(void (^)(BOOL, NSError *))completion {
+    if (!mount) { if (completion) completion(NO, nil); return; }
+
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSString *root = mount.localRootPath;
+        [[NSFileManager defaultManager] createDirectoryAtPath:root
+                                 withIntermediateDirectories:YES attributes:nil error:NULL];
+
+        if (mount.kind == SPMountKindWebDAV) {
+            [self syncWebDAV:mount into:root progress:progress completion:completion];
+        } else {
+            // SMB 需要 libsmbclient，本版不支持
+            NSError *e = SPError(SPErrorCodeLaunchFailed, @"SMB 同步暂不支持（需要 libsmbclient）");
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (progress) progress(@"SMB 暂不支持");
+                if (completion) completion(NO, e);
+            });
+        }
+    });
+}
+
+/// WebDAV 递归下载（限深度，避免把整个网盘拉下来）
+- (void)syncWebDAV:(SPMount *)mount
+              into:(NSString *)localRoot
+          progress:(void (^)(NSString *))progress
+        completion:(void (^)(BOOL, NSError *))completion {
+    NSMutableArray *queue = [NSMutableArray arrayWithObject:@[mount.baseURL ?: @"", localRoot, @0]];
+    NSUInteger downloaded = 0;
+    NSError *fatal = nil;
+
+    while (queue.count) {
+        NSArray *item = queue.firstObject;
+        [queue removeObjectAtIndex:0];
+        NSString *remote = item[0];
+        NSString *local = item[1];
+        NSInteger depth = [item[2] integerValue];
+        if (depth > 3) continue;   // 只同步 3 层，够看目录结构
+
+        NSArray *entries = [self syncListWebDAV:remote mount:mount];
+        if (!entries) continue;
+
+        for (SPMountEntry *e in entries) {
+            NSString *name = e.name;
+            BOOL isDir = e.isDirectory;
+            if (!name.length || [name hasPrefix:@"."]) continue;
+
+            // 优先用服务端返回的相对路径，避免手拼时多/少斜杠
+            NSString *full = e.path.length ? e.path
+                : [remote stringByAppendingString:
+                   ([remote hasSuffix:@"/"] ? name : [@"/" stringByAppendingString:name])];
+            NSString *localPath = [local stringByAppendingPathComponent:name];
+
+            if (isDir) {
+                [[NSFileManager defaultManager] createDirectoryAtPath:localPath
+                                         withIntermediateDirectories:YES attributes:nil error:NULL];
+                [queue addObject:@[full, localPath, @(depth + 1)]];
+            } else if (downloaded < 500) {   // 单个挂载最多同步 500 个文件
+                BOOL ok = [self syncDownloadWebDAV:full mount:mount to:localPath];
+                if (ok) {
+                    downloaded++;
+                    if (progress && downloaded % 20 == 0) {
+                        progress([NSString stringWithFormat:@"已同步 %lu 个文件", (unsigned long)downloaded]);
+                    }
+                }
+            }
+        }
+    }
+
+    SPLog(@"挂载同步完成：%@ 共 %lu 个文件", mount.displayName, (unsigned long)downloaded);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (progress) progress([NSString stringWithFormat:@"完成，共 %lu 个文件", (unsigned long)downloaded]);
+        [self refreshFilesAppLinks];
+        if (completion) completion(fatal == nil, fatal);
+    });
 }
 
 @end
