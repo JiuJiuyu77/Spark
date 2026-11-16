@@ -51,6 +51,7 @@ def check_file(path: str):
     name = os.path.basename(path)
     lines = text.split('\n')
     problems = []
+    warnings = []
     notes = []
 
     for i, line in enumerate(lines, 1):
@@ -142,7 +143,24 @@ def check_file(path: str):
             f'{name}:{i}: {base} *用了 copy 但没实现 NSCopying，'
             f'赋值时会因 copyWithZone: 找不到而崩溃。改用 strong。')
 
-    # 3c. 字典/数组字面量里的裸属性访问
+        # 3b. 同步命令不能在调用线程上等待完成
+    #
+    # runSyncShell 会把完成通知派发到主队列。若它被主线程调用，
+    # 主线程等信号量、信号量又在等主线程 → 互相等待（有限超时也只是变成长卡）。
+    # 同理，任何「等待含 UI 回调的任务结束」都要放到后台。
+    for i, line in enumerate(lines, 1):
+        code = line.split('//')[0]
+        # 排除定义行本身（- (SPCommandResult *)runSyncShell: / + (…)runSyncShell:）
+        if re.search(r'[-+]\s*\([^)]*\)\s*runSyncShell:', code):
+            continue
+        if re.search(r'\brunSyncShell\s*:', code):
+            # runSyncShell 已改为不走主队列，不会死锁；
+            # 但在主线程调用仍会卡界面，作为提示而非错误。
+            warnings.append(
+                f'{name}:{i}: 使用了 runSyncShell —— 确认它不在主线程调用'
+                f'（否则界面会卡住）。')
+
+# 3c. 字典/数组字面量里的裸属性访问
     #
     # @{@"path": project.path} 在 project.path 为 nil 时会**立刻抛异常**
     # （attempt to insert nil object），而且这类代码常在主队列回调里执行，

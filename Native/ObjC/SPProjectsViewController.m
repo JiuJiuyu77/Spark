@@ -370,15 +370,18 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
     if (!u) return;
 
     // 拿安全作用域访问权限（iCloud Drive 的文件必须这么做）
+    //
+    // 注意：**不能**在这里 finally 里立刻 stop。
+    // importFromURL: 是异步的（解压要跑子进程、可能几秒），
+    // 一旦提前停止访问，后续读源文件会失败。
+    // 由 importFromURL: 在自己的完成回调里负责 stop。
     BOOL access = [u startAccessingSecurityScopedResource];
-    @try {
-        [self importFromURL:u];
-    } @finally {
+    [self importFromURL:u releaseAccess:^{
         if (access) [u stopAccessingSecurityScopedResource];
-    }
+    }];
 }
 
-- (void)importFromURL:(NSURL *)url {
+- (void)importFromURL:(NSURL *)url releaseAccess:(void (^)(void))releaseAccess {
     NSString *name = url.lastPathComponent;
     NSString *lower = name.lowercaseString;
     NSString *staging = [NSTemporaryDirectory() stringByAppendingPathComponent:
@@ -389,18 +392,30 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
     NSError *err = nil;
     NSString *src = url.path;
 
-    // 1) 目录：整个复制
+    // 先把源文件**复制到暂存区**再处理。
+    // 这样即使外部安全作用域到期、或用户取消了文件访问，
+    // 后续解压读的也是本地副本，不会出现「解压到一半读不到源文件」。
     BOOL isDir = NO;
     [fm fileExistsAtPath:src isDirectory:&isDir];
+    NSString *localCopy = [staging stringByAppendingPathComponent:name];
     if (isDir) {
-        NSString *dst = [staging stringByAppendingPathComponent:name];
-        if (![fm copyItemAtPath:src toPath:dst error:&err]) {
+        if (![fm copyItemAtPath:src toPath:localCopy error:&err]) {
+            if (releaseAccess) releaseAccess();
             [self alertImportFailed:err name:name];
             return;
         }
-        [self registerImportedProjectAt:dst originalName:name];
+        if (releaseAccess) releaseAccess();
+        [self registerImportedProjectAt:localCopy originalName:name];
         return;
     }
+    if (![fm copyItemAtPath:src toPath:localCopy error:&err]) {
+        if (releaseAccess) releaseAccess();
+        [self alertImportFailed:err name:name];
+        return;
+    }
+    // 源文件已复制，可以安全释放访问权限
+    if (releaseAccess) releaseAccess();
+    src = localCopy;
 
     // 2) 压缩包：解到 staging
     NSString *cmd = nil;
@@ -415,14 +430,39 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
     }
 
     if (cmd) {
-        SPSession *s = [[SPSession alloc] initWithEnvironment:@{} workingDirectory:staging];
-        [s runShell:cmd];
+        // 必须等解压真正结束再往下找工程根，
+        // 否则此时 staging 还是空的 → 永远找不到 Makefile。
+        [self runUnpackCommand:cmd staging:staging originalName:name];
+        return;
     } else {
         // 3) 普通单文件：直接复制过去（可能是 Tweak.x 之类，后续手动组织）
         NSString *dst = [staging stringByAppendingPathComponent:name];
         [fm copyItemAtPath:src toPath:dst error:NULL];
     }
 
+    [self finishImportWithStaging:staging originalName:name];
+}
+
+/// 异步跑解压命令，结束后再判定工程
+- (void)runUnpackCommand:(NSString *)cmd staging:(NSString *)staging originalName:(NSString *)name {
+    SPSession *s = [[SPSession alloc] initWithEnvironment:@{} workingDirectory:staging];
+    __weak typeof(self) weakSelf = self;
+    s.onFinish = ^(SPCommandResult *r) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        // 解压失败要告诉用户，而不是当成「没找到工程」塞进收件箱
+        if (r.exitCode != 250 && r.exitCode != 0 && r.launchError) {
+            [self alert:@"解压失败" message:r.launchError.localizedDescription];
+            return;
+        }
+        [self finishImportWithStaging:staging originalName:name];
+    };
+    [s runShell:cmd];
+}
+
+/// 解压完成后：找工程根 / 落到收件箱
+- (void)finishImportWithStaging:(NSString *)staging originalName:(NSString *)name {
+    NSFileManager *fm = NSFileManager.defaultManager;
     // 4) 在解压结果里找工程根（含 Makefile 或 control 的目录）
     NSString *root = [self findProjectRootUnder:staging];
     if (root) {

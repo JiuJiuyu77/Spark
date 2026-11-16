@@ -293,15 +293,20 @@
     [SPMotion hapticLight];
 
     // 编译前自动 git 快照（参考 Dylix 的 GitAutomation）
-    // 只在该项目是 git 仓库、且有未提交改动时才提交，
-    // 所以不需要额外开关，也不会污染干净的仓库。
+    //
+    // 必须在后台做：snapshotBeforeBuild 会跑 git status/add/commit，
+    // 在主线程上执行会让界面明显卡住（大仓库尤其严重）。
+    // 而且快照不是编译的前置条件，失败也不该阻止编译，
+    // 所以这里不等待，发出去就继续往下走。
     if (SPSettings.shared.autoSnapshotBeforeBuild) {
-        NSError *snapErr = nil;
-        BOOL did = [[SPGit shared] snapshotBeforeBuild:self.project.path
-                                                reason:self.project.name
-                                                 error:&snapErr];
-        if (did) SPLog(@"已在编译前保存 git 快照");
-        if (snapErr) SPLog(@"自动快照失败：%@", snapErr.localizedDescription);
+        NSString *root = self.project.path;
+        NSString *reason = self.project.name;
+        dispatch_async([SPGit queue], ^{
+            NSError *snapErr = nil;
+            BOOL did = [[SPGit shared] snapshotBeforeBuild:root reason:reason error:&snapErr];
+            if (did) SPLog(@"已在编译前保存 git 快照");
+            if (snapErr) SPLog(@"自动快照失败：%@", snapErr.localizedDescription);
+        });
     }
 
     [self setStatus:@"编译中…" symbol:@"gearshape.2" color:[SPTheme accent]];

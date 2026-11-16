@@ -391,8 +391,17 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
     __block SPCommandResult *res = nil;
     SPSession *s = [[SPSession alloc] initWithEnvironment:env workingDirectory:cwd];
     s.timeout = timeout;
+    // internalCompletion 不走主队列（见 startReading / finishNotifying），
+    // 所以这里等信号量不会和主队列互相等待。
     s.internalCompletion = ^(SPCommandResult *r) { res = r; dispatch_semaphore_signal(sem); };
     [s runShell:script];
+
+    // 主线程上同步等待依然会卡界面（虽然不会死锁）。
+    // 调用方应放到后台队列；这里给一条明确警告，方便排查「界面卡住」。
+    if (NSThread.isMainThread) {
+        SPLog(@"[!] runSyncShell 在主线程上执行（最长 %.0fs），界面会卡住。"
+              @"调用方应改到后台队列。", timeout > 0 ? timeout : 60);
+    }
 
     // 不能永久等待：
     // 如果进程启动失败、或 onFinish 因为任何原因没被调用，
