@@ -174,7 +174,8 @@ jobs:
                 n=$(basename "$f" .done)   # tc.N
                 src="/tmp/$n.tar.gz"
                 [ -s "$src" ] || continue
-                sz=$(stat -c%s "$src")
+                # macOS runner 用 -f%z，Linux 用 -c%s
+                sz=$(stat -f%z "$src" 2>/dev/null || stat -c%s "$src" 2>/dev/null || echo 0)
                 echo "  采用 $n（$((sz / 1048576)) MB）"
                 mv "$src" /tmp/tc.tar.gz
                 ok=1
