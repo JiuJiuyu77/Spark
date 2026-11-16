@@ -294,7 +294,20 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
         }
     }
     void (^cb)(NSString *, SPLogLevel) = self.onLine;
-    if (cb) dispatch_async(dispatch_get_main_queue(), ^{ cb(line, level); });
+    if (cb) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            // 主队列 block 里抛的异常无法被外层捕获：
+            // libdispatch 会直接 std::terminate → abort，栈里只有
+            // libdispatch/_ZSt9terminatev，完全看不出是谁抛的。
+            // 这里兜住并落盘，至少能知道异常名与原因。
+            @try {
+                cb(line, level);
+            } @catch (NSException *e) {
+                SPLog(@"[!] onLine 回调异常 %@: %@\n%@", e.name, e.reason,
+                      [e.callStackSymbols componentsJoinedByString:@"\n"]);
+            }
+        });
+    }
 }
 
 - (void)completeWithExitCode:(int)code {
@@ -317,7 +330,17 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
 - (void)finishNotifying {
     void (^cb)(SPCommandResult *) = self.onFinish;
     SPCommandResult *r = self.result;
-    if (cb) dispatch_async(dispatch_get_main_queue(), ^{ cb(r); });
+    if (cb) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            @try {
+                cb(r);
+            } @catch (NSException *e) {
+                // 同上：主队列里抛异常会直接 abort，这里是唯一能记下来的地方
+                SPLog(@"[!] onFinish 回调异常 %@: %@\n%@", e.name, e.reason,
+                      [e.callStackSymbols componentsJoinedByString:@"\n"]);
+            }
+        });
+    }
 }
 
 #pragma mark 公开入口

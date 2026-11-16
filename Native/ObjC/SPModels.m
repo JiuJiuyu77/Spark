@@ -458,15 +458,26 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
 }
 
 - (NSDictionary *)dictionaryRepresentation {
-    return @{
-        @"id": self.jobId, @"project": self.projectPath ?: @"", @"name": self.projectName ?: @"",
-        @"state": @(self.state), @"target": @(self.target), @"exit": @(self.exitCode),
-        @"started": @([self.startedAt timeIntervalSince1970]),
-        @"duration": @(self.duration),
-        @"finished": @(self.finishedAt ? [self.finishedAt timeIntervalSince1970] : 0),
-        @"artifacts": self.artifacts ?: @[], @"bundle": self.bundlePath ?: @"",
-        @"hint": self.failureHint ?: @"", @"summary": [self.options displaySummary],
-    };
+    // 字典字面量遇到 nil 会**立刻抛 NSInvalidArgumentException**
+    // （attempt to insert nil object）。这里的值来自运行中的对象，
+    // 任何一个为 nil 都会让「写构建历史」这一步崩溃 —— 而这个调用
+    // 发生在主队列回调里，表现就是「编译完就闪退」。
+    // 所以逐个兜底，不依赖字段一定有值。
+    NSMutableDictionary *d = [NSMutableDictionary dictionary];
+    d[@"id"] = self.jobId ?: @"";
+    d[@"project"] = self.projectPath ?: @"";
+    d[@"name"] = self.projectName ?: @"";
+    d[@"state"] = @(self.state);
+    d[@"target"] = @(self.target);
+    d[@"exit"] = @(self.exitCode);
+    d[@"started"] = @(self.startedAt ? [self.startedAt timeIntervalSince1970] : 0);
+    d[@"duration"] = @(self.duration);
+    d[@"finished"] = @(self.finishedAt ? [self.finishedAt timeIntervalSince1970] : 0);
+    d[@"artifacts"] = self.artifacts ?: @[];
+    d[@"bundle"] = self.bundlePath ?: @"";
+    d[@"hint"] = self.failureHint ?: @"";
+    d[@"summary"] = [self.options displaySummary] ?: @"";
+    return d;
 }
 
 @end

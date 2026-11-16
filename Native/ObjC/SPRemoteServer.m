@@ -303,7 +303,7 @@
             [[NSFileManager defaultManager] copyItemAtPath:file toPath:backup error:NULL];
         }
         BOOL ok = [text writeToFile:file atomically:YES encoding:NSUTF8StringEncoding error:NULL];
-        return [self json:@{@"ok": @(ok), @"backup": backup.lastPathComponent}];
+        return [self json:@{@"ok": @(ok), @"backup": backup.lastPathComponent ?: @""}];
     }
 
     // 触发构建

@@ -1,6 +1,6 @@
 Package: com.HuQing.Spark
 Name: Spark
-Version: 1.9.2
+Version: 1.9.3
 Architecture: iphoneos-arm
 Description: 参考 Rein 的可视化编译工具 —— Theos / Logos 一键编译、OLLVM 混淆、逆向工具台、远程与 GitHub CI 构建
 Maintainer: JiuJiuyu77

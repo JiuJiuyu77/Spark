@@ -142,6 +142,28 @@ def check_file(path: str):
             f'{name}:{i}: {base} *用了 copy 但没实现 NSCopying，'
             f'赋值时会因 copyWithZone: 找不到而崩溃。改用 strong。')
 
+    # 3c. 字典/数组字面量里的裸属性访问
+    #
+    # @{@"path": project.path} 在 project.path 为 nil 时会**立刻抛异常**
+    # （attempt to insert nil object），而且这类代码常在主队列回调里执行，
+    # 一抛就是 libdispatch → std::terminate → abort。
+    # 要求对所有非 NSString/NSNumber 的直接字段访问加 ?: 兜底。
+    SAFE_INLINE = re.compile(r'^@(?:\(|")')
+    for i, line in enumerate(lines, 1):
+        if '@{' not in line:
+            continue
+        for m in re.finditer(r'@?"(\w+)"\s*:\s*([^,}\n]+)', line):
+            val = m.group(2).strip()
+            if not val or SAFE_INLINE.match(val):
+                continue
+            if '?:' in val or ' ? ' in val:
+                continue
+            # 只报直接的对象字段访问（self.x / obj.x / 局部变量.x）
+            if re.match(r'^(?:\w+\.)+\w+$', val):
+                problems.append(
+                    f'{name}:{i}: 字典字面量 @" {m.group(1)}": {val} 可能为 nil，'
+                    f'会抛 attempt to insert nil。加 ?: @""。')
+
     # 4. 统计
     n_null = text.count('error:NULL')
     if n_null:

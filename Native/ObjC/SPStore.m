@@ -121,8 +121,24 @@
 }
 
 - (void)writeJSON:(id)obj name:(NSString *)name {
-    NSData *d = [NSJSONSerialization dataWithJSONObject:obj options:NSJSONWritingPrettyPrinted error:NULL];
-    if (d) [d writeToFile:[self.base stringByAppendingPathComponent:name] atomically:YES];
+    // dataWithJSONObject 遇到非法类型（NSDate / NSNull 以外的不支持对象）
+    // 会**直接抛 NSInvalidArgumentException**，不是返回 nil。
+    // 这个异常如果发生在主队列回调里（构建结束时写历史），
+    // 会一路走到 std::terminate → abort，表现为「编译完成后闪退」。
+    // 所以这里先校验，再写。
+    if (![NSJSONSerialization isValidJSONObject:obj]) {
+        SPLog(@"[!] %@ 不是合法 JSON（含非字符串/数字/数组/字典的值），跳过写入", name);
+        return;
+    }
+    NSError *err = nil;
+    NSData *d = [NSJSONSerialization dataWithJSONObject:obj
+                                                options:NSJSONWritingPrettyPrinted
+                                                  error:&err];
+    if (!d) {
+        SPLog(@"[!] 序列化 %@ 失败：%@", name, err.localizedDescription);
+        return;
+    }
+    [d writeToFile:[self.base stringByAppendingPathComponent:name] atomically:YES];
 }
 
 - (NSString *)hashOfPath:(NSString *)path {
@@ -148,8 +164,10 @@
         if ([d[@"path"] isEqual:project.path]) continue;
         [list addObject:d];
     }
+    // 字典字面量遇 nil 直接抛异常，path 必须兜底
     [list insertObject:@{
-        @"path": project.path, @"name": project.name ?: project.path.lastPathComponent,
+        @"path": project.path ?: @"",
+        @"name": project.name ?: (project.path.lastPathComponent ?: @""),
         @"kind": project.kindString ?: @"",
         @"opened": @([[NSDate date] timeIntervalSince1970]),
         @"summary": [project.options displaySummary] ?: @"",
