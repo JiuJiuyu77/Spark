@@ -29,6 +29,7 @@
         s.hapticsOnBuildDone = YES;
         s.maxLogLines = 5000;
         s.showCommandPreview = YES;
+        s.autoSnapshotBeforeBuild = YES;
         s.filePath = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/settings.json"];
         [s load];
     });

@@ -6,6 +6,7 @@
 #import "SPTheme.h"
 #import "SPRemoteServer.h"
 #import "SPCompat.h"
+#import "SPCrashGuard.h"
 
 @interface SPRemoteViewController ()
 @property (nonatomic, strong) UITableView *table;
@@ -182,7 +183,9 @@
     return cell;
 }
 
-- (void)toggleServer:(UISwitch *)sw {
+- (void)toggle
+    [[SPCrashGuard shared] setContext:@"remote"];
+Server:(UISwitch *)sw {
     SPRemoteServer *s = [SPRemoteServer shared];
     if (sw.isOn) {
         NSInteger port = [[NSUserDefaults standardUserDefaults] integerForKey:@"Spark.remotePort"];

@@ -10,6 +10,8 @@
 #import "SPSession.h"
 #import "SPStore.h"
 #import "SPCompat.h"
+#import "SPCrashGuard.h"
+#import "SPGit.h"
 #import "SPEditorViewController.h"
 #import "SPFileBrowserViewController.h"
 #import "SPModels.h"
@@ -283,8 +285,24 @@
 }
 
 - (void)startBuild {
+    // 崩溃报告里带上当前在做什么，排查时能一眼看出
+    [[SPCrashGuard shared] setContext:
+        [NSString stringWithFormat:@"build:%@", self.project.name]];
+
     if (self.session.isRunning) return;
     [SPMotion hapticLight];
+
+    // 编译前自动 git 快照（参考 Dylix 的 GitAutomation）
+    // 只在该项目是 git 仓库、且有未提交改动时才提交，
+    // 所以不需要额外开关，也不会污染干净的仓库。
+    if (SPSettings.shared.autoSnapshotBeforeBuild) {
+        NSError *snapErr = nil;
+        BOOL did = [[SPGit shared] snapshotBeforeBuild:self.project.path
+                                                reason:self.project.name
+                                                 error:&snapErr];
+        if (did) SPLog(@"已在编译前保存 git 快照");
+        if (snapErr) SPLog(@"自动快照失败：%@", snapErr.localizedDescription);
+    }
 
     [self setStatus:@"编译中…" symbol:@"gearshape.2" color:[SPTheme accent]];
     [self.primaryButton setTitle:@"停止" forState:UIControlStateNormal];
