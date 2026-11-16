@@ -179,7 +179,6 @@
     }
     [tv deselectRowAtIndexPath:ip animated:YES];
     [SPMotion hapticLight];
-    NSString *title = self.groups[ip.section][ip.row];
     UIViewController *vc = nil;
 
     if ([title isEqualToString:@"设置"]) vc = [SPSettingsViewController new];
