@@ -52,6 +52,28 @@
     ]];
 
     [self buildGroups];
+    [self installGlassHeader];
+}
+
+/// 顶部玻璃卡片：App 图标 + 名称 + 版本与运行身份
+- (void)installGlassHeader {
+    SPGlassHeaderView *header = [[SPGlassHeaderView alloc] initWithFrame:CGRectMake(0, 0, 320, 96)];
+    BOOL isRoot = getuid() == 0;
+    NSString *subtitle = [NSString stringWithFormat:@"%@ · %@",
+        SPVersion.shared.semver,
+        isRoot ? @"root 权限 · 沙盒外" : @"mobile 权限"];
+
+    [header configureWithSymbol:@"sparkles"
+                          title:@"Spark"
+                       subtitle:subtitle
+                           tint:[SPTheme accent]];
+
+    // 放进 tableHeaderView，跟随列表滚动
+    CGSize size = [header systemLayoutSizeFittingSize:CGSizeMake(320, UIViewNoIntrinsicMetric)
+                            withHorizontalFittingPriority:UILayoutPriorityRequired
+                                  verticalFittingPriority:UILayoutPriorityFittingSizeLevel];
+    header.frame = CGRectMake(0, 0, 320, MAX(96, size.height));
+    self.table.tableHeaderView = header;
 }
 
 - (void)viewWillAppear:(BOOL)animated {

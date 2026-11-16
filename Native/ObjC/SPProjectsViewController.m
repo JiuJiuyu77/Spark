@@ -5,6 +5,7 @@
 
 #import "SPProjectsViewController.h"
 #import "SPTheme.h"
+#import "SPGlassKit.h"
 #import "SPStore.h"
 #import "SPProjectViewController.h"
 #import "SPFileBrowserViewController.h"
@@ -41,6 +42,7 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
     [self setupNavItems];
 
     [self reloadAll];
+    [self installGlassHeader];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(reloadAll)
                                                  name:SPProjectCreatedNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(reloadAll)
@@ -302,6 +304,21 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
         }];
         return [UIMenu menuWithTitle:@"" children:@[openFolder, copy, remove]];
     }];
+}
+
+- (void)installGlassHeader {
+    SPGlassHeaderView *header = [[SPGlassHeaderView alloc] initWithFrame:CGRectMake(0, 0, 320, 96)];
+    NSUInteger n = self.projects.count;
+    [header configureWithSymbol:@"folder.fill.badge.gearshape"
+                          title:@"项目"
+                       subtitle:(n ? [NSString stringWithFormat:@"%lu 个工程", (unsigned long)n]
+                                   : @"还没有工程，点右上角 ＋ 新建")
+                           tint:[SPTheme accent]];
+    CGSize sz = [header systemLayoutSizeFittingSize:CGSizeMake(320, UIViewNoIntrinsicMetric)
+                            withHorizontalFittingPriority:UILayoutPriorityRequired
+                                  verticalFittingPriority:UILayoutPriorityFittingSizeLevel];
+    header.frame = CGRectMake(0, 0, 320, MAX(96, sz.height));
+    self.table.tableHeaderView = header;
 }
 
 #pragma mark - 新建 / 导入

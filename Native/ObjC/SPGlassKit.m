@@ -148,6 +148,225 @@
 
 @end
 
+#pragma mark - SPGlassHeaderView
+
+@interface SPGlassHeaderView ()
+@property (nonatomic, strong) UIImageView *iconView;
+@property (nonatomic, strong) UILabel *titleLabel;
+@property (nonatomic, strong) UILabel *subtitleLabel;
+@end
+
+@implementation SPGlassHeaderView
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    if ((self = [super initWithRadius:SPRadiusL])) {
+        self.showsGlare = YES;
+
+        _iconView = [[UIImageView alloc] init];
+        _iconView.contentMode = UIViewContentModeScaleAspectFit;
+        _iconView.translatesAutoresizingMaskIntoConstraints = NO;
+        [self addSubview:_iconView];
+
+        _titleLabel = [[UILabel alloc] init];
+        _titleLabel.font = [SPTheme scaled:UIFontTextStyleHeadline weight:UIFontWeightSemibold];
+        _titleLabel.textColor = [SPTheme text];
+        _titleLabel.numberOfLines = 1;
+        _titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        [self addSubview:_titleLabel];
+
+        _subtitleLabel = [[UILabel alloc] init];
+        _subtitleLabel.font = [SPTheme scaled:UIFontTextStyleFootnote weight:UIFontWeightRegular];
+        _subtitleLabel.textColor = [SPTheme textDim];
+        _subtitleLabel.numberOfLines = 2;
+        _subtitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        [self addSubview:_subtitleLabel];
+
+        [NSLayoutConstraint activateConstraints:@[
+            [_iconView.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:SPSpaceM],
+            [_iconView.centerYAnchor constraintEqualToAnchor:self.centerYAnchor],
+            [_iconView.widthAnchor constraintEqualToConstant:SPIconSizeLarge + 6],
+            [_iconView.heightAnchor constraintEqualToConstant:SPIconSizeLarge + 6],
+
+            [_titleLabel.topAnchor constraintEqualToAnchor:self.topAnchor constant:SPSpaceM],
+            [_titleLabel.leadingAnchor constraintEqualToAnchor:_iconView.trailingAnchor constant:SPSpaceS],
+            [_titleLabel.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-SPSpaceM],
+
+            [_subtitleLabel.topAnchor constraintEqualToAnchor:_titleLabel.bottomAnchor constant:SPSpaceXXS],
+            [_subtitleLabel.leadingAnchor constraintEqualToAnchor:_titleLabel.leadingAnchor],
+            [_subtitleLabel.trailingAnchor constraintEqualToAnchor:_titleLabel.trailingAnchor],
+            [_subtitleLabel.bottomAnchor constraintLessThanOrEqualToAnchor:self.bottomAnchor constant:-SPSpaceM],
+        ]];
+    }
+    return self;
+}
+
+- (void)configureWithSymbol:(NSString *)symbol
+                      title:(NSString *)title
+                   subtitle:(NSString *)subtitle
+                      tint:(UIColor *)tint {
+    UIImageSymbolConfiguration *cfg =
+        [UIImageSymbolConfiguration configurationWithPointSize:SPIconSizeLarge - 4
+                                                        weight:UIImageSymbolWeightSemibold];
+    self.iconView.image = [UIImage systemImageNamed:symbol withConfiguration:cfg];
+    self.iconView.tintColor = tint ?: [SPTheme accent];
+    self.titleLabel.text = title;
+    self.subtitleLabel.text = subtitle;
+    self.subtitleLabel.hidden = !subtitle.length;
+}
+
+@end
+
+#pragma mark - SPGlassButton
+
+@interface SPGlassButton ()
+@property (nonatomic, strong) UIImageView *iconView;
+@property (nonatomic, strong) UILabel *label;
+@end
+
+@implementation SPGlassButton
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    if ((self = [super initWithFrame:frame])) {
+        [self commonInit];
+    }
+    return self;
+}
+
++ (instancetype)buttonWithTitle:(NSString *)title
+                         symbol:(NSString *)symbol
+                          style:(SPGlassButtonStyle)style {
+    SPGlassButton *b = [[SPGlassButton alloc] initWithFrame:CGRectZero];
+    b.title = title;
+    b.symbol = symbol;
+    b.style = style;
+    [b rebuild];
+    return b;
+}
+
+- (void)commonInit {
+    _style = SPGlassButtonStyleProminent;
+    self.translatesAutoresizingMaskIntoConstraints = NO;
+
+    _iconView = [[UIImageView alloc] init];
+    _iconView.contentMode = UIViewContentModeScaleAspectFit;
+    _iconView.translatesAutoresizingMaskIntoConstraints = NO;
+    _iconView.userInteractionEnabled = NO;
+    [self addSubview:_iconView];
+
+    _label = [[UILabel alloc] init];
+    _label.font = [SPTheme scaled:UIFontTextStyleCallout weight:UIFontWeightSemibold];
+    _label.textAlignment = NSTextAlignmentCenter;
+    _label.translatesAutoresizingMaskIntoConstraints = NO;
+    _label.userInteractionEnabled = NO;
+    [self addSubview:_label];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [self.heightAnchor constraintEqualToConstant:SPButtonHeight],
+        [_iconView.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:SPSpaceM],
+        [_iconView.centerYAnchor constraintEqualToAnchor:self.centerYAnchor],
+        [_iconView.widthAnchor constraintEqualToConstant:SPIconSizeSmall],
+        [_iconView.heightAnchor constraintEqualToConstant:SPIconSizeSmall],
+        [_label.leadingAnchor constraintEqualToAnchor:_iconView.trailingAnchor constant:SPSpaceXS],
+        [_label.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-SPSpaceM],
+        [_label.centerYAnchor constraintEqualToAnchor:self.centerYAnchor],
+    ]];
+
+    [self addTarget:self action:@selector(handleTouchDown) forControlEvents:UIControlEventTouchDown];
+    [self addTarget:self action:@selector(handleTouchUp) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
+}
+
+- (void)setTitle:(NSString *)title { _title = [title copy]; [self rebuild]; }
+- (void)setSymbol:(NSString *)symbol { _symbol = [symbol copy]; [self rebuild]; }
+- (void)setStyle:(SPGlassButtonStyle)style { _style = style; [self rebuild]; }
+
+- (void)rebuild {
+    if (!self.label) return;   // 还没初始化完
+    self.label.text = self.title;
+    UIImageSymbolConfiguration *cfg =
+        [UIImageSymbolConfiguration configurationWithPointSize:SPIconSizeSmall - 2
+                                                        weight:UIImageSymbolWeightSemibold];
+    self.iconView.image = self.symbol.length ? [UIImage systemImageNamed:self.symbol withConfiguration:cfg] : nil;
+    self.iconView.hidden = !self.symbol.length;
+
+    BOOL prominent = (self.style == SPGlassButtonStyleProminent);
+    self.label.textColor = prominent ? [SPTheme accent] : [SPTheme text];
+    self.iconView.tintColor = prominent ? [SPTheme accent] : [SPTheme textDim];
+
+    // 背景：主操作用淡色调玻璃，次要用中性
+    UIColor *tint = prominent
+        ? [[SPTheme accent] colorWithAlphaComponent:0.16]
+        : [[UIColor whiteColor] colorWithAlphaComponent:0.10];
+    self.tintColor = tint;
+}
+
+- (void)handleTouchDown {
+    [SPMotion pressDown:self];
+    [SPMotion hapticLight];
+}
+
+- (void)handleTouchUp {
+    [SPMotion pressUp:self];
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    self.layer.cornerRadius = SPRadiusM;
+    if (@available(iOS 13.0, *)) self.layer.cornerCurve = kCACornerCurveContinuous;
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [super touchesEnded:touches withEvent:event];
+    if (CGRectContainsPoint(self.bounds, [touches.anyObject locationInView:self])) {
+        if (self.onTap) self.onTap();
+    }
+}
+
+@end
+
+#pragma mark - SPGlassPill
+
+@implementation SPGlassPill
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    if ((self = [super initWithRadius:SPRadiusS])) {
+        self.showsGlare = NO;
+        self.userInteractionEnabled = NO;
+    }
+    return self;
+}
+
+- (void)setText:(NSString *)text {
+    _text = [text copy];
+    [self setNeedsDisplay];
+    [self setNeedsLayout];
+}
+
+- (void)drawRect:(CGRect)rect {
+    [super drawRect:rect];
+    UIFont *font = [SPTheme scaled:UIFontTextStyleCaption2 weight:UIFontWeightSemibold];
+    NSDictionary *attrs = @{
+        NSFontAttributeName: font,
+        NSForegroundColorAttributeName: self.tintColor ?: [SPTheme textDim],
+    };
+    CGSize size = [self.text sizeWithAttributes:attrs];
+    [self.text drawAtPoint:CGPointMake((CGRectGetWidth(rect) - size.width) / 2,
+                                       (CGRectGetHeight(rect) - size.height) / 2)
+            withAttributes:attrs];
+}
+
+- (CGSize)intrinsicContentSize {
+    UIFont *font = [SPTheme scaled:UIFontTextStyleCaption2 weight:UIFontWeightSemibold];
+    CGSize size = [(self.text ?: @"") sizeWithAttributes:@{NSFontAttributeName: font}];
+    return CGSizeMake(size.width + SPSpaceS * 2, size.height + SPSpaceXXS * 2);
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    self.cornerRadius = CGRectGetHeight(self.bounds) / 2.0;
+}
+
+@end
+
 #pragma mark - 悬浮底部栏
 
 @interface SPFloatTabBar ()

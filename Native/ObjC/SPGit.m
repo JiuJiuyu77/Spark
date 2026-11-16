@@ -6,6 +6,7 @@
 #import "SPSession.h"
 #import "SPToolchainInstaller.h"
 #import "SPCompat.h"
+#import "SPStore.h"
 
 @implementation SPGitFileStatus
 @end
@@ -280,6 +281,45 @@
 
     NSString *out = [self runGit:args root:root error:error extraEnv:env];
     return out ?: nil;
+}
+
+#pragma mark - 编译前自动快照
+
+- (BOOL)snapshotBeforeBuild:(NSString *)root
+                     reason:(NSString *)reason
+                      error:(NSError **)error {
+    if (![self isRepository:root]) return NO;
+
+    // 先看有没有未提交改动
+    NSDictionary *st = [self statusAtRoot:root error:NULL];
+    NSArray<SPGitFileStatus *> *files = st[@"files"];
+    if (![files isKindOfClass:[NSArray class]] || files.count == 0) return NO;
+
+    // 全部暂存
+    NSMutableArray<NSString *> *paths = [NSMutableArray array];
+    for (SPGitFileStatus *f in files) {
+        if (f.path.length) [paths addObject:f.path];
+    }
+    NSError *err = nil;
+    if (paths.count && ![self stagePaths:paths root:root error:&err]) {
+        if (error) *error = err;
+        return NO;
+    }
+
+    NSString *msg = [NSString stringWithFormat:@"chore(snapshot): 编译前自动保存 %@",
+                     reason.length ? reason : @"构建"];
+    SPSettings *cfg = SPSettings.shared;
+    NSString *hash = [self commitRoot:root
+                              message:msg
+                                 name:(cfg.gitUserName.length ? cfg.gitUserName : @"Spark")
+                                email:(cfg.gitUserEmail.length ? cfg.gitUserEmail : @"spark@localhost")
+                                error:&err];
+    if (!hash) {
+        if (error) *error = err;
+        return NO;
+    }
+    SPLog(@"已自动快照：%@ (%@)", msg, hash);
+    return YES;
 }
 
 @end

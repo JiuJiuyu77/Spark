@@ -62,6 +62,20 @@
     ]];
 
     [self buildItems];
+    [self installGlassHeader];
+}
+
+- (void)installGlassHeader {
+    SPGlassHeaderView *header = [[SPGlassHeaderView alloc] initWithFrame:CGRectMake(0, 0, 320, 96)];
+    [header configureWithSymbol:@"wrench.and.screwdriver.fill"
+                          title:@"工具"
+                       subtitle:@"编译链、逆向、注入、挂载与诊断"
+                           tint:[SPTheme info]];
+    CGSize sz = [header systemLayoutSizeFittingSize:CGSizeMake(320, UIViewNoIntrinsicMetric)
+                            withHorizontalFittingPriority:UILayoutPriorityRequired
+                                  verticalFittingPriority:UILayoutPriorityFittingSizeLevel];
+    header.frame = CGRectMake(0, 0, 320, MAX(96, sz.height));
+    self.table.tableHeaderView = header;
 }
 
 - (void)viewWillAppear:(BOOL)animated {

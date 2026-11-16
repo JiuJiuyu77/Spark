@@ -41,6 +41,12 @@ NS_ASSUME_NONNULL_BEGIN
 /// 是否已经是 git 仓库
 - (BOOL)isRepository:(NSString *)root;
 
+/// 编译前自动快照（参考 Dylix 的 GitAutomation）
+/// 有未提交改动就 stage + commit；不是仓库或没有改动时返回 NO
+- (BOOL)snapshotBeforeBuild:(NSString *)root
+                     reason:(nullable NSString *)reason
+                      error:(NSError *_Nullable *_Nullable)error;
+
 /// git init
 - (BOOL)initializeRoot:(NSString *)root error:(NSError *_Nullable *_Nullable)error;
 

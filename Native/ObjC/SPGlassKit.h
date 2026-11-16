@@ -40,6 +40,44 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)releasePressed;
 @end
 
+#pragma mark - 玻璃头部卡片
+
+/// 大图标 + 标题 + 副标题的玻璃头部（各页顶部统一用它）
+@interface SPGlassHeaderView : SPLiquidGlassView
+@property (nonatomic, strong, readonly) UIImageView *iconView;
+@property (nonatomic, strong, readonly) UILabel *titleLabel;
+@property (nonatomic, strong, readonly) UILabel *subtitleLabel;
+- (void)configureWithSymbol:(NSString *)symbol
+                      title:(NSString *)title
+                   subtitle:(nullable NSString *)subtitle
+                      tint:(nullable UIColor *)tint;
+@end
+
+#pragma mark - 玻璃按钮
+
+typedef NS_ENUM(NSInteger, SPGlassButtonStyle) {
+    SPGlassButtonStyleProminent = 0,   // 主操作：带色调
+    SPGlassButtonStyleNeutral,         // 次要：纯玻璃
+};
+
+@interface SPGlassButton : UIControl
+@property (nonatomic, copy) NSString *title;
+@property (nonatomic, copy, nullable) NSString *symbol;
+@property (nonatomic, assign) SPGlassButtonStyle style;
+@property (nonatomic, copy, nullable) void (^onTap)(void);
++ (instancetype)buttonWithTitle:(NSString *)title
+                         symbol:(nullable NSString *)symbol
+                          style:(SPGlassButtonStyle)style;
+@end
+
+#pragma mark - 玻璃标签胶囊
+
+/// 小圆角胶囊，用于状态/计数（如「已安装」「3 个插件」）
+@interface SPGlassPill : SPLiquidGlassView
+@property (nonatomic, copy) NSString *text;
+@property (nonatomic, copy, nullable) UIColor *tintColor;
+@end
+
 #pragma mark - 悬浮底部栏
 
 @protocol SPFloatTabBarDelegate <NSObject>
