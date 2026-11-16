@@ -14,7 +14,10 @@ static NSString *const kContextKey = @"Spark.currentContext";
 static NSString *const kCrashedFlag = @"Spark.crashedLastRun";
 
 // 前置声明：install 方法里要用，定义在文件末尾
+#include <exception>
 static void SPHandleUncaughtException(NSException *exception);
+// libdispatch / UIKit 内部抛的 C++ 异常最终走到 std::terminate
+static void SPHandleCXXTerminate(void);
 static void SPHandleSignal(int sig);
 
 static NSString *SPCrashDirectory(void) {
@@ -49,6 +52,9 @@ static void SPWriteCrashFile(const char *name, const char *text) {
 
     // 1b. 把「向容器插 nil」这类崩溃转成可读日志（它常表现为 _copyDescription 转发失败）
     NSSetUncaughtExceptionHandler(&SPHandleUncaughtException);
+
+    // 1c. C++ 异常兜底（主队列 block 里抛的 C++ 异常会走 std::terminate）
+    std::set_terminate(&SPHandleCXXTerminate);
 
     // 2. 致命信号：只记录，不尝试恢复（恢复会导致未定义行为）
     int signals[] = { SIGABRT, SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGTRAP };
@@ -155,4 +161,27 @@ static void SPHandleSignal(int sig) {
     SPWriteCrashFile(name, text);
     signal(sig, SIG_DFL);
     raise(sig);
+}
+
+#pragma mark - C++ terminate 兜底
+
+static void SPHandleCXXTerminate(void) {
+    NSMutableString *report = [NSMutableString string];
+    [report appendString:@"=== Spark C++ 异常终止（std::terminate）===\n"];
+    [report appendFormat:@"时间: %@\n", [NSDate date]];
+
+    NSString *ctx = [[NSUserDefaults standardUserDefaults] stringForKey:kContextKey];
+    [report appendFormat:@"操作上下文: %@\n\n", ctx.length ? ctx : @"（未设置）"];
+
+    [report appendString:@"当前线程调用栈:\n"];
+    [report appendString:[NSThread callStackSymbols].componentsJoinedByString:@"\n"];
+
+    char name[64];
+    time_t now = time(NULL);
+    struct tm tmv;
+    localtime_r(&now, &tmv);
+    strftime(name, sizeof(name), "cxx-terminate-%Y%m%d-%H%M%S.log", &tmv);
+    SPWriteCrashFile(name, report);
+
+    abort();
 }

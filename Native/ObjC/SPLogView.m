@@ -40,6 +40,12 @@
 @property (nonatomic, assign) BOOL atBottom;
 @property (nonatomic, strong) NSTimer *throttle;
 @property (nonatomic, strong) UIButton *jumpToBottomButton;
+/// 首次 layout 是否已完成。UICollectionView 在首次 layout 前做
+/// performBatchUpdates 会直接 abort（不是抛异常，@try 拦不住），
+/// 所以必须自己记录这个状态。
+@property (nonatomic, assign) BOOL didLayoutOnce;
+/// 布局完成后补一次刷新
+@property (nonatomic, assign) BOOL needsReloadAfterLayout;
 @end
 
 @implementation SPLogView
@@ -85,6 +91,18 @@
     _sizingCell.label.font = [SPTheme mono:_fontSize];
 }
 
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    if (!self.didLayoutOnce && self.bounds.size.height > 0) {
+        self.didLayoutOnce = YES;
+        if (self.needsReloadAfterLayout) {
+            self.needsReloadAfterLayout = NO;
+            [self.collection reloadData];
+            [self scrollToBottomAnimated:NO];
+        }
+    }
+}
+
 #pragma mark - 数据
 
 - (void)setFontSize:(CGFloat)fontSize {
@@ -122,26 +140,38 @@
     //   2. 已经完成过至少一次 layout
     //   3. 本次没有被裁剪（裁剪会整体前移，索引对不上，直接 reload）
     BOOL canBatch = !trimmed
+                 && self.didLayoutOnce                       // 只有 layout 过了才敢批量更新
                  && _collection.window != nil
-                 && _collection.bounds.size.height > 0
                  && before + (NSInteger)lines.count == (NSInteger)self.lines.count;
 
     if (canBatch) {
-        NSMutableArray *ips = [NSMutableArray array];
-        for (NSInteger i = before; i < (NSInteger)self.lines.count; i++) {
-            [ips addObject:[NSIndexPath indexPathForItem:i inSection:0]];
-        }
-        // 再包一层兜底：万一 UIKit 仍然认为不一致，退回 reloadData 而不是崩
-        @try {
+        // 关键：这里绝对不能用 @try/@catch 包 performBatchUpdates。
+        // UICollectionView 抛 Invalid update 时它的内部批次状态已经损坏，
+        // 即便我们 catch 住，UIKit 之后仍会 rethrow，
+        // 最终走到 std::terminate → abort（真实崩溃日志：
+        //   libdispatch → _ZSt9terminatev → abort，信号 6）。
+        // 正确做法是把条件判断做足，保证根本不会进到非法状态。
+        NSInteger expected = self.lines.count;
+        NSInteger current = [_collection numberOfItemsInSection:0];
+        // 双保险：数据源与 UIKit 记录的条目数必须完全吻合才敢增量更新
+        if (current == before && before + (NSInteger)lines.count == expected) {
+            NSMutableArray *ips = [NSMutableArray array];
+            for (NSInteger i = before; i < expected; i++) {
+                [ips addObject:[NSIndexPath indexPathForItem:i inSection:0]];
+            }
             [_collection performBatchUpdates:^{
                 [self->_collection insertItemsAtIndexPaths:ips];
             } completion:nil];
-        } @catch (NSException *e) {
-            SPLog(@"批量插入失败，退回 reloadData：%@", e.reason);
+        } else {
+            SPLog(@"条目数不一致（UIKit %ld / 数据源 %ld），改用 reloadData",
+                  (long)current, (long)before);
             [_collection reloadData];
         }
     } else {
         [_collection reloadData];
+        // 首次 layout 前调用 reloadData 是安全的（只是数据源变化），
+        // 但滚动位置要等 layout 完成后再调
+        if (!self.didLayoutOnce) self.needsReloadAfterLayout = YES;
     }
     [self scheduleAutoscroll];
 }

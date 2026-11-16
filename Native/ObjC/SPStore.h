@@ -26,6 +26,12 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) NSInteger maxLogLines;
 @property (nonatomic, assign) BOOL showCommandPreview;
 
+/// 编译前自动 git 快照（参考 Dylix 的 GitAutomation）
+@property (nonatomic, assign) BOOL autoSnapshotBeforeBuild;
+/// 快照提交用的作者信息（空则用 Spark 默认值）
+@property (nonatomic, copy, nullable) NSString *gitUserName;
+@property (nonatomic, copy, nullable) NSString *gitUserEmail;
+
 @property (nonatomic, copy, nullable) NSString *sshPassword; // 存于 Keychain，此处仅内存使用
 
 + (instancetype)shared;

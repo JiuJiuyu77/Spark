@@ -19,7 +19,7 @@
 NSString *const SPOpenToolchainTabNotification = @"SPOpenToolchainTab";
 NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
 
-@interface SPProjectsViewController () <UIAdaptivePresentationControllerDelegate>
+@interface SPProjectsViewController () <UIDocumentPickerDelegate> <UIAdaptivePresentationControllerDelegate>
 @property (nonatomic, strong) UITableView *table;
 @property (nonatomic, strong) NSArray<NSDictionary *> *items;
 @property (nonatomic, strong) UISearchController *search;
@@ -316,6 +316,9 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
     [sheet addAction:[UIAlertAction actionWithTitle:@"新建 App 工程" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
         [self promptNewProjectWithTemplate:@"application"];
     }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"从「文件」导入…" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        [self pickFromFilesApp];
+    }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"从磁盘导入目录…" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
         [self pickDirectory];
     }]];
@@ -326,6 +329,175 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
     [sheet addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
     sheet.popoverPresentationController.barButtonItem = self.navigationItem.rightBarButtonItem;
     [self presentViewController:sheet animated:YES completion:nil];
+}
+
+#pragma mark - 从「文件」App 导入
+
+/// 从「文件」App 选一个压缩包/目录，解压到 projects 后识别成项目。
+/// 为什么需要它：TrollStore 环境下用户拿到工程的方式通常是
+/// 从聊天软件存到「文件」，再从这里导入 —— 之前只能从磁盘目录选，
+/// 「文件」App 的位置（iCloud Drive / 我的 iPhone）根本进不去。
+- (void)pickFromFilesApp {
+    // 允许选任意文件（zip / tgz / deb / xz 等），也允许选目录
+    UIDocumentPickerViewController *p =
+        [[UIDocumentPickerViewController alloc] initWithDocumentTypes:@[@"public.item"]
+                                                               inMode:UIDocumentPickerModeImport];
+    p.allowsMultipleSelection = NO;
+    p.delegate = self;
+    [self.navigationController presentViewController:p animated:YES completion:nil];
+}
+
+- (void)documentPicker:(UIDocumentPickerViewController *)c
+        didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+    NSURL *u = urls.firstObject;
+    if (!u) return;
+
+    // 拿安全作用域访问权限（iCloud Drive 的文件必须这么做）
+    BOOL access = [u startAccessingSecurityScopedResource];
+    @try {
+        [self importFromURL:u];
+    } @finally {
+        if (access) [u stopAccessingSecurityScopedResource];
+    }
+}
+
+- (void)importFromURL:(NSURL *)url {
+    NSString *name = url.lastPathComponent;
+    NSString *lower = name.lowercaseString;
+    NSString *staging = [NSTemporaryDirectory() stringByAppendingPathComponent:
+                         [NSString stringWithFormat:@"import-%@", NSUUID.UUID.UUIDString]];
+    NSFileManager *fm = NSFileManager.defaultManager;
+    [fm createDirectoryAtPath:staging withIntermediateDirectories:YES attributes:nil error:NULL];
+
+    NSError *err = nil;
+    NSString *src = url.path;
+
+    // 1) 目录：整个复制
+    BOOL isDir = NO;
+    [fm fileExistsAtPath:src isDirectory:&isDir];
+    if (isDir) {
+        NSString *dst = [staging stringByAppendingPathComponent:name];
+        if (![fm copyItemAtPath:src toPath:dst error:&err]) {
+            [self alertImportFailed:err name:name];
+            return;
+        }
+        [self registerImportedProjectAt:dst originalName:name];
+        return;
+    }
+
+    // 2) 压缩包：解到 staging
+    NSString *cmd = nil;
+    if ([lower hasSuffix:@".zip"] || [lower hasSuffix:@".ipa"] || [lower hasSuffix:@".deb"]) {
+        cmd = [NSString stringWithFormat:@"cd %@ && unzip -oq %@ 2>/dev/null || (dpkg-deb -x %@ %@ 2>/dev/null)",
+               [SPUtil shellQuote:staging], [SPUtil shellQuote:src],
+               [SPUtil shellQuote:src], [SPUtil shellQuote:staging]];
+    } else if ([lower hasSuffix:@".tar.gz"] || [lower hasSuffix:@".tgz"] ||
+               [lower hasSuffix:@".tar"] || [lower hasSuffix:@".tar.xz"]) {
+        cmd = [NSString stringWithFormat:@"cd %@ && tar xf %@ 2>/dev/null", 
+               [SPUtil shellQuote:staging], [SPUtil shellQuote:src]];
+    }
+
+    if (cmd) {
+        SPSession *s = [[SPSession alloc] initWithEnvironment:@{} workingDirectory:staging];
+        [s runShell:cmd];
+    } else {
+        // 3) 普通单文件：直接复制过去（可能是 Tweak.x 之类，后续手动组织）
+        NSString *dst = [staging stringByAppendingPathComponent:name];
+        [fm copyItemAtPath:src toPath:dst error:NULL];
+    }
+
+    // 4) 在解压结果里找工程根（含 Makefile 或 control 的目录）
+    NSString *root = [self findProjectRootUnder:staging];
+    if (root) {
+        [self registerImportedProjectAt:root originalName:name];
+    } else {
+        // 没找到工程：把解压结果放进收件箱，用户可在收件箱里再处理
+        NSString *inbox = [[SPStore shared] inboxDirectory];
+        NSString *dst = [inbox stringByAppendingPathComponent:name.stringByDeletingPathExtension];
+        [fm removeItemAtPath:dst error:NULL];
+        [fm copyItemAtPath:staging toPath:dst error:NULL];
+        [self alert:@"已导入到收件箱"
+            message:[NSString stringWithFormat:
+                     @"「%@」里没找到 Makefile/control，已放进收件箱。\n"
+                     @"可以在「我的 → 收件箱」里查看或手动整理。", name]];
+    }
+}
+
+/// 在目录里找工程根：优先含 Makefile，其次含 control，最多下探 3 层
+- (nullable NSString *)findProjectRootUnder:(NSString *)base {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSMutableArray<NSArray *> *queue = [NSMutableArray arrayWithObject:@[base, @0]];
+    NSString *fallback = nil;
+    while (queue.count) {
+        NSArray *item = queue.firstObject;
+        [queue removeObjectAtIndex:0];
+        NSString *dir = item[0];
+        NSInteger depth = [item[1] integerValue];
+        if (depth > 3) continue;
+
+        BOOL hasMakefile = [fm fileExistsAtPath:[dir stringByAppendingPathComponent:@"Makefile"]];
+        BOOL hasControl  = [fm fileExistsAtPath:[dir stringByAppendingPathComponent:@"control"]];
+        if (hasMakefile) return dir;
+        if (hasControl && !fallback) fallback = dir;
+
+        for (NSString *sub in [fm contentsOfDirectoryAtPath:dir error:NULL] ?: @[]) {
+            if ([sub isEqualToString:@"__MACOSX"] || [sub hasPrefix:@"."]) continue;
+            NSString *full = [dir stringByAppendingPathComponent:sub];
+            BOOL d = NO;
+            [fm fileExistsAtPath:full isDirectory:&d];
+            if (d) [queue addObject:@[full, @(depth + 1)]];
+        }
+    }
+    return fallback;
+}
+
+- (void)registerImportedProjectAt:(NSString *)path originalName:(NSString *)name {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSString *projects = [[SPStore shared] projectsDirectory];
+
+    // 复制进 projects（保留用户原本的目录名）
+    NSString *base = name.stringByDeletingPathExtension;
+    if (!base.length) base = @"imported";
+    NSString *dst = [projects stringByAppendingPathComponent:base];
+    NSInteger n = 1;
+    while ([fm fileExistsAtPath:dst]) {
+        dst = [projects stringByAppendingPathComponent:
+               [NSString stringWithFormat:@"%@-%ld", base, (long)++n]];
+    }
+
+    NSError *err = nil;
+    if (![fm copyItemAtPath:path toPath:dst error:&err]) {
+        [self alertImportFailed:err name:name];
+        return;
+    }
+
+    SPProject *p = [SPProject projectAtPath:dst error:NULL];
+    if (p) {
+        p.options = [[SPStore shared] optionsForProjectPath:@"__defaults__"];
+        [[SPStore shared] saveOptions:p.options forProjectPath:p.path];
+        [[SPStore shared] pushRecentProject:p];
+
+        [self reloadAll];
+        [SPMotion hapticSuccess];
+        [self alert:@"已导入项目"
+            message:[NSString stringWithFormat:@"%@\n（%@）",
+                     p.name, p.packageId.length ? p.packageId : @"未识别包名"]];
+    } else {
+        [self alert:@"导入失败" message:@"目录已复制，但没识别出 Theos 工程结构。"];
+    }
+}
+
+- (void)alertImportFailed:(NSError *)err name:(NSString *)name {
+    [self alert:@"导入失败"
+        message:[NSString stringWithFormat:@"%@\n%@", name,
+                 err.localizedDescription ?: @"未知错误"]];
+}
+
+- (void)alert:(NSString *)title message:(NSString *)message {
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:title
+        message:message preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
 }
 
 - (void)pickDirectory {
