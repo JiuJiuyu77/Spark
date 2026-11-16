@@ -183,9 +183,8 @@
     return cell;
 }
 
-- (void)toggle
+- (void)toggleServer:(UISwitch *)sw {
     [[SPCrashGuard shared] setContext:@"remote"];
-Server:(UISwitch *)sw {
     SPRemoteServer *s = [SPRemoteServer shared];
     if (sw.isOn) {
         NSInteger port = [[NSUserDefaults standardUserDefaults] integerForKey:@"Spark.remotePort"];
