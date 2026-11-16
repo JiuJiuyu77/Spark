@@ -487,9 +487,24 @@
     NSInteger idx = sender.tag;
     if (idx < 0 || idx >= (NSInteger)self.job.artifacts.count) return;
     NSString *path = self.job.artifacts[idx];
-    NSError *err = nil;
-    SPInstallTask *task = [[SPInstall shared] inspectPath:path error:&err];
 
+    // inspectPath: 对 deb 会跑 dpkg-deb -f 读 Package/Version，
+    // 这是同步子进程，在主线程上会明显卡一下。
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSError *err = nil;
+        SPInstallTask *task = [[SPInstall shared] inspectPath:path error:&err];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            [self presentArtifactActionsForPath:path task:task error:err];
+        });
+    });
+}
+
+- (void)presentArtifactActionsForPath:(NSString *)path
+                                 task:(nullable SPInstallTask *)task
+                                error:(nullable NSError *)err {
     UIAlertController *a = [UIAlertController alertControllerWithTitle:path.lastPathComponent
         message:task ? [NSString stringWithFormat:@"%@%@", task.kind == SPInstallKindDeb ? @"Debian 包" :
                         (task.kind == SPInstallKindApp ? @"App 包" : @"动态库"),

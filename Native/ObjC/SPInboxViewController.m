@@ -12,6 +12,7 @@
 #import "SPToolchain.h"
 
 @interface SPInboxViewController () <UIDocumentPickerDelegate>
+@property (nonatomic, strong, nullable) UIAlertController *workingHUD;
 @property (nonatomic, strong) UITableView *table;
 @property (nonatomic, strong) NSArray<SPIncomingItem *> *items;
 @property (nonatomic, strong) UILabel *emptyLabel;
@@ -161,9 +162,50 @@
     [self presentViewController:a animated:YES completion:nil];
 }
 
+#pragma mark - 忙碌提示
+
+- (void)presentWorkingHUD:(NSString *)text {
+    if (self.workingHUD) return;
+    UIAlertController *hud = [UIAlertController alertControllerWithTitle:nil
+        message:[NSString stringWithFormat:@"%@\n\n", text]
+        preferredStyle:UIAlertControllerStyleAlert];
+    UIActivityIndicatorView *sp = [[UIActivityIndicatorView alloc]
+        initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    [sp startAnimating];
+    [hud.view addSubview:sp];
+    sp.translatesAutoresizingMaskIntoConstraints = NO;
+    [NSLayoutConstraint activateConstraints:@[
+        [sp.centerXAnchor constraintEqualToAnchor:hud.view.centerXAnchor],
+        [sp.bottomAnchor constraintEqualToAnchor:hud.view.bottomAnchor constant:-SPSpaceL],
+    ]];
+    self.workingHUD = hud;
+    [self presentViewController:hud animated:YES completion:nil];
+}
+
+- (void)dismissWorkingHUD {
+    if (!self.workingHUD) return;
+    [self.workingHUD dismissViewControllerAnimated:YES completion:nil];
+    self.workingHUD = nil;
+}
+
 - (void)importAsProject:(SPIncomingItem *)it {
-    NSError *err = nil;
-    NSString *path = [[SPIncoming shared] makeProjectFrom:it error:&err];
+    // makeProjectFrom: 会跑解压子进程（runSyncShell），
+    // 在主线程上执行会卡住界面好几秒。移到后台，完成后再回主线程。
+    [self presentWorkingHUD:@"正在导入…"];
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSError *err = nil;
+        NSString *path = [[SPIncoming shared] makeProjectFrom:it error:&err];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            [self dismissWorkingHUD];
+            [self finishImportWithPath:path error:err];
+        });
+    });
+}
+
+- (void)finishImportWithPath:(nullable NSString *)path error:(nullable NSError *)err {
     if (!path) {
         UIAlertController *a = [UIAlertController alertControllerWithTitle:@"导入失败"
             message:err.localizedDescription ?: @"无法识别为工程" preferredStyle:UIAlertControllerStyleAlert];
@@ -172,7 +214,8 @@
         [SPMotion hapticError];
         return;
     }
-    SPProject *p = [SPProject projectAtPath:path error:NULL];
+    NSError *projErr = nil;
+    SPProject *p = [SPProject projectAtPath:path error:&projErr];
     if (p) {
         p.options = [[SPStore shared] optionsForProjectPath:@"__defaults__"];
         [[SPStore shared] optionsForProjectPath:p.path];
