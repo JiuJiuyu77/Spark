@@ -8,6 +8,7 @@
 
 #import "SPLiquidGlass.h"
 #import "SPTheme.h"
+#import "SPCompat.h"
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -208,7 +209,7 @@ static void SPApplyColorMatrix(CALayer *layer, const CGFloat m[20]) {
 
     _backdrop.alpha = [_backdrop isUsable] ? 1.0 : 0.0;
     if (![_backdrop isUsable]) {
-        SPLog(@"CABackdropLayer 不可用，玻璃退回系统模糊");
+        NSLog(@"[Spark] CABackdropLayer 不可用，玻璃退回系统模糊");
     }
 
     [self refreshColors];
