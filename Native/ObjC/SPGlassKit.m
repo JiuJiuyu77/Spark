@@ -14,6 +14,7 @@
 
 #import "SPGlassKit.h"
 #import "SPTheme.h"
+#import "SPCompat.h"
 
 #pragma mark - 玻璃材质
 
@@ -460,26 +461,42 @@ static CGFloat const kInnerInset = 4;    // 参考 TabBar 的 innerInset
         b.tag = (NSInteger)i;
         [b addTarget:self action:@selector(tapItem:) forControlEvents:UIControlEventTouchUpInside];
 
-        UIButtonConfiguration *cfg = [UIButtonConfiguration plainConfiguration];
-        cfg.imagePlacement = NSDirectionalRectEdgeTop;
-        cfg.imagePadding = 3;
-        cfg.title = self.titles[i];
-        cfg.baseForegroundColor = [SPTheme textDim];
-        [cfg setAttributedTitle:[[NSAttributedString alloc]
+        // 用传统 API 而不是 UIButtonConfiguration：
+        // configuration 不支持按 state 设不同标题，选中态变色很别扭。
+        // 这里用 setAttributedTitle:forState: 直接控制字体与颜色，
+        // 图标的选中态用 setImage:forState:。
+        b.titleLabel.textAlignment = NSTextAlignmentCenter;
+
+        NSAttributedString *normal = [[NSAttributedString alloc]
             initWithString:self.titles[i]
-                attributes:@{NSFontAttributeName: [SPTheme scaled:UIFontTextStyleCaption2
-                                                           weight:UIFontWeightMedium],
-                             NSForegroundColorAttributeName: [SPTheme textDim]}]
-                      forState:UIControlStateNormal];
-        [cfg setAttributedTitle:[[NSAttributedString alloc]
+                attributes:@{
+                    NSFontAttributeName: [SPTheme scaled:UIFontTextStyleCaption2
+                                                  weight:UIFontWeightMedium],
+                    NSForegroundColorAttributeName: [SPTheme textDim],
+                }];
+        NSAttributedString *selected = [[NSAttributedString alloc]
             initWithString:self.titles[i]
-                attributes:@{NSFontAttributeName: [SPTheme scaled:UIFontTextStyleCaption2
-                                                           weight:UIFontWeightSemibold],
-                             NSForegroundColorAttributeName: [SPTheme accent]}]
-                      forState:UIControlStateSelected];
-        b.configuration = cfg;
-        [b setImage:[UIImage systemImageNamed:self.symbols[i]] forState:UIControlStateNormal];
-        [b setImage:[UIImage systemImageNamed:self.selectedSymbols[i]] forState:UIControlStateSelected];
+                attributes:@{
+                    NSFontAttributeName: [SPTheme scaled:UIFontTextStyleCaption2
+                                                  weight:UIFontWeightSemibold],
+                    NSForegroundColorAttributeName: [SPTheme accent],
+                }];
+        [b setAttributedTitle:normal forState:UIControlStateNormal];
+        [b setAttributedTitle:selected forState:UIControlStateSelected];
+        [b setAttributedTitle:selected forState:UIControlStateSelected | UIControlStateHighlighted];
+
+        UIImageSymbolConfiguration *icfg =
+            [UIImageSymbolConfiguration configurationWithPointSize:SPIconSizeMedium - 4
+                                                            weight:UIImageSymbolWeightRegular];
+        [b setImage:[UIImage systemImageNamed:self.symbols[i] withConfiguration:icfg]
+            forState:UIControlStateNormal];
+        [b setImage:[UIImage systemImageNamed:self.selectedSymbols[i] withConfiguration:icfg]
+            forState:UIControlStateSelected];
+
+        // 图标在上、文字在下
+        b.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
+        b.imageEdgeInsets = UIEdgeInsetsMake(-8, 0, 10, 0);
+        b.titleEdgeInsets = UIEdgeInsetsMake(22, 0, -22, 0);
 
         [stack addArrangedSubview:b];
         [self.buttons addObject:b];
@@ -516,7 +533,6 @@ static CGFloat const kInnerInset = 4;    // 参考 TabBar 的 innerInset
 - (void)updateSelection:(BOOL)animated {
     for (UIButton *b in self.buttons) {
         b.selected = (b.tag == self.selectedIndex);
-        b.configuration.baseForegroundColor = b.selected ? [SPTheme accent] : [SPTheme textDim];
     }
     [self layoutIfNeeded];
     [self positionLensAnimated:animated];
