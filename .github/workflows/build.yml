@@ -403,6 +403,14 @@ jobs:
           # 签名前只查完好性（此时主程序尚未签名，属正常）
           python3 scripts/check-macho.py --no-signature "$APP"
 
+          # ------------------------------------------------------------------
+          # 移出 ldid 处理不了的二进制（FAT 包 ar / 纯 ar 静态库）
+          # theos/vendor/lib/libroot*.a 是 FAT 但内含 ar，ldid 会报
+          # "Unknown header magic"，实测直接导致安装失败
+          # ------------------------------------------------------------------
+          echo "==> 移出非 Mach-O 二进制"
+          python3 scripts/strip-non-macho.py "$APP"
+
           LINKLEFT=$(find "$APP" -type l 2>/dev/null | wc -l | tr -d ' ')
           if [ "${LINKLEFT:-0}" -gt 0 ]; then
             echo "::error::仍有 $LINKLEFT 个符号链接，ldid -s 会失败"
@@ -588,6 +596,10 @@ jobs:
             exit 1
           fi
           # 每个 Mach-O 都必须有 LC_CODE_SIGNATURE，否则 TrollStore 的 ldid -s 会失败
+          if ! python3 scripts/strip-non-macho.py --check /tmp/vfy/Payload/Spark.app; then
+            echo "::error::ipa 里仍有 ldid 处理不了的二进制"
+            exit 1
+          fi
           if ! python3 scripts/check-macho.py /tmp/vfy/Payload; then
             echo "::error::存在未签名的 Mach-O，ldid -s 会失败"
             exit 1
