@@ -143,15 +143,54 @@ jobs:
           else
             echo "下载：$SRC"
             mkdir -p "$TC"
-            ok=0
+
+            # 三个源**并发竞速**，谁先下完用谁。
+            # 之前是串行 for 循环 + 每个 max-time 600，最坏要等 30 分钟，
+            # 会拖到任务被取消（实测 15 分钟就 cancelled）。
+            # 这里总时限 480 秒，超时就杀掉全部下载并失败。
+            # 三个源**并发竞速**，谁先完整下完用谁。
+            # 之前串行 + 每个 max-time 600，最坏 30 分钟，会拖到任务取消。
+            #
+            # 注意判定方式：**必须看 curl 的退出码**。
+            # 用「文件大小两次采样相同」判断会有误判 —— 下载中途也可能
+            # 恰好两次采样一样（实测 14MB 就被误采纳）。
+            rm -f /tmp/tc.*.tar.gz /tmp/tc.*.done
+            i=0
             for U in "$SRC" "https://gh-proxy.org/$SRC" "https://ghproxy.net/$SRC"; do
-              echo "  尝试 $U"
-              if curl -fL --retry 2 --max-time 600 -o /tmp/tc.tar.gz "$U"; then ok=1; break; fi
+              i=$((i + 1))
+              (
+                if curl -fsSL --retry 1 --max-time 480 -o "/tmp/tc.$i.tar.gz" "$U"; then
+                  : > "/tmp/tc.$i.done"
+                fi
+              ) &
             done
+
+            ok=0
+            deadline=$((SECONDS + 500))
+            while [ $SECONDS -lt $deadline ]; do
+              # 只认「curl 成功退出」的那份
+              for f in /tmp/tc.*.done; do
+                [ -f "$f" ] || continue
+                n=$(basename "$f" .done)   # tc.N
+                src="/tmp/$n.tar.gz"
+                [ -s "$src" ] || continue
+                sz=$(stat -c%s "$src")
+                echo "  采用 $n（$((sz / 1048576)) MB）"
+                mv "$src" /tmp/tc.tar.gz
+                ok=1
+                break
+              done
+              [ "$ok" = "1" ] && break
+              sleep 3
+            done
+            for pid in $(jobs -p); do kill "$pid" 2>/dev/null || true; done
+            rm -f /tmp/tc.*.tar.gz /tmp/tc.*.done
+
             if [ "$ok" != "1" ]; then
-              echo "::error::工具链下载失败（三个源都试过）"
+              echo "::error::工具链下载失败（并发三源，500 秒内没有完整下载）"
               exit 1
             fi
+            echo "  下载耗时约 $SECONDS 秒"
             # 完整性校验：下载被截断会导致 libLLVM 等大文件残缺，
             # 进而让 ldid -s 报 "size <= mach_header.GetSize()"
             echo "  压缩包大小: $(stat -f%z /tmp/tc.tar.gz 2>/dev/null || stat -c%s /tmp/tc.tar.gz) 字节"
