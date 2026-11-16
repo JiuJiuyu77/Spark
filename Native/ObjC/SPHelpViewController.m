@@ -60,7 +60,7 @@
             piece = [[NSAttributedString alloc] initWithString:
                      [[line substringFromIndex:3] stringByAppendingString:@"\n"]
                 attributes:@{NSFontAttributeName: h2, NSForegroundColorAttributeName: [SPTheme text]}];
-        } else if ([line hasPrefix:@"· "] || [line hasPrefix:"> "] || [line hasPrefix:@"1. "]) {
+        } else if ([line hasPrefix:@"- "] || [line hasPrefix:@"> "] || [line hasPrefix:@"1. "]) {
             piece = [[NSAttributedString alloc] initWithString:[line stringByAppendingString:@"\n"]
                 attributes:@{NSFontAttributeName: body,
                              NSForegroundColorAttributeName: [SPTheme textDim]}];
