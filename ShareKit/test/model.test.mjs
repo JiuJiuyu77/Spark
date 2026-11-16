@@ -151,3 +151,33 @@ test('defaultOptions 稳定', () => {
   assert.equal(a.debug, true);
   assert.ok(Array.isArray(a.passes));
 });
+
+test('diagnose 覆盖真实编译错误', () => {
+  const cases = [
+    ["clang: error: no such file or directory: 'make'", 'toolchain'],
+    ["Tweak.x:12:5: fatal error: 'substrate.h' file not found", 'source'],
+    ['ld: library not found for -lsubstrate', 'link'],
+    ["Tweak.x:8:1: error: expected ';' after expression", 'source'],
+    ['zsh: killed     make', 'resource'],
+    ['ld64: error: undefined symbol: _OBJC_CLASS_$_UIView', 'link'],
+    ["make: *** No rule to make target 'Tweak.x'", 'config'],
+    ['ldid: Unknown header magic', 'sign'],
+    ['xcrun: error: unable to find utility "clang"', 'toolchain'],
+  ];
+  for (const [log, want] of cases) {
+    const r = diagnose(log);
+    assert.ok(r, `没给出结论：${log}`);
+    assert.equal(r.category, want, `${log} → 期望 ${want}，实际 ${r.category}`);
+  }
+});
+
+test('diagnose 对无关文本返回 null', () => {
+  assert.equal(diagnose('一切正常'), null);
+  assert.equal(diagnose(''), null);
+});
+
+test('diagnose 优先报 undefined symbol 而不是 library not found', () => {
+  const log = 'ld: library not found for -lfoo\nld: undefined symbol: _bar';
+  const r = diagnose(log);
+  assert.ok(r.hint.includes('未定义符号'), `实际：${r && r.hint}`);
+});

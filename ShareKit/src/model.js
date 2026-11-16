@@ -448,23 +448,69 @@ export function shellQuote(s) {
 
 /** 从一段 make/clang 输出里找出最可能的失败原因 */
 export function diagnose(logText = '') {
-  const s = String(logText).toLowerCase();
+  const s = String(logText);
+
+  // 规则按「越具体越先匹配」排列。
+  // 之前 undefined symbol 完全没匹配上、ldid 的 Unknown header magic
+  // 也没有对应规则，导致最常见的两类失败给不出任何结论。
   const rules = [
-    ['no such file or directory: \'make\'', '找不到 make：Theos 没装好，或 PATH 里没有 theos/bin。', 'toolchain'],
-    ['theos/makefiles', 'THEOS 路径不对：找不到 Theos 的 makefiles 目录。', 'config'],
-    ['cannot find sdk', '找不到 SDK：检查 SDK 名称与 theos/sdks 下的目录是否一致。', 'config'],
-    ['logos', 'Logos 预处理失败：检查 .x 文件里的 %hook / %orig 语法。', 'source'],
-    ['error: expected', 'C/ObjC 语法错误：看第一个 error 行指的位置。', 'source'],
-    ['fatal error:', '头文件缺失：确认 SDK 或 vendor/include 里有对应头文件。', 'source'],
-    ['ld: library not found', '链接不到库：检查 xxx_LIBRARIES 或 .tbd 是否在 SDK/vendor 内。', 'link'],
-    ['undefined symbols', '缺实现或库：按 undefined symbol 名字补框架/源文件。', 'link'],
-    ['code signature', '签名失败：确认 ldid 可执行。', 'sign'],
-    ['permission denied', '权限不足：项目目录要在 /var/mobile 下且可写。', 'permission'],
-    ['killed', '进程被杀，多半内存不足：关掉 -j 并行，或改用远程/CI 构建。', 'resource'],
-    ['segmentation fault', '编译器自身崩溃：通常是 OLLVM 与某个源码不兼容，先关混淆试一次。', 'ollvm'],
+    [/No such file or directory: '?make'?|make: command not found/i,
+     '找不到 make：Theos 没装好，或 PATH 里没有 usr/bin。', 'toolchain'],
+
+    [/xcrun: error: unable to find utility "?(clang|ld)"?/i,
+     '找不到 clang/ld：Xcode 命令行工具缺失，或工具链没展开。', 'toolchain'],
+
+    [/\bldid: (Unknown header magic|Can only specify)\b/i,
+     '签名失败：包里有非 Mach-O 文件（.a 静态库 / 脚本）或符号链接，' +
+     'ldid 处理不了。用「工具 → 签名审计」定位具体文件。', 'sign'],
+
+    [/THEOS.*makefiles|makefiles\/common\.mk.*not found/i,
+     'THEOS 路径不对：找不到 Theos 的 makefiles 目录。', 'config'],
+
+    [/cannot find sdk|SDKSettings\.json.*not found/i,
+     '找不到 SDK：检查 SDK 名称与 theos/sdks 下的目录是否一致。', 'config'],
+
+    // undefined symbol 必须排在 library not found 之前：
+    // 链接失败时两者常同时出现，前者信息更具体。
+    [/undefined symbol:?\s*(\S+)/i,
+     '未定义符号：按日志里的符号名补框架或源文件（如 _OBJC_CLASS_$_Xxx → 加 -framework）。', 'link'],
+
+    [/ld: library not found for -l(\S+)/i,
+     '链接不到库：检查 xxx_LIBRARIES 或 .tbd 是否在 SDK / vendor/lib 内。', 'link'],
+
+    [/No rule to make target(?:\s+'?([^'\s]+)'?)?/i,
+     '缺少构建规则：Makefile 里的源文件名与实际文件不一致，或分组写错。', 'config'],
+
+    // 先判 logos 相关的具体错误，再判通用 fatal error
+    [/logos.*error|%hook|%orig|%new|nil %ctor/i,
+     'Logos 预处理失败：检查 .x 里的 %hook / %orig 语法与括号配对。', 'source'],
+
+    [/fatal error: '([^']+)' file not found/i,
+     '头文件缺失：确认 SDK 或 vendor/include 里有对应头文件。', 'source'],
+
+    [/error: (expected|use of undeclared|implicit declaration)/i,
+     'C/ObjC 语法错误：看第一个 error 行指的位置。', 'source'],
+
+    [/code signature|invalid signature/i,
+     '签名失败：确认 ldid 可执行且 entitlements 合法。', 'sign'],
+
+    [/permission denied/i,
+     '权限不足：项目目录要在 /var/mobile 下且可写。', 'permission'],
+
+    [/killed\b|out of memory|Cannot allocate memory/i,
+     '进程被杀，多半内存不足：关掉 -j 并行，或改用远程 / CI 构建。', 'resource'],
+
+    [/segmentation fault|Segmentation fault: 11/i,
+     '编译器自身崩溃：通常是 OLLVM 与某个源码不兼容，先关混淆试一次。', 'ollvm'],
   ];
-  for (const [needle, hint, category] of rules) {
-    if (s.includes(needle)) return { hint, category, needle };
+
+  for (const [re, hint, category] of rules) {
+    const m2 = s.match(re);
+    if (m2) {
+      // 把匹配到的具体名字带进提示，便于直接定位
+      const detail = m2[1] && m2[1].length < 80 ? `（${m2[1]}）` : '';
+      return { hint: hint + detail, category, needle: m2[0] };
+    }
   }
   return null;
 }
