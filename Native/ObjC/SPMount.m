@@ -12,32 +12,6 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
 #pragma mark - SPMountEntry
 
 @implementation SPMountEntry
-#pragma mark - 同步包装（复用已有的异步接口）
-
-/// 用信号量把异步 listPath 变成同步，供后台线程调用
-- (nullable NSArray<SPMountEntry *> *)syncListWebDAV:(NSString *)path mount:(SPMount *)mount {
-    __block NSArray *result = nil;
-    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-    [self listPath:path ofMount:mount completion:^(NSArray<SPMountEntry *> *e, NSError *err) {
-        result = e;
-        dispatch_semaphore_signal(sem);
-    }];
-    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_SEC));
-    return result;
-}
-
-/// 同步下载到本地文件
-- (BOOL)syncDownloadWebDAV:(NSString *)path mount:(SPMount *)mount to:(NSString *)localPath {
-    __block BOOL ok = NO;
-    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-    [self download:path ofMount:mount toLocal:localPath completion:^(BOOL success, NSError *err) {
-        ok = success;
-        dispatch_semaphore_signal(sem);
-    }];
-    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 60 * NSEC_PER_SEC));
-    return ok;
-}
-
 @end
 
 #pragma mark - SPMount
@@ -112,10 +86,11 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
 @interface SPMountManager ()
 @property (nonatomic, strong) NSMutableArray<SPMount *> *internal;
 @property (nonatomic, strong) NSURLSession *session;
-@property (nonatomic, assign) BOOL exposeToFilesApp;
 @end
 
-@implementation SPMountManager
+@implementation SPMountManager {
+    BOOL _exposeFilesApp;
+}
 
 + (instancetype)shared {
     static SPMountManager *m; static dispatch_once_t once;
@@ -127,7 +102,7 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
         cfg.WaitsForConnectivity = NO;
         m.session = [NSURLSession sessionWithConfiguration:cfg];
         NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
-        m.exposeToFilesApp = [d objectForKey:@"Spark.exposeMountsToFiles"] == nil
+        m->_exposeFilesApp = [d objectForKey:@"Spark.exposeMountsToFiles"] == nil
             ? YES : [d boolForKey:@"Spark.exposeMountsToFiles"];
         [m reload];
         [m refreshFilesAppLinks];
@@ -432,8 +407,10 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
 
 #pragma mark - 文件 App 可见性
 
+- (BOOL)exposeToFilesApp { return _exposeFilesApp; }
+
 - (void)setExposeToFilesApp:(BOOL)exposeToFilesApp {
-    _exposeToFilesApp = exposeToFilesApp;
+    _exposeFilesApp = exposeToFilesApp;
     [[NSUserDefaults standardUserDefaults] setBool:exposeToFilesApp
                                             forKey:@"Spark.exposeMountsToFiles"];
     [self refreshFilesAppLinks];
@@ -460,7 +437,7 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
         }
     }
 
-    if (!self.exposeToFilesApp) return;
+    if (!_exposeFilesApp) return;
 
     for (SPMount *m in self.internal) {
         NSString *target = m.localRootPath;
@@ -567,5 +544,32 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
         if (completion) completion(fatal == nil, fatal);
     });
 }
+
+#pragma mark - 同步包装（复用已有的异步接口）
+
+/// 用信号量把异步 listPath 变成同步，供后台线程调用
+- (nullable NSArray<SPMountEntry *> *)syncListWebDAV:(NSString *)path mount:(SPMount *)mount {
+    __block NSArray *result = nil;
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    [self listPath:path ofMount:mount completion:^(NSArray<SPMountEntry *> *e, NSError *err) {
+        result = e;
+        dispatch_semaphore_signal(sem);
+    }];
+    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_SEC));
+    return result;
+}
+
+/// 同步下载到本地文件
+- (BOOL)syncDownloadWebDAV:(NSString *)path mount:(SPMount *)mount to:(NSString *)localPath {
+    __block BOOL ok = NO;
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    [self download:path ofMount:mount toLocal:localPath completion:^(BOOL success, NSError *err) {
+        ok = success;
+        dispatch_semaphore_signal(sem);
+    }];
+    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, 60 * NSEC_PER_SEC));
+    return ok;
+}
+
 
 @end
