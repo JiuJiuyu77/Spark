@@ -111,16 +111,16 @@ typedef NS_ENUM(NSInteger, SPRevAction) {
 
     [NSLayoutConstraint activateConstraints:@[
         [card.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8],
-        [card.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16],
-        [card.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
+        [card.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:SPSpaceM],
+        [card.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-SPSpaceM],
 
         [self.binaryLabel.leadingAnchor constraintEqualToAnchor:card.contentView.leadingAnchor],
         [self.binaryLabel.topAnchor constraintEqualToAnchor:card.contentView.topAnchor],
         [self.binaryLabel.bottomAnchor constraintEqualToAnchor:card.contentView.bottomAnchor],
-        [self.binaryLabel.trailingAnchor constraintEqualToAnchor:pick.leadingAnchor constant:-10],
+        [self.binaryLabel.trailingAnchor constraintEqualToAnchor:pick.leadingAnchor constant:-SPSpaceS],
 
         [self.spinner.centerYAnchor constraintEqualToAnchor:pick.centerYAnchor],
-        [self.spinner.trailingAnchor constraintEqualToAnchor:pick.leadingAnchor constant:-8],
+        [self.spinner.trailingAnchor constraintEqualToAnchor:pick.leadingAnchor constant:-SPSpaceXS],
 
         [pick.trailingAnchor constraintEqualToAnchor:card.contentView.trailingAnchor],
         [pick.topAnchor constraintEqualToAnchor:card.contentView.topAnchor],
@@ -155,7 +155,7 @@ typedef NS_ENUM(NSInteger, SPRevAction) {
     self.outputView.editable = NO;
     self.outputView.textContainerInset = UIEdgeInsetsMake(10, 10, 10, 10);
     self.outputView.translatesAutoresizingMaskIntoConstraints = NO;
-    [SPTheme round:self.outputView radius:12];
+    [SPTheme round:self.outputView radius:SPRadiusM];
     self.outputView.clipsToBounds = YES;
     self.outputView.text = @"选择上面的任意一项开始分析。\n\n所有分析都调用 Rein 自带的 radare2 / mt-macho。";
     [self.view addSubview:self.outputView];
@@ -404,8 +404,8 @@ typedef NS_ENUM(NSInteger, SPRevAction) {
             [self.table.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor],
 
             [self.outputView.topAnchor constraintEqualToAnchor:self.headerCard.bottomAnchor constant:8],
-            [self.outputView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16],
-            [self.outputView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
+            [self.outputView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:SPSpaceM],
+            [self.outputView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-SPSpaceM],
             [self.outputView.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-8],
         ]];
         self.outputView.alpha = 0;

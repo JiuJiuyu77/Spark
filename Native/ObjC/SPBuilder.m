@@ -5,6 +5,7 @@
 #import "SPBuilder.h"
 #import "SPCompat.h"
 #import "SPToolchainInstaller.h"
+#import "SPOutputNaming.h"
 #import "SPModels.h"
 #import "SPSession.h"
 #import "SPToolchain.h"

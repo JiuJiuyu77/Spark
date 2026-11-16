@@ -26,6 +26,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) NSInteger maxLogLines;
 @property (nonatomic, assign) BOOL showCommandPreview;
 
+/// 产物命名模板（参考 Dylix 的 OutputNaming）
+/// 空 = 用 Theos 默认命名。占位符见 SPOutputNaming.availablePlaceholders
+@property (nonatomic, copy, nullable) NSString *outputPattern;
+
 /// 编译前自动 git 快照（参考 Dylix 的 GitAutomation）
 @property (nonatomic, assign) BOOL autoSnapshotBeforeBuild;
 /// 快照提交用的作者信息（空则用 Spark 默认值）

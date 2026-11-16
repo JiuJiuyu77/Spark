@@ -380,7 +380,7 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
     l.textColor = [SPTheme text];
     l.backgroundColor = [SPTheme surface];
     l.textAlignment = NSTextAlignmentCenter;
-    [SPTheme round:l radius:10];
+    [SPTheme round:l radius:SPRadiusM];
     l.clipsToBounds = YES;
     l.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:l];

@@ -61,8 +61,8 @@ typedef NS_ENUM(NSInteger, SPGitSection) {
 
     [NSLayoutConstraint activateConstraints:@[
         [self.headerLabel.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:4],
-        [self.headerLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:20],
-        [self.headerLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-20],
+        [self.headerLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:SPSpaceL],
+        [self.headerLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-SPSpaceL],
         [self.table.topAnchor constraintEqualToAnchor:self.headerLabel.bottomAnchor constant:4],
         [self.table.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.table.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
@@ -415,13 +415,13 @@ typedef NS_ENUM(NSInteger, SPGitSection) {
     l.textColor = [SPTheme text];
     l.backgroundColor = [SPTheme surface];
     l.textAlignment = NSTextAlignmentCenter;
-    [SPTheme round:l radius:10];
+    [SPTheme round:l radius:SPRadiusM];
     l.clipsToBounds = YES;
     l.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:l];
     [NSLayoutConstraint activateConstraints:@[
         [l.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [l.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-28],
+        [l.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-SPSpaceHuge],
         [l.heightAnchor constraintEqualToConstant:32],
         [l.widthAnchor constraintGreaterThanOrEqualToConstant:160],
     ]];

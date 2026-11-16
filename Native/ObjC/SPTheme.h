@@ -19,6 +19,50 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+#pragma mark - 设计令牌（视觉对齐的唯一来源）
+//
+// 之前各页面各写各的：圆角 8/9/10/12/16/18/20 七种，
+// 页边距 8/10/12/16/20/32 六种，看起来就像拼起来的。
+// 这里统一成一套 4pt 基准的刻度，所有页面只准用这些常量。
+
+/// 间距刻度（4pt 基准）
+typedef NS_ENUM(NSInteger, SPSpace) {
+    SPSpaceXXS = 4,
+    SPSpaceXS  = 8,
+    SPSpaceS   = 12,
+    SPSpaceM   = 16,   // 默认页边距
+    SPSpaceL   = 20,
+    SPSpaceXL  = 24,
+    SPSpaceXXL = 32,
+    SPSpaceHuge = 28,   // 悬浮栏左右外缩
+};
+
+/// 圆角刻度
+typedef NS_ENUM(NSInteger, SPRadius) {
+    SPRadiusS  = 8,    // 小控件：徽标、输入框
+    SPRadiusM  = 12,   // 卡片、按钮（默认）
+    SPRadiusL  = 16,   // 大卡片
+    SPRadiusXL = 22,   // 悬浮栏、弹层
+};
+
+/// 常用尺寸
+FOUNDATION_EXPORT const CGFloat SPIconSizeSmall;    // 16
+FOUNDATION_EXPORT const CGFloat SPIconSizeMedium;   // 22
+FOUNDATION_EXPORT const CGFloat SPIconSizeLarge;    // 28
+FOUNDATION_EXPORT const CGFloat SPButtonHeight;     // 48
+FOUNDATION_EXPORT const CGFloat SPFloatingBarHeight;// 60
+FOUNDATION_EXPORT const CGFloat SPFloatingBarInset; // 74（内容需要留出的底部空间）
+FOUNDATION_EXPORT const CGFloat SPFloatingBarSideInset; // 28
+
+@interface SPMetric : NSObject
+/// 正文页边距（几乎每页都用）
++ (CGFloat)pageMargin;
+/// 分组之间、区块之间的标准间距
++ (CGFloat)sectionGap;
+/// 行内元素间距
++ (CGFloat)inlineGap;
+@end
+
 #pragma mark - Gasp 动画曲线
 
 /// Gasp 动画工具箱：所有动效都从这里取参数，保证全 App 手感一致。

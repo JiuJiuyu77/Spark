@@ -109,7 +109,7 @@
 
         [self.gutterLabel.topAnchor constraintEqualToAnchor:self.gutter.topAnchor constant:10],
         [self.gutterLabel.leadingAnchor constraintEqualToAnchor:self.gutter.leadingAnchor constant:4],
-        [self.gutterLabel.trailingAnchor constraintEqualToAnchor:self.gutter.trailingAnchor constant:-8],
+        [self.gutterLabel.trailingAnchor constraintEqualToAnchor:self.gutter.trailingAnchor constant:-SPSpaceXS],
 
         [self.textView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
         [self.textView.leadingAnchor constraintEqualToAnchor:self.gutter.trailingAnchor],
@@ -253,7 +253,7 @@
     self.findField.font = [SPTheme mono:13];
     self.findField.textColor = [SPTheme text];
     self.findField.backgroundColor = [SPTheme background];
-    self.findField.layer.cornerRadius = 8;
+    self.findField.layer.cornerRadius = SPRadiusS;
     self.findField.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 8, 1)];
     self.findField.leftViewMode = UITextFieldViewModeAlways;
     self.findField.clearButtonMode = UITextFieldViewModeWhileEditing;
@@ -288,11 +288,11 @@
         [bar.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
         [bar.heightAnchor constraintEqualToConstant:44],
 
-        [self.findField.leadingAnchor constraintEqualToAnchor:bar.leadingAnchor constant:12],
+        [self.findField.leadingAnchor constraintEqualToAnchor:bar.leadingAnchor constant:SPSpaceS],
         [self.findField.centerYAnchor constraintEqualToAnchor:bar.centerYAnchor],
         [self.findField.heightAnchor constraintEqualToConstant:30],
 
-        [self.findCount.leadingAnchor constraintEqualToAnchor:self.findField.trailingAnchor constant:8],
+        [self.findCount.leadingAnchor constraintEqualToAnchor:self.findField.trailingAnchor constant:SPSpaceXS],
         [self.findCount.centerYAnchor constraintEqualToAnchor:bar.centerYAnchor],
         [self.findCount.widthAnchor constraintEqualToConstant:52],
 
@@ -303,7 +303,7 @@
         [next.leadingAnchor constraintEqualToAnchor:prev.trailingAnchor constant:2],
         [next.centerYAnchor constraintEqualToAnchor:bar.centerYAnchor],
         [next.widthAnchor constraintEqualToConstant:32],
-        [next.trailingAnchor constraintEqualToAnchor:bar.trailingAnchor constant:-8],
+        [next.trailingAnchor constraintEqualToAnchor:bar.trailingAnchor constant:-SPSpaceXS],
     ]];
 
     // 正文下移：重新绑定 textView 顶部到查找栏底部

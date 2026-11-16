@@ -24,8 +24,8 @@
         [NSLayoutConstraint activateConstraints:@[
             [_label.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:1],
             [_label.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-1],
-            [_label.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:12],
-            [_label.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-12],
+            [_label.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:SPSpaceS],
+            [_label.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-SPSpaceS],
         ]];
     }
     return self;
@@ -272,7 +272,7 @@
     l.textColor = [SPTheme text];
     l.backgroundColor = [SPTheme surface];
     l.textAlignment = NSTextAlignmentCenter;
-    [SPTheme round:l radius:10];
+    [SPTheme round:l radius:SPRadiusM];
     l.layer.borderWidth = 1;
     l.layer.borderColor = [SPTheme separator].CGColor;
     l.clipsToBounds = YES;

@@ -134,7 +134,7 @@
 - (instancetype)initWithFrame:(CGRect)frame {
     if ((self = [super initWithFrame:frame])) {
         _padding = 14;
-        _cornerRadius = 20;
+        _cornerRadius = SPRadiusXL;
         self.backgroundColor = UIColor.clearColor;
 
         _contentView = [[UIView alloc] init];
@@ -186,7 +186,7 @@
         _glow.translatesAutoresizingMaskIntoConstraints = NO;
         _glow.backgroundColor = [SPTheme accent];
         _glow.alpha = 0;
-        _glow.layer.cornerRadius = 18;
+        _glow.layer.cornerRadius = SPRadiusL;
         [self addSubview:_glow];
 
         _iconView = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:symbol]];
@@ -283,8 +283,8 @@
     [self.container addSubview:stack];
     [NSLayoutConstraint activateConstraints:@[
         [stack.topAnchor constraintEqualToAnchor:self.container.topAnchor constant:4],
-        [stack.leadingAnchor constraintEqualToAnchor:self.container.leadingAnchor constant:10],
-        [stack.trailingAnchor constraintEqualToAnchor:self.container.trailingAnchor constant:-10],
+        [stack.leadingAnchor constraintEqualToAnchor:self.container.leadingAnchor constant:SPSpaceS],
+        [stack.trailingAnchor constraintEqualToAnchor:self.container.trailingAnchor constant:-SPSpaceS],
         [stack.bottomAnchor constraintEqualToAnchor:self.container.bottomAnchor constant:-4],
     ]];
 

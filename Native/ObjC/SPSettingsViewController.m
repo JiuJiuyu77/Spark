@@ -5,6 +5,7 @@
 #import "SPSettingsViewController.h"
 #import "SPTheme.h"
 #import "SPStore.h"
+#import "SPOutputNaming.h"
 #import "SPModels.h"
 #import "SPToolchain.h"
 #import "SPToolchainInstaller.h"
@@ -520,6 +521,38 @@ typedef NS_ENUM(NSInteger, SPSection) {
     [self persistDefaults];
 }
 
+- (void)editOutputPattern {
+    NSString *cur = SPSettings.shared.outputPattern ?: @"";
+    UIAlertController *a = [UIAlertController
+        alertControllerWithTitle:@"产物命名模板"
+        message:[NSString stringWithFormat:@"可用占位符：\n%@\n\n留空则用 Theos 默认命名。",
+                 [[SPOutputNaming availablePlaceholders] componentsJoinedByString:@"  "]]
+        preferredStyle:UIAlertControllerStyleAlert];
+    [a addTextFieldWithConfigurationHandler:^(UITextField *tf) {
+        tf.text = cur;
+        tf.placeholder = @"{name}_{version}_{packageArch}";
+        tf.clearButtonMode = UITextFieldViewModeWhileEditing;
+        tf.font = [SPTheme mono:13];
+    }];
+    [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [a addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
+        NSString *val = a.textFields.firstObject.text ?: @"";
+        val = [val stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+        if (val.length) {
+            NSString *err = [SPOutputNaming validatePattern:val];
+            if (err) {
+                [self alert:@"模板有问题" message:err];
+                return;
+            }
+        }
+        SPSettings.shared.outputPattern = val.length ? val : nil;
+        [SPSettings.shared save];
+        [self.table reloadData];
+        [self toast:val.length ? @"已保存命名模板" : @"已恢复默认命名"];
+    }]];
+    [self presentViewController:a animated:YES completion:nil];
+}
+
 - (void)persistDefaults {
     [[SPStore shared] saveOptions:self.draft forProjectPath:@"__defaults__"];
     [self.table reloadData];
@@ -658,6 +691,11 @@ typedef NS_ENUM(NSInteger, SPSection) {
         return;
     }
     if (ip.section == SPSectionTarget) { [self editTargetAt:ip.row]; return; }
+
+    if (ip.section == SPSectionCompile && ip.row == 5) {
+        [self editOutputPattern];
+        return;
+    }
 
     if (ip.section == SPSectionDisplay) {
         if (ip.row == 2) {
@@ -1045,13 +1083,13 @@ typedef NS_ENUM(NSInteger, SPSection) {
     l.textColor = [SPTheme text];
     l.backgroundColor = [SPTheme surface];
     l.textAlignment = NSTextAlignmentCenter;
-    [SPTheme round:l radius:10];
+    [SPTheme round:l radius:SPRadiusM];
     l.clipsToBounds = YES;
     l.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:l];
     [NSLayoutConstraint activateConstraints:@[
         [l.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [l.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-28],
+        [l.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-SPSpaceHuge],
         [l.heightAnchor constraintEqualToConstant:32],
         [l.widthAnchor constraintGreaterThanOrEqualToConstant:160],
     ]];

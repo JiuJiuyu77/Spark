@@ -172,12 +172,12 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
             [icon.heightAnchor constraintEqualToConstant:48],
 
             [title.topAnchor constraintEqualToAnchor:icon.bottomAnchor constant:16],
-            [title.leadingAnchor constraintEqualToAnchor:v.leadingAnchor constant:32],
-            [title.trailingAnchor constraintEqualToAnchor:v.trailingAnchor constant:-32],
+            [title.leadingAnchor constraintEqualToAnchor:v.leadingAnchor constant:SPSpaceXXL],
+            [title.trailingAnchor constraintEqualToAnchor:v.trailingAnchor constant:-SPSpaceXXL],
 
             [sub.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:8],
-            [sub.leadingAnchor constraintEqualToAnchor:v.leadingAnchor constant:32],
-            [sub.trailingAnchor constraintEqualToAnchor:v.trailingAnchor constant:-32],
+            [sub.leadingAnchor constraintEqualToAnchor:v.leadingAnchor constant:SPSpaceXXL],
+            [sub.trailingAnchor constraintEqualToAnchor:v.trailingAnchor constant:-SPSpaceXXL],
         ]];
         self.emptyState = v;
     }

@@ -210,7 +210,7 @@
     if ((self = [super initWithFrame:frame])) {
         _padding = 14;
         self.backgroundColor = [SPTheme surface];
-        [SPTheme round:self radius:12];
+        [SPTheme round:self radius:SPRadiusM];
         _contentView = [[UIView alloc] init];
         _contentView.translatesAutoresizingMaskIntoConstraints = NO;
         [self addSubview:_contentView];
@@ -246,7 +246,7 @@
         self.font = [SPTheme scaled:UIFontTextStyleCaption2 weight:UIFontWeightSemibold];
         self.textAlignment = NSTextAlignmentCenter;
         self.layer.borderWidth = 1;
-        [SPTheme round:self radius:9];
+        [SPTheme round:self radius:SPRadiusS];
         self.layer.masksToBounds = YES;
         [self setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
     }
@@ -283,5 +283,22 @@
     }
     return self;
 }
+
+
+#pragma mark - 设计令牌
+
+const CGFloat SPIconSizeSmall    = 16;
+const CGFloat SPIconSizeMedium   = 22;
+const CGFloat SPIconSizeLarge    = 28;
+const CGFloat SPButtonHeight     = 48;
+const CGFloat SPFloatingBarHeight = 60;
+const CGFloat SPFloatingBarInset  = 74;
+const CGFloat SPFloatingBarSideInset = 28;
+
+@implementation SPMetric
++ (CGFloat)pageMargin { return SPSpaceM; }
++ (CGFloat)sectionGap { return SPSpaceL; }
++ (CGFloat)inlineGap  { return SPSpaceXS; }
+@end
 
 @end

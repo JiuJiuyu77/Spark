@@ -10,6 +10,7 @@
 #import "SPMountsViewController.h"
 #import "SPInboxViewController.h"
 #import "SPStorageViewController.h"
+#import "SPHelpViewController.h"
 #import "SPDiagnostics.h"
 #import "SPStorage.h"
 #import "SPIncoming.h"
@@ -60,11 +61,11 @@
 }
 
 - (void)buildGroups {
-    self.titles = @[@"", @"通用", @"关于"];
+    self.titles = @[@"", @"通用", @"帮助与关于"];
     self.groups = @[
         @[@"设置"],
         @[@"收件箱", @"日志", @"存储空间", @"外部文件夹", @"数据目录"],
-        @[@"版本信息", @"运行环境自检"],
+        @[@"帮助", @"版本信息", @"运行环境自检"],
     ];
 }
 
@@ -147,6 +148,13 @@
 }
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
+    NSString *title = self.groups[ip.section][ip.row];
+    if ([title isEqualToString:@"帮助"]) {
+        [tv deselectRowAtIndexPath:ip animated:YES];
+        SPHelpViewController *h = [[SPHelpViewController alloc] init];
+        [self.navigationController pushViewController:h animated:YES];
+        return;
+    }
     [tv deselectRowAtIndexPath:ip animated:YES];
     [SPMotion hapticLight];
     NSString *title = self.groups[ip.section][ip.row];

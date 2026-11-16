@@ -39,7 +39,7 @@
 - (void)buildHeader {
     UIView *card = [[UIView alloc] init];
     card.backgroundColor = [SPTheme surface];
-    [SPTheme round:card radius:16];
+    [SPTheme round:card radius:SPRadiusL];
     card.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:card];
 
@@ -71,20 +71,20 @@
 
     [NSLayoutConstraint activateConstraints:@[
         [card.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8],
-        [card.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16],
-        [card.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
+        [card.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:SPSpaceM],
+        [card.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-SPSpaceM],
 
         [self.bigCode.topAnchor constraintEqualToAnchor:card.topAnchor constant:16],
-        [self.bigCode.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:16],
-        [self.bigCode.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-16],
+        [self.bigCode.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:SPSpaceM],
+        [self.bigCode.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-SPSpaceM],
 
         [self.bigURL.topAnchor constraintEqualToAnchor:self.bigCode.bottomAnchor constant:6],
-        [self.bigURL.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:16],
-        [self.bigURL.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-16],
+        [self.bigURL.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:SPSpaceM],
+        [self.bigURL.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-SPSpaceM],
 
         [tip.topAnchor constraintEqualToAnchor:self.bigURL.bottomAnchor constant:10],
-        [tip.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:16],
-        [tip.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-16],
+        [tip.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:SPSpaceM],
+        [tip.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-SPSpaceM],
         [tip.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-14],
     ]];
     self.headerCard = card;
@@ -278,13 +278,13 @@ Server:(UISwitch *)sw {
     l.textColor = [SPTheme text];
     l.backgroundColor = [SPTheme surface];
     l.textAlignment = NSTextAlignmentCenter;
-    [SPTheme round:l radius:10];
+    [SPTheme round:l radius:SPRadiusM];
     l.clipsToBounds = YES;
     l.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:l];
     [NSLayoutConstraint activateConstraints:@[
         [l.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [l.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-28],
+        [l.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-SPSpaceHuge],
         [l.heightAnchor constraintEqualToConstant:32],
         [l.widthAnchor constraintGreaterThanOrEqualToConstant:160],
     ]];

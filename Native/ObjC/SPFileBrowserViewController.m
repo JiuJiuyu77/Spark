@@ -72,8 +72,8 @@
 
     [NSLayoutConstraint activateConstraints:@[
         [self.pathLabel.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8],
-        [self.pathLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:20],
-        [self.pathLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-20],
+        [self.pathLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:SPSpaceL],
+        [self.pathLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-SPSpaceL],
         [self.table.topAnchor constraintEqualToAnchor:self.pathLabel.bottomAnchor constant:4],
         [self.table.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.table.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],

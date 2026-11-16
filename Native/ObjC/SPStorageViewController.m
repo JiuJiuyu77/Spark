@@ -44,8 +44,8 @@
 
     [NSLayoutConstraint activateConstraints:@[
         [self.diskLabel.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:4],
-        [self.diskLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:20],
-        [self.diskLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-20],
+        [self.diskLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:SPSpaceL],
+        [self.diskLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-SPSpaceL],
         [self.table.topAnchor constraintEqualToAnchor:self.diskLabel.bottomAnchor constant:4],
         [self.table.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.table.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],

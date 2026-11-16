@@ -139,10 +139,10 @@
         [self.statusIcon.widthAnchor constraintEqualToConstant:22],
         [self.statusIcon.heightAnchor constraintEqualToConstant:22],
 
-        [self.statusLabel.leadingAnchor constraintEqualToAnchor:self.statusIcon.trailingAnchor constant:8],
+        [self.statusLabel.leadingAnchor constraintEqualToAnchor:self.statusIcon.trailingAnchor constant:SPSpaceXS],
         [self.statusLabel.centerYAnchor constraintEqualToAnchor:self.statusIcon.centerYAnchor],
         [self.timerLabel.centerYAnchor constraintEqualToAnchor:self.statusLabel.centerYAnchor],
-        [self.timerLabel.leadingAnchor constraintGreaterThanOrEqualToAnchor:self.statusLabel.trailingAnchor constant:8],
+        [self.timerLabel.leadingAnchor constraintGreaterThanOrEqualToAnchor:self.statusLabel.trailingAnchor constant:SPSpaceXS],
         [self.timerLabel.trailingAnchor constraintEqualToAnchor:card.contentView.trailingAnchor],
 
         [self.detailLabel.topAnchor constraintEqualToAnchor:self.statusLabel.bottomAnchor constant:6],
@@ -160,8 +160,8 @@
     ]];
 
     NSLayoutConstraint *pin = [card.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8];
-    NSLayoutConstraint *lead = [card.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16];
-    NSLayoutConstraint *trail = [card.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16];
+    NSLayoutConstraint *lead = [card.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:SPSpaceM];
+    NSLayoutConstraint *trail = [card.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-SPSpaceM];
     [NSLayoutConstraint activateConstraints:@[pin, lead, trail]];
 }
 
@@ -171,14 +171,14 @@
     self.logView = [[SPLogView alloc] init];
     self.logView.maxLines = (NSUInteger)MAX(500, SPSettings.shared.maxLogLines);
     self.logView.translatesAutoresizingMaskIntoConstraints = NO;
-    [SPTheme round:self.logView radius:12];
+    [SPTheme round:self.logView radius:SPRadiusM];
     self.logView.clipsToBounds = YES;
     [self.view addSubview:self.logView];
 
     [NSLayoutConstraint activateConstraints:@[
         [self.logView.topAnchor constraintEqualToAnchor:self.statusCard.bottomAnchor constant:12],
-        [self.logView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16],
-        [self.logView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
+        [self.logView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:SPSpaceM],
+        [self.logView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-SPSpaceM],
         [self.logView.bottomAnchor constraintEqualToAnchor:self.actionBar.topAnchor constant:-12],
     ]];
 }
@@ -225,13 +225,13 @@
         // 按钮必须约束在 actionBar.contentView 内部，
         // 不能绑到 self.view.safeArea，否则按钮会跑出操作条、层级错乱
         [self.primaryButton.topAnchor constraintEqualToAnchor:self.actionBar.contentView.topAnchor constant:10],
-        [self.primaryButton.leadingAnchor constraintEqualToAnchor:self.actionBar.contentView.leadingAnchor constant:16],
+        [self.primaryButton.leadingAnchor constraintEqualToAnchor:self.actionBar.contentView.leadingAnchor constant:SPSpaceM],
         [self.primaryButton.heightAnchor constraintEqualToConstant:48],
         [self.primaryButton.bottomAnchor constraintEqualToAnchor:self.actionBar.contentView.bottomAnchor constant:-10],
 
         [self.secondaryButton.centerYAnchor constraintEqualToAnchor:self.primaryButton.centerYAnchor],
-        [self.secondaryButton.leadingAnchor constraintEqualToAnchor:self.primaryButton.trailingAnchor constant:10],
-        [self.secondaryButton.trailingAnchor constraintEqualToAnchor:self.actionBar.contentView.trailingAnchor constant:-16],
+        [self.secondaryButton.leadingAnchor constraintEqualToAnchor:self.primaryButton.trailingAnchor constant:SPSpaceS],
+        [self.secondaryButton.trailingAnchor constraintEqualToAnchor:self.actionBar.contentView.trailingAnchor constant:-SPSpaceM],
         [self.secondaryButton.heightAnchor constraintEqualToConstant:48],
         [self.secondaryButton.widthAnchor constraintEqualToConstant:110],
     ]];

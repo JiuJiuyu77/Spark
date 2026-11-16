@@ -170,8 +170,8 @@
     [self.tabs.view addSubview:self.floatBar];
     UILayoutGuide *safe = self.tabs.view.safeAreaLayoutGuide;
     [NSLayoutConstraint activateConstraints:@[
-        [self.floatBar.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:28],
-        [self.floatBar.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-28],
+        [self.floatBar.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:SPSpaceHuge],
+        [self.floatBar.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-SPSpaceHuge],
         [self.floatBar.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-6],
     ]];
 

@@ -221,13 +221,13 @@
     l.textColor = [SPTheme text];
     l.backgroundColor = [SPTheme surface];
     l.textAlignment = NSTextAlignmentCenter;
-    [SPTheme round:l radius:10];
+    [SPTheme round:l radius:SPRadiusM];
     l.clipsToBounds = YES;
     l.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:l];
     [NSLayoutConstraint activateConstraints:@[
         [l.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [l.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-28],
+        [l.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-SPSpaceHuge],
         [l.heightAnchor constraintEqualToConstant:32],
         [l.widthAnchor constraintGreaterThanOrEqualToConstant:160],
     ]];

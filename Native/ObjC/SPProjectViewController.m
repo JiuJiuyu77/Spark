@@ -114,13 +114,13 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
         [footer.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
 
         [self.buildButton.topAnchor constraintEqualToAnchor:footer.topAnchor constant:8],
-        [self.buildButton.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16],
-        [self.buildButton.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
+        [self.buildButton.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:SPSpaceM],
+        [self.buildButton.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-SPSpaceM],
         [self.buildButton.heightAnchor constraintEqualToConstant:50],
 
         [self.footerHint.topAnchor constraintEqualToAnchor:self.buildButton.bottomAnchor constant:6],
-        [self.footerHint.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:20],
-        [self.footerHint.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-20],
+        [self.footerHint.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:SPSpaceL],
+        [self.footerHint.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-SPSpaceL],
         [self.footerHint.bottomAnchor constraintEqualToAnchor:footer.safeAreaLayoutGuide.bottomAnchor constant:-6],
     ]];
     self.footer = footer;
