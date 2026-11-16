@@ -42,6 +42,10 @@
         ]];
     }
 
+    blur.clipsToBounds = YES;
+    blur.layer.cornerRadius = radius;
+    blur.layer.cornerCurve = kCACornerCurveContinuous;
+
     // 2) 色调叠层（很轻，只负责偏色，不抢背景）
     if (tint) {
         UIView *tintView = nil;
@@ -68,7 +72,7 @@
     }
 
     // 3) 描边（上亮下暗）
-    CALayer *border = [self specularBorderForBounds:CGRectZero cornerRadius:radius];
+    CALayer *border = [self specularBorderForBounds:view.bounds cornerRadius:radius];
     border.name = @"sp.glass.border";
     for (CALayer *l in view.layer.sublayers) {
         if ([l.name isEqualToString:@"sp.glass.border"]) [l removeFromSuperlayer];
@@ -505,7 +509,8 @@ static CGFloat const kInnerInset = 3;    // 参考 TabBar 的 innerInset（略�
     }
 
     // 透镜放在 stack 下面，避免挡住图标
-    [_capsule sendSubviewToBack:_lens];
+    // lens 必须在背景上面、按钮下面，不能送到模糊层后面。
+    [_capsule insertSubview:_lens belowSubview:stack];
     [self updateSelection:NO];
 }
 
@@ -556,7 +561,10 @@ static CGFloat const kInnerInset = 3;    // 参考 TabBar 的 innerInset（略�
 - (void)layoutSubviews {
     [super layoutSubviews];
     for (CALayer *l in _capsule.layer.sublayers) {
-        if ([l.name isEqualToString:@"sp.glass.border"]) l.frame = _capsule.bounds;
+        if ([l.name isEqualToString:@"sp.glass.border"]) {
+            l.frame = _capsule.bounds;
+            ((CAShapeLayer *)l).path = [UIBezierPath bezierPathWithRoundedRect:_capsule.bounds cornerRadius:CGRectGetHeight(_capsule.bounds)/2].CGPath;
+        }
     }
     CGRect target = [self lensFrameForIndex:self.selectedIndex];
     if (!CGRectIsEmpty(target)) {

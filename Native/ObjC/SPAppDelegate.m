@@ -182,7 +182,10 @@
     ]];
 
     // 让内容底部留出悬浮栏的高度，避免最后一行被挡住
-    self.tabs.additionalSafeAreaInsets = UIEdgeInsetsMake(0, 0, SPFloatingBarHeight + SPSpaceM, 0);
+    self.tabs.additionalSafeAreaInsets = UIEdgeInsetsZero;
+    for (UIViewController *nav in self.tabs.viewControllers) {
+        nav.additionalSafeAreaInsets = UIEdgeInsetsMake(0, 0, SPFloatingBarHeight + SPSpaceM, 0);
+    }
 }
 
 #pragma mark - SPFloatTabBarDelegate

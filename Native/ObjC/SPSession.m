@@ -59,6 +59,8 @@ void SPSessionReapAllChildren(void) {
 @property (nonatomic, strong) SPCommandResult *result;
 @property (nonatomic, strong) dispatch_queue_t readQueue;
 @property (nonatomic, assign) BOOL finished;
+// 同步调用使用独立完成信号，不依赖主队列。
+@property (nonatomic, copy) void (^internalCompletion)(SPCommandResult *);
 @end
 
 @implementation SPSession
@@ -91,7 +93,7 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
         _workingDirectory = [cwd isKindOfClass:NSString.class] ? [cwd copy] : nil;
         _outBuf = [NSMutableString string];
         _errBuf = [NSMutableString string];
-        _readQueue = dispatch_queue_create("spark.session.read", DISPATCH_QUEUE_SERIAL);
+        _readQueue = dispatch_queue_create("spark.session.read", DISPATCH_QUEUE_CONCURRENT);
         _pid = -1; _outFd = -1; _errFd = -1;
     }
     return self;
@@ -176,7 +178,7 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
     envp[envArr.count] = NULL;
 
     int rc = posix_spawn(&child, exe.fileSystemRepresentation, &actions, &attr, argv, envp);
-    int savedErrno = errno;
+    int savedErrno = rc; // posix_spawn 直接返回错误码，不保证设置 errno
 
     for (NSUInteger i = 0; i < argvArr.count; i++) free(argv[i]);
     free(argv);
@@ -328,6 +330,9 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
 }
 
 - (void)finishNotifying {
+    void (^internal)(SPCommandResult *) = self.internalCompletion;
+    self.internalCompletion = nil;
+    if (internal) internal(self.result);
     void (^cb)(SPCommandResult *) = self.onFinish;
     SPCommandResult *r = self.result;
     if (cb) {
@@ -386,7 +391,7 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
     __block SPCommandResult *res = nil;
     SPSession *s = [[SPSession alloc] initWithEnvironment:env workingDirectory:cwd];
     s.timeout = timeout;
-    s.onFinish = ^(SPCommandResult *r) { res = r; dispatch_semaphore_signal(sem); };
+    s.internalCompletion = ^(SPCommandResult *r) { res = r; dispatch_semaphore_signal(sem); };
     [s runShell:script];
 
     // 不能永久等待：

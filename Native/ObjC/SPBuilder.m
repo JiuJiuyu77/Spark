@@ -285,7 +285,8 @@
         else job.state = SPJobStateFailed;
 
         if (job.state == SPJobStateFailed) {
-            job.failureHint = [self diagnoseFailureFromLines:job.lines];
+            job.failureHint = r.launchError.localizedDescription ?: [self diagnoseFailureFromLines:job.lines];
+            if (r.launchError && onLine) onLine(r.launchError.localizedDescription, SPLogLevelErr);
             if (!job.failureHint) job.failureHint = @"编译失败，请查看上方最后几行 error 输出。";
         }
 
