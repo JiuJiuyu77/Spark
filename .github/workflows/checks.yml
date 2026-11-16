@@ -48,6 +48,7 @@ jobs:
           python3 scripts/check-entitlements.py
           python3 scripts/audit-layout.py
           python3 scripts/check-visual-consistency.py
+          python3 scripts/check-quality.py
 
       - name: Validate plists
         run: |

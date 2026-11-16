@@ -209,7 +209,14 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
     [SPMotion hapticLight];
     SPTrollApp *a = [self visibleApps][ip.row];
     SPTrollInjectPanel *panel = [[SPTrollInjectPanel alloc] initWithApp:a];
-    panel.onFinished = ^{ [self reloadApps]; };
+    // panel 持有 onFinished，block 又强引用 self —— 会形成
+    //   SPTrollViewController → navigationController → panel → block → self
+    // 的环。用 weakSelf 打断，panel 出栈后 VС 才能正常释放。
+    __weak typeof(self) weakSelf = self;
+    panel.onFinished = ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        [strongSelf reloadApps];
+    };
     [self.navigationController pushViewController:panel animated:YES];
 }
 

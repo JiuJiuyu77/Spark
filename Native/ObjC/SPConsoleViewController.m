@@ -369,7 +369,25 @@
         [SPMotion pop:self.statusIcon];
         [SPMotion hapticSuccess];
         [self.logView appendLine:@"" level:SPLogLevelOut];
-        [self.logView appendLine:[NSString stringWithFormat:@"[ok] 用时 %ld 秒", (long)job.duration] level:SPLogLevelStep];
+        // 和上一次成功的构建比一下，慢了要能看出来
+        NSArray<NSDictionary *> *history = [[SPStore shared] buildHistory];
+        NSInteger prevDuration = -1;
+        for (NSDictionary *rec in history) {
+            if ([rec[@"project"] isEqualToString:self.project.path] &&
+                [rec[@"state"] integerValue] == SPJobStateSucceeded) {
+                prevDuration = [rec[@"duration"] integerValue];
+                break;
+            }
+        }
+        NSString *compare = @"";
+        if (prevDuration > 0 && (long)job.duration > 0) {
+            long diff = (long)job.duration - prevDuration;
+            if (diff > 2) compare = [NSString stringWithFormat:@"（比上次慢 %ld 秒）", diff];
+            else if (diff < -2) compare = [NSString stringWithFormat:@"（比上次快 %ld 秒）", -diff];
+            else compare = @"（与上次持平）";
+        }
+        [self.logView appendLine:[NSString stringWithFormat:@"[ok] 用时 %ld 秒 %@",
+                                  (long)job.duration, compare] level:SPLogLevelStep];
         for (NSString *a in job.artifacts) {
             [self.logView appendLine:[NSString stringWithFormat:@"     产物 → %@", a] level:SPLogLevelStep];
         }

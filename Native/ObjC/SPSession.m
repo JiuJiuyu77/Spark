@@ -361,7 +361,25 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
     s.timeout = timeout;
     s.onFinish = ^(SPCommandResult *r) { res = r; dispatch_semaphore_signal(sem); };
     [s runShell:script];
-    dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
+
+    // 不能永久等待：
+    // 如果进程启动失败、或 onFinish 因为任何原因没被调用，
+    // DISPATCH_TIME_FOREVER 会让调用线程（通常是主线程）永久卡死。
+    // 这里给一个「超时 + 10 秒」的硬上限，超时就返回失败结果并杀掉会话。
+    NSTimeInterval cap = (timeout > 0 ? timeout : 60) + 10;
+    long waited = dispatch_semaphore_wait(sem,
+        dispatch_time(DISPATCH_TIME_NOW, (int64_t)(cap * NSEC_PER_SEC)));
+
+    if (waited != 0) {
+        SPLog(@"[!] runSyncShell 等待超时（%.0fs），强制取消", cap);
+        [s cancel];
+        SPCommandResult *r = [SPCommandResult new];
+        r.exitCode = -1;
+        r.timedOut = YES;
+        r.launchError = SPError(SPErrorCodeTimeout,
+            [NSString stringWithFormat:@"命令 %.0f 秒内未完成", cap]);
+        return r;
+    }
     return res ?: [SPCommandResult new];
 }
 

@@ -260,9 +260,34 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
         if (error) *error = SPError(SPErrorCodeIO, [NSString stringWithFormat:@"目录不存在：%@", path]);
         return nil;
     }
+
+    // 必须是可识别的工程：有 Makefile（Theos / Node）或 package.json
+    // 否则用户导入一个空目录也会「成功」，然后点编译才发现没东西可编
+    NSFileManager *fm = NSFileManager.defaultManager;
+    BOOL hasMakefile = [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"Makefile"]];
+    BOOL hasPackage  = [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"package.json"]];
+    if (!hasMakefile && !hasPackage) {
+        if (error) {
+            *error = SPError(SPErrorCodeInvalidProject,
+                [NSString stringWithFormat:
+                 @"这里不是工程目录：%@\n\n"
+                  "缺少 Makefile 或 package.json。\n"
+                  "Theos 工程的根目录里一定有 Makefile；\n"
+                  "如果是压缩包，确认解压后进到了正确的一层。", path]);
+        }
+        return nil;
+    }
+
     SPProject *p = [SPProject new];
     p.path = path;
     [p reload];
+
+    // Makefile 存在但没解析出产品名，说明 Makefile 内容不对
+    if (p.name.length == 0) {
+        if (error) *error = SPError(SPErrorCodeInvalidProject,
+            @"Makefile 里没找到 TWEAK_NAME / APPLICATION_NAME，无法确定产物名。");
+        return nil;
+    }
     return p;
 }
 
@@ -437,6 +462,7 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
         @"id": self.jobId, @"project": self.projectPath ?: @"", @"name": self.projectName ?: @"",
         @"state": @(self.state), @"target": @(self.target), @"exit": @(self.exitCode),
         @"started": @([self.startedAt timeIntervalSince1970]),
+        @"duration": @(self.duration),
         @"finished": @(self.finishedAt ? [self.finishedAt timeIntervalSince1970] : 0),
         @"artifacts": self.artifacts ?: @[], @"bundle": self.bundlePath ?: @"",
         @"hint": self.failureHint ?: @"", @"summary": [self.options displaySummary],

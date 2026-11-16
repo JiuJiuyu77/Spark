@@ -488,7 +488,8 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
         return;
     }
 
-    SPProject *p = [SPProject projectAtPath:dst error:NULL];
+    NSError *projErr = nil;
+    SPProject *p = [SPProject projectAtPath:dst error:&projErr];
     if (p) {
         p.options = [[SPStore shared] optionsForProjectPath:@"__defaults__"];
         [[SPStore shared] saveOptions:p.options forProjectPath:p.path];
@@ -500,7 +501,9 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
             message:[NSString stringWithFormat:@"%@\n（%@）",
                      p.name, p.packageId.length ? p.packageId : @"未识别包名"]];
     } else {
-        [self alert:@"导入失败" message:@"目录已复制，但没识别出 Theos 工程结构。"];
+        [self alert:@"导入失败"
+            message:projErr.localizedDescription
+                 ?: @"目录已复制，但没识别出工程结构。"];
     }
 }
 
@@ -521,10 +524,13 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
     SPFileBrowserViewController *b = [[SPFileBrowserViewController alloc] initWithRootPath:NSHomeDirectory()
                                                                               pickMode:YES fileFilters:nil
                                                                                 onPick:^(NSString *path, BOOL isDir) {
-        SPProject *p = [SPProject projectAtPath:path error:NULL];
+        NSError *e = nil;
+        SPProject *p = [SPProject projectAtPath:path error:&e];
         if (p) {
             p.options = [[SPStore shared] optionsForProjectPath:p.path];
             [[SPStore shared] pushRecentProject:p];
+        } else {
+            [self alert:@"不是工程目录" message:e.localizedDescription ?: @"无法识别"];
         }
         [self reloadAll];
     }];
@@ -557,7 +563,12 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
             return;
         }
         [SPMotion hapticSuccess];
-        SPProject *p = [SPProject projectAtPath:path error:NULL];
+        NSError *e = nil;
+        SPProject *p = [SPProject projectAtPath:path error:&e];
+        if (!p) {
+            [self alert:@"创建失败" message:e.localizedDescription ?: @"模板生成异常"];
+            return;
+        }
         // 新建项目套用「设置 → 编译默认值 + 混淆」
         p.options = [[SPStore shared] optionsForProjectPath:@"__defaults__"];
         [[SPStore shared] saveOptions:p.options forProjectPath:p.path];

@@ -91,6 +91,7 @@ typedef NS_ENUM(NSInteger, SPErrorCode) {
     SPErrorCodeNonZeroExit,
     SPErrorCodeIO,
     SPErrorCodeUnsupported,
+    SPErrorCodeTimeout,
 };
 
 static inline NSError *SPError(SPErrorCode code, NSString *msg) {
