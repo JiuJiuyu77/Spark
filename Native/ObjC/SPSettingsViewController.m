@@ -127,7 +127,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
-        case SPSectionBuildDefaults: return 8;
+        case SPSectionBuildDefaults: return 9;
         case SPSectionObfuscation:   return 4;
         case SPSectionToolchain:     return 7 + (NSInteger)[[SPToolchainDownloader shared] components].count;
         case SPSectionFiles:         return 5;
@@ -329,6 +329,13 @@ typedef NS_ENUM(NSInteger, SPSection) {
         case 5:
             cell.textLabel.text = @"构建前清理";
             [self addSwitch:cell on:o.cleanBeforeBuild tag:6101];
+            break;
+        case 7:
+            cell.textLabel.text = @"产物命名模板";
+            cell.detailTextLabel.text = SPSettings.shared.outputPattern.length
+                ? SPSettings.shared.outputPattern : @"Theos 默认";
+            cell.detailTextLabel.font = [SPTheme mono:11];
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             break;
         case 6:
             cell.textLabel.text = @"ldid 补签";
@@ -691,7 +698,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
     }
     if (ip.section == SPSectionTarget) { [self editTargetAt:ip.row]; return; }
 
-    if (ip.section == SPSectionCompile && ip.row == 5) {
+    if (ip.section == SPSectionBuildDefaults && ip.row == 7) {
         [self editOutputPattern];
         return;
     }
