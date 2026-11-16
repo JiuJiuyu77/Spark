@@ -115,6 +115,16 @@ def check(path: str):
         if re.search(r'@interface\s+\w+\s*\([^)]*\)\s*<[^>]+>\s*<', line):
             PROBLEMS.append(f'{name}:{lineno}: @interface 后跟了两个协议列表，应合并成 <A, B>')
 
+    # 4d. @implementation / @interface 与 @end 必须配对
+    clean = re.sub(r'"(?:[^"\\\n]|\\.)*"', '""', text)
+    n_impl = len(re.findall(r'@implementation\b', clean))
+    n_iface = len(re.findall(r'@interface\b', clean))
+    n_end = len(re.findall(r'@end\b', clean))
+    if n_impl + n_iface != n_end:
+        PROBLEMS.append(
+            f'{name}: @end 不配对（@implementation {n_impl} + @interface {n_iface} '
+            f'需要 {n_impl + n_iface} 个 @end，实际 {n_end} 个）')
+
     # 5. switch 里 case 直接声明变量（粗略：case 行末尾声明且下一个 case 前没有 {）
     in_switch = False
     depth = 0

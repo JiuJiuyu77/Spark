@@ -284,6 +284,7 @@
     return self;
 }
 
+@end
 
 #pragma mark - 设计令牌
 
@@ -299,6 +300,4 @@ const CGFloat SPFloatingBarSideInset = 28;
 + (CGFloat)pageMargin { return SPSpaceM; }
 + (CGFloat)sectionGap { return SPSpaceL; }
 + (CGFloat)inlineGap  { return SPSpaceXS; }
-@end
-
 @end
