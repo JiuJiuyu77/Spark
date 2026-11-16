@@ -8,6 +8,8 @@
 #import "SPSignatureAudit.h"
 #import "SPStore.h"
 #import <sys/wait.h>
+#import <spawn.h>
+#import <crt_externs.h>
 
 @interface SPSignatureViewController () <UIDocumentPickerDelegate>
 @property (nonatomic, strong) UITableView *table;
@@ -99,7 +101,7 @@
             NSString *cmd = [NSString stringWithFormat:@"unzip -oq %@ -d %@",
                              [SPUtil shellQuote:path], [SPUtil shellQuote:tmp]];
             const char *argv[] = {"/bin/sh", "-c", cmd.UTF8String, NULL};
-            posix_spawn(&pid, "/bin/sh", NULL, NULL, (char *const *)argv, environ);
+            posix_spawn(&pid, "/bin/sh", NULL, NULL, (char *const *)argv, *_NSGetEnviron());
             int st = 0; waitpid(pid, &st, 0);
             appPath = [tmp stringByAppendingPathComponent:@"Payload"];
         }
