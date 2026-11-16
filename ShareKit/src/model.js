@@ -389,7 +389,37 @@ export function buildScript(project, options = {}, profile = {}) {
   // deb 压缩：xz -1 是速度/体积平衡点（默认 xz -6 在手机上慢得多）
   lines.push('export THEOS_PLATFORM_DEB_COMPRESSION_LEVEL=1');
 
-  lines.push('', "say '开始编译'", `echo "+ make ${args.join(' ')}"`, 'make ' + args.map(q).join(' '), 'rc=$?');
+  // 收尾用 trap 保证执行：
+  // 之前「编译失败 → exit」跳过了后面的 report.json 生成，
+  // 失败构建没有任何留档，事后无法查。
+  lines.push('');
+  lines.push(`write_report() {
+  rc_final=\${1:-0}
+  END=$(date +%s)
+  {
+    printf '{\\n'
+    printf '  "project": "%s",\\n' ${JSON.stringify(project.path || '')}
+    printf '  "options": { "arch": "%s", "format": "%s", "debug": %s },\\n' ${JSON.stringify(o.arch)} ${JSON.stringify(o.format)} '${o.debug ? 'true' : 'false'}'
+    printf '  "artifacts": ['
+    first=1
+    for a in packages/*.deb; do
+      [ -f "$a" ] || continue
+      [ $first = 1 ] || printf ','
+      first=0
+      printf '\\n    "%s"' "$a"
+    done
+    printf '\\n  ],\\n'
+    printf '  "durationSec": %s,\\n' "$((END - begin))"
+    printf '  "exitCode": %s\\n' "$rc_final"
+    printf '}\\n'
+  } > report.json 2>/dev/null || true
+}`);
+  lines.push(`trap 'write_report $?' EXIT`);
+  lines.push('');
+  lines.push("say '开始编译'");
+  lines.push(`echo "+ make ${args.join(' ')}"`);
+  lines.push('make ' + args.map(q).join(' '));
+  lines.push('rc=$?');
   lines.push('end=$(date +%s)');
   lines.push('if [ $rc -ne 0 ]; then echo "[!] 编译失败，退出码 $rc"; exit $rc; fi');
   lines.push('ok "用时 $((end - begin)) 秒"');
@@ -405,22 +435,7 @@ export function buildScript(project, options = {}, profile = {}) {
   lines.push(`  fi`);
   lines.push(`done`);
 
-  // 构建报告（report.json）：把关键信息留档，方便事后查
-  lines.push('', "say '生成构建报告'");
-  lines.push(`END=$(date +%s)`);
-  lines.push(`cat > report.json <<__SPARK_REPORT__` );
-  lines.push('{');
-  lines.push(`  "project": "${(project.path || '').replace(/"/g, '')}",`);
-  lines.push('  "options": { "arch": "' + o.arch + '", "format": "' + o.format + '", "debug": ' + (o.debug ? 'true' : 'false') + ' },');
-  lines.push('  "artifacts": [');
-  lines.push(`    $(ls packages/*.deb 2>/dev/null | sed 's/.*/"&",/' | sed '$ s/,$//')`);
-  lines.push('  ],');
-  lines.push('  "durationSec": $((END - begin)),');
-  lines.push('  "exitCode": $rc');
-  lines.push('}');
-  lines.push('__SPARK_REPORT__');
-  lines.push('ok "report.json 已生成"');
-  return lines.join('\n') + '\n';
+  return lines.join('\n');
 }
 
 /** 单引号包裹一个 shell 参数 */
