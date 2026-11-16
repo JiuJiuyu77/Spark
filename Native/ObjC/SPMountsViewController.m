@@ -343,12 +343,6 @@
     return cell;
 }
 
-- (void)toggleExpose:(UISwitch *)sw {
-    [SPMountManager shared].exposeToFilesApp = sw.isOn;
-    [SPMotion hapticLight];
-    [self toast:sw.isOn ? @"已在文件 App 中显示" : @"已从文件 App 中隐藏"];
-}
-
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
     if (ip.section == 1) return;
