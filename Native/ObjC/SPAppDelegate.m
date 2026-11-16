@@ -169,14 +169,20 @@
     // 挂到 tabs.view 上用 safeArea 约束，布局时机与系统一致。
     [self.tabs.view addSubview:self.floatBar];
     UILayoutGuide *safe = self.tabs.view.safeAreaLayoutGuide;
+
+    // 位置按 iOS 系统 tab bar 的观感来：
+    //   · 左右 16pt（原来是 28，显得太窄）
+    //   · 紧贴安全区底部，只留 4pt（原来 8pt，配上 additionalSafeAreaInsets
+    //     的 74 会显得浮在半空）
     [NSLayoutConstraint activateConstraints:@[
-        [self.floatBar.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:SPFloatingBarSideInset],
-        [self.floatBar.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-SPFloatingBarSideInset],
-        [self.floatBar.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-SPSpaceXS],
+        [self.floatBar.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:SPSpaceM],
+        [self.floatBar.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-SPSpaceM],
+        [self.floatBar.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-SPSpaceXXS],
+        [self.floatBar.heightAnchor constraintEqualToConstant:SPFloatingBarHeight],
     ]];
 
     // 让内容底部留出悬浮栏的高度，避免最后一行被挡住
-    self.tabs.additionalSafeAreaInsets = UIEdgeInsetsMake(0, 0, SPFloatingBarInset, 0);
+    self.tabs.additionalSafeAreaInsets = UIEdgeInsetsMake(0, 0, SPFloatingBarHeight + SPSpaceM, 0);
 }
 
 #pragma mark - SPFloatTabBarDelegate

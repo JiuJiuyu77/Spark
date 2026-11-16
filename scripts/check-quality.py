@@ -101,6 +101,47 @@ def check_file(path: str):
                 f'{name}:{i}: 会被保存的 block 里直接引用 self，可能循环引用。'
                 f'建议 __weak typeof(self) weakSelf = self;')
 
+    # 3b. copy 属性必须指向实现了 NSCopying 的类型
+    #
+    # 这是本项目最严重的一个崩溃（从 v1.0.0 一直存在）：
+    #   @property (nonatomic, copy) SPCommandResult *result;
+    # SPCommandResult 没实现 NSCopying，赋值时 objc_setProperty 会
+    # 发 copyWithZone: → 找不到方法 → 转发异常 → abort。
+    # 表现就是「一编译就闪退」。
+    SAFE_COPY_TYPES = {
+        'NSString', 'NSArray', 'NSDictionary', 'NSSet', 'NSData',
+        'NSAttributedString', 'NSURL', 'NSNumber', 'NSDate',
+        'NSOrderedSet', 'NSIndexSet', 'NSCharacterSet', 'NSMutableString',
+        'NSMutableArray', 'NSMutableDictionary', 'NSMutableData',
+    }
+    # 先收集项目中声明了 NSCopying 的类
+    copyable = set()
+    srcdir = os.path.dirname(path)
+    for other in glob.glob(os.path.join(srcdir, '*.h')) + glob.glob(os.path.join(srcdir, '*.m')):
+        t = open(other, encoding='utf-8', errors='ignore').read()
+        for m in re.finditer(r'@interface\s+(\w+)\s*:[^{\n]*NSCopying', t):
+            copyable.add(m.group(1))
+        for m in re.finditer(r'@interface\s+(\w+)\s*\([^)]*\)[^{\n]*NSCopying', t):
+            copyable.add(m.group(1))
+
+    for i, line in enumerate(lines, 1):
+        m = re.search(r'@property\s*\(([^)]*\bcopy\b[^)]*)\)\s*([\w<>,\s]*?)\s*\*?\s*(\w+)\s*;', line)
+        if not m:
+            continue
+        attrs, typ = m.group(1), m.group(2)
+        # 对象类型才算
+        if '*' not in line.split(m.group(3))[0]:
+            continue
+        base = re.sub(r'<.*?>', '', typ).replace('*', '').strip()
+        if not base: continue
+        if base in SAFE_COPY_TYPES: continue
+        if base in copyable: continue
+        # block 类型（^）安全
+        if '^' in line: continue
+        problems.append(
+            f'{name}:{i}: {base} *用了 copy 但没实现 NSCopying，'
+            f'赋值时会因 copyWithZone: 找不到而崩溃。改用 strong。')
+
     # 4. 统计
     n_null = text.count('error:NULL')
     if n_null:

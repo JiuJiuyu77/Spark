@@ -98,11 +98,19 @@ static void SPApplyColorMatrix(CALayer *layer, const CGFloat m[20]) {
     SPSetIfPossible(self.layer, @"groupName", backdropGroup);
 }
 
+/// 私有层是否真的可用（有些系统版本上 NSClassFromString 能拿到类，
+/// 但用起来没效果）
+- (BOOL)isUsable {
+    return SPBackdropLayerClass() != nil
+        && [self.layer isKindOfClass:SPBackdropLayerClass()];
+}
+
 @end
 
 #pragma mark - SPLiquidGlassView
 
 @interface SPLiquidGlassView ()
+@property (nonatomic, strong) UIVisualEffectView *blurFallback;
 @property (nonatomic, strong) SPBackdropView *backdrop;
 @property (nonatomic, strong) UIView *tintView;
 @property (nonatomic, strong) CAShapeLayer *rimLayer;
@@ -135,8 +143,28 @@ static void SPApplyColorMatrix(CALayer *layer, const CGFloat m[20]) {
     self.backgroundColor = UIColor.clearColor;
     self.clipsToBounds = NO;
 
-    // 1) 背景抓取（私有 API）
+    // 0) 系统模糊兜底 —— 一定生效，保证「看得出是玻璃」
+    //    私有 CABackdropLayer 在部分系统版本上会被限制（拿不到背后内容），
+    //    这时如果没有这层，界面就只剩一层几乎看不见的 tint。
+    UIVisualEffectView *fx = [[UIVisualEffectView alloc] initWithEffect:
+        [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial]];
+    fx.translatesAutoresizingMaskIntoConstraints = NO;
+    fx.userInteractionEnabled = NO;
+    fx.clipsToBounds = YES;
+    fx.layer.cornerRadius = _cornerRadius;
+    if (@available(iOS 13.0, *)) fx.layer.cornerCurve = kCACornerCurveContinuous;
+    [self addSubview:fx];
+    [NSLayoutConstraint activateConstraints:@[
+        [fx.topAnchor constraintEqualToAnchor:self.topAnchor],
+        [fx.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
+        [fx.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
+        [fx.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
+    ]];
+    _blurFallback = fx;
+
+    // 1) 背景抓取（私有 API，能拿到就有折射）
     _backdrop = [[SPBackdropView alloc] initWithFrame:self.bounds];
+    _backdrop.alpha = 0.0;   // 默认不显示，只有确认可用才打开
     _backdrop.translatesAutoresizingMaskIntoConstraints = NO;
     _backdrop.layer.cornerRadius = _cornerRadius;
     _backdrop.layer.masksToBounds = YES;
@@ -177,6 +205,11 @@ static void SPApplyColorMatrix(CALayer *layer, const CGFloat m[20]) {
     _glareLayer.cornerRadius = _cornerRadius;
     _glareLayer.opacity = 0.5f;
     [self.layer addSublayer:_glareLayer];
+
+    _backdrop.alpha = [_backdrop isUsable] ? 1.0 : 0.0;
+    if (![_backdrop isUsable]) {
+        SPLog(@"CABackdropLayer 不可用，玻璃退回系统模糊");
+    }
 
     [self refreshColors];
     [self installRefractionFilter];
@@ -225,6 +258,7 @@ static void SPApplyColorMatrix(CALayer *layer, const CGFloat m[20]) {
     _cornerRadius = cornerRadius;
     _backdrop.layer.cornerRadius = cornerRadius;
     _tintView.layer.cornerRadius = cornerRadius;
+    _blurFallback.layer.cornerRadius = cornerRadius;
     _glareLayer.cornerRadius = cornerRadius;
     [self setNeedsLayout];
 }

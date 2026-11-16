@@ -380,8 +380,8 @@
 
 @implementation SPFloatTabBar
 
-static CGFloat const kItemHeight = 56;   // 参考 TabBar 的 itemHeight
-static CGFloat const kInnerInset = 4;    // 参考 TabBar 的 innerInset
+static CGFloat const kItemHeight = 54;   // 与 SPFloatingBarHeight(60) 配合：54 + 3*2 = 60
+static CGFloat const kInnerInset = 3;    // 参考 TabBar 的 innerInset（略收紧）
 
 - (instancetype)initWithTitles:(NSArray<NSString *> *)titles
                        symbols:(NSArray<NSString *> *)symbols
@@ -486,7 +486,7 @@ static CGFloat const kInnerInset = 4;    // 参考 TabBar 的 innerInset
         [b setAttributedTitle:selected forState:UIControlStateSelected | UIControlStateHighlighted];
 
         UIImageSymbolConfiguration *icfg =
-            [UIImageSymbolConfiguration configurationWithPointSize:SPIconSizeMedium - 4
+            [UIImageSymbolConfiguration configurationWithPointSize:SPIconSizeMedium - 6
                                                             weight:UIImageSymbolWeightRegular];
         [b setImage:[UIImage systemImageNamed:self.symbols[i] withConfiguration:icfg]
             forState:UIControlStateNormal];
@@ -495,8 +495,10 @@ static CGFloat const kInnerInset = 4;    // 参考 TabBar 的 innerInset
 
         // 图标在上、文字在下
         b.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
-        b.imageEdgeInsets = UIEdgeInsetsMake(-8, 0, 10, 0);
-        b.titleEdgeInsets = UIEdgeInsetsMake(22, 0, -22, 0);
+        // 图标在上、文字在下；偏移量按 60pt 高度调过，
+        // 之前用 -8/10/22 会让文字压到胶囊底部
+        b.imageEdgeInsets = UIEdgeInsetsMake(-6, 0, 8, 0);
+        b.titleEdgeInsets = UIEdgeInsetsMake(18, 0, -18, 0);
 
         [stack addArrangedSubview:b];
         [self.buttons addObject:b];

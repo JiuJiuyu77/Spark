@@ -52,7 +52,11 @@ void SPSessionReapAllChildren(void) {
 @property (nonatomic, strong) NSDate *startTime;
 @property (nonatomic, assign) BOOL cancelRequested;
 @property (nonatomic, assign) BOOL timedOut;
-@property (nonatomic, copy) SPCommandResult *result;
+// 必须是 strong 而不是 copy：
+// SPCommandResult 没有实现 NSCopying，用 copy 会发送 copyWithZone:
+// → 找不到方法 → _copyDescription → 转发异常 → abort。
+// 这就是从 v1.0.0 一直存在的「构建时闪退」的真正根因。
+@property (nonatomic, strong) SPCommandResult *result;
 @property (nonatomic, strong) dispatch_queue_t readQueue;
 @property (nonatomic, assign) BOOL finished;
 @end

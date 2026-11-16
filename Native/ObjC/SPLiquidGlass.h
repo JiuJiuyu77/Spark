@@ -31,6 +31,9 @@ NS_ASSUME_NONNULL_BEGIN
 @interface SPBackdropView : UIView
 /// 同组 backdrop 共享采样（照搬 LiquidGlassKit 的 groupName）
 @property (nonatomic, copy) NSString *backdropGroup;
+
+/// 私有 CABackdropLayer 是否真的可用（不可用时退回系统模糊）
+- (BOOL)isUsable;
 @end
 
 /// 液态玻璃视图
