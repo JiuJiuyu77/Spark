@@ -110,6 +110,11 @@ def check(path: str):
             if owner in line and member in line:
                 PROBLEMS.append(f'{name}:{lineno}: {hint}')
 
+    # 4c. @interface 后跟两个协议列表（<A> <B>）是语法错误
+    for lineno, line in enumerate(lines, 1):
+        if re.search(r'@interface\s+\w+\s*\([^)]*\)\s*<[^>]+>\s*<', line):
+            PROBLEMS.append(f'{name}:{lineno}: @interface 后跟了两个协议列表，应合并成 <A, B>')
+
     # 5. switch 里 case 直接声明变量（粗略：case 行末尾声明且下一个 case 前没有 {）
     in_switch = False
     depth = 0

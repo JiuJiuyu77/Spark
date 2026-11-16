@@ -20,7 +20,7 @@
 NSString *const SPOpenToolchainTabNotification = @"SPOpenToolchainTab";
 NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
 
-@interface SPProjectsViewController () <UIDocumentPickerDelegate> <UIAdaptivePresentationControllerDelegate>
+@interface SPProjectsViewController () <UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate>
 @property (nonatomic, strong) UITableView *table;
 @property (nonatomic, strong) NSArray<NSDictionary *> *items;
 @property (nonatomic, strong) UISearchController *search;
