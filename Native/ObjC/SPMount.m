@@ -355,12 +355,17 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
     }
     [[self.session downloadTaskWithRequest:req completionHandler:^(NSURL *location, NSURLResponse *resp, NSError *err) {
         BOOL ok = NO; NSError *outErr = err;
-        if (location && !err) {
+        NSInteger status = [(NSHTTPURLResponse *)resp statusCode];
+        if (!outErr && (status < 200 || status >= 300)) {
+            outErr = SPError(SPErrorCodeIO, [NSString stringWithFormat:@"下载失败：HTTP %ld", (long)status]);
+        }
+        if (location && !outErr) {
             NSFileManager *fm = NSFileManager.defaultManager;
             [fm createDirectoryAtPath:[localPath stringByDeletingLastPathComponent]
           withIntermediateDirectories:YES attributes:nil error:NULL];
-            [fm removeItemAtPath:localPath error:NULL];
-            ok = [fm moveItemAtURL:location toURL:[NSURL fileURLWithPath:localPath] error:&outErr];
+            // 下载到临时文件成功后原子替换，不先删除已有数据。
+            NSData *payload = [NSData dataWithContentsOfURL:location options:NSDataReadingMappedIfSafe error:&outErr];
+            if (payload) ok = [payload writeToFile:localPath options:NSDataWritingAtomic error:&outErr];
         }
         dispatch_async(dispatch_get_main_queue(), ^{ if (completion) completion(ok, outErr); });
     }] resume];
@@ -448,7 +453,13 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
         NSString *safeName = [m.displayName stringByReplacingOccurrencesOfString:@"/" withString:@"_"];
         NSString *linkPath = [documents stringByAppendingPathComponent:
                               [linkPrefix stringByAppendingString:safeName]];
-        [fm removeItemAtPath:linkPath error:NULL];
+        // 绝不覆盖用户同名真实目录或文件。
+        NSDictionary *existing = [fm attributesOfItemAtPath:linkPath error:NULL];
+        if (existing && ![existing[NSFileType] isEqualToString:NSFileTypeSymbolicLink]) {
+            SPLog(@"保留同名真实内容，跳过快捷方式：%@", linkPath);
+            continue;
+        }
+        if (existing) [fm removeItemAtPath:linkPath error:NULL];
         NSError *err = nil;
         [fm createSymbolicLinkAtPath:linkPath withDestinationPath:target error:&err];
         if (err) SPLog(@"创建文件 App 链接失败 %@：%@", safeName, err.localizedDescription);
@@ -495,7 +506,7 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
               into:(NSString *)localRoot
           progress:(void (^)(NSString *))progress
         completion:(void (^)(BOOL, NSError *))completion {
-    NSMutableArray *queue = [NSMutableArray arrayWithObject:@[mount.baseURL ?: @"", localRoot, @0]];
+    NSMutableArray *queue = [NSMutableArray arrayWithObject:@[@"/", localRoot, @0]];
     NSUInteger downloaded = 0;
     NSError *fatal = nil;
 
@@ -505,15 +516,26 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
         NSString *remote = item[0];
         NSString *local = item[1];
         NSInteger depth = [item[2] integerValue];
-        if (depth > 3) continue;   // 只同步 3 层，够看目录结构
+        if (depth > 3) {
+            fatal = fatal ?: SPError(SPErrorCodeUnsupported, @"达到同步深度上限，内容未全部同步");
+            continue;
+        }   // 只同步 3 层，够看目录结构
 
         NSArray *entries = [self syncListWebDAV:remote mount:mount];
-        if (!entries) continue;
+        if (!entries) {
+            fatal = fatal ?: SPError(SPErrorCodeIO, @"列举远端目录失败或超时，请检查网络后重试");
+            continue;
+        }
 
         for (SPMountEntry *e in entries) {
             NSString *name = e.name;
             BOOL isDir = e.isDirectory;
             if (!name.length || [name hasPrefix:@"."]) continue;
+            if ([name containsString:@"/"] || [name containsString:@"\\"] ||
+                [name isEqualToString:@".."] || [name isAbsolutePath]) {
+                fatal = fatal ?: SPError(SPErrorCodeIO, @"远端返回非法文件名，已拒绝写入");
+                continue;
+            }
 
             // 优先用服务端返回的相对路径，避免手拼时多/少斜杠
             NSString *full = e.path.length ? e.path
@@ -521,25 +543,41 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
                    ([remote hasSuffix:@"/"] ? name : [@"/" stringByAppendingString:name])];
             NSString *localPath = [local stringByAppendingPathComponent:name];
 
+            NSString *resolvedRoot = [localRoot stringByResolvingSymlinksInPath];
+            NSString *resolved = [localPath stringByResolvingSymlinksInPath];
+            if (![resolved hasPrefix:[resolvedRoot stringByAppendingString:@"/"]]) {
+                fatal = fatal ?: SPError(SPErrorCodeIO, @"本地同步路径越界，已拒绝写入");
+                continue;
+            }
             if (isDir) {
-                [[NSFileManager defaultManager] createDirectoryAtPath:localPath
-                                         withIntermediateDirectories:YES attributes:nil error:NULL];
+                NSError *directoryError = nil;
+                if (![[NSFileManager defaultManager] createDirectoryAtPath:localPath
+                    withIntermediateDirectories:YES attributes:nil error:&directoryError]) {
+                    fatal = fatal ?: directoryError;
+                    continue;
+                }
                 [queue addObject:@[full, localPath, @(depth + 1)]];
             } else if (downloaded < 500) {   // 单个挂载最多同步 500 个文件
                 BOOL ok = [self syncDownloadWebDAV:full mount:mount to:localPath];
                 if (ok) {
                     downloaded++;
                     if (progress && downloaded % 20 == 0) {
-                        progress([NSString stringWithFormat:@"已同步 %lu 个文件", (unsigned long)downloaded]);
+                        NSString *message = [NSString stringWithFormat:@"已同步 %lu 个文件", (unsigned long)downloaded];
+                        dispatch_async(dispatch_get_main_queue(), ^{ progress(message); });
                     }
+                } else {
+                    fatal = fatal ?: SPError(SPErrorCodeIO, @"部分文件下载失败或超时，同步未完成");
                 }
+            } else {
+                fatal = fatal ?: SPError(SPErrorCodeUnsupported, @"达到 500 文件上限，内容未全部同步");
             }
         }
     }
 
     SPLog(@"挂载同步完成：%@ 共 %lu 个文件", mount.displayName, (unsigned long)downloaded);
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (progress) progress([NSString stringWithFormat:@"完成，共 %lu 个文件", (unsigned long)downloaded]);
+        if (progress) progress([NSString stringWithFormat:@"%@，已同步 %lu 个文件",
+            fatal ? @"部分完成" : @"完成", (unsigned long)downloaded]);
         [self refreshFilesAppLinks];
         if (completion) completion(fatal == nil, fatal);
     });
