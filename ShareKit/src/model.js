@@ -357,10 +357,21 @@ export function buildScript(project, options = {}, profile = {}) {
   if (profile.ollvmRoot) {
     lines.push('CCBIN="$CA_TOOL_OLLVM_CLANG"; "$CCBIN" --version >/dev/null 2>&1 && ok "OLLVM 编译器 $("$CCBIN" --version | head -1)" || { warn "OLLVM clang 不可用（$CCBIN），可先关掉混淆重试"; exit 4; }');
   } else {
-    lines.push('CCBIN="${THEOS_TOOLCHAIN:-}/clang-16"; [ -x "$CCBIN" ] && ok "Darwin clang $("$CCBIN" --version 2>/dev/null | head -1)" || warn "未找到 Darwin clang，若 Theos 报 toolchain 缺失请检查 theos-root/usr/bin"');
+    // 从 PATH 里实际找，而不是依赖一个外部变量：
+    // 之前用 ${THEOS_TOOLCHAIN:-}/clang-16，该变量从未被设置，
+    // 结果每次都打印「未找到 Darwin clang」，误导排查方向。
+    lines.push('CCBIN=$(command -v clang-16 2>/dev/null || command -v clang 2>/dev/null || true); ' +
+               '[ -n "$CCBIN" ] && ok "编译器 $CCBIN $("$CCBIN" --version 2>/dev/null | head -1)" || ' +
+               '{ warn "PATH 里没有 clang-16/clang"; exit 5; }');
+    lines.push('command -v ld64 >/dev/null 2>&1 && ok "链接器 $(command -v ld64)" || ' +
+               '{ warn "PATH 里没有 ld64，链接会失败"; exit 6; }');
   }
   lines.push('command -v ldid >/dev/null 2>&1 && ok "ldid $(command -v ldid)" || warn "没有 ldid，打包后不会补签"');
-  lines.push('[ -d "$THEOS" ] && ok "THEOS=$THEOS" || warn "THEOS 不存在"');
+  // THEOS 是编译前提：没有它 make 连 makefiles 都找不到。
+  // 之前只是 warn，会一路跑到 make 才报一堆看不懂的错。
+  lines.push('[ -n "${THEOS:-}" ] && [ -d "$THEOS" ] && ok "THEOS=$THEOS" || ' +
+             '{ warn "THEOS 未设置或不存在（$THEOS）—— 请先在「设置 → 工具链」展开内置工具链"; exit 7; }');
+  lines.push('[ -f "$THEOS/makefiles/common.mk" ] || { warn "THEOS 里没有 makefiles/common.mk，工具链不完整"; exit 8; }');
   lines.push('[ -z "$THEOS_SDK" ] || { [ -d "$THEOS_SDK" ] && ok "SDK=$THEOS_SDK" || warn "SDK 不存在: $THEOS_SDK"; }');
 
   lines.push('', `cd ${q(cwd)} || { echo "项目目录不存在: ${cwd}"; exit 2; }`);
