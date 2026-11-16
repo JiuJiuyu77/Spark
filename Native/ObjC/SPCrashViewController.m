@@ -20,8 +20,7 @@
     [super viewDidLoad];
     self.view.backgroundColor = [SPTheme background];
     self.title = @"崩溃分析";
-    self.navigationController.navigationBar.prefersLargeTitles = YES;
-    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
 
     self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
     self.table.backgroundColor = [SPTheme background];

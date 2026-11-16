@@ -463,6 +463,25 @@ jobs:
           du -sh "$EXT"
 
           # ------------------------------------------------------------------
+          # 内置注入工具（来源：Lessica/TrollFools，MIT）
+          # ct_bypass / insert_dylib / optool / CydiaSubstrate.framework
+          # 放在 .app/bin 下，注入时优先用它们，不必依赖用户自备
+          # ------------------------------------------------------------------
+          echo "==> 安装内置注入工具"
+          if [ -d Native/TrollTools ]; then
+            mkdir -p "$APP/bin"
+            cp Native/TrollTools/ct_bypass Native/TrollTools/insert_dylib \
+               Native/TrollTools/optool "$APP/bin/" 2>/dev/null || true
+            chmod 755 "$APP/bin/ct_bypass" "$APP/bin/insert_dylib" "$APP/bin/optool" 2>/dev/null || true
+            if [ -d Native/TrollTools/CydiaSubstrate.framework ]; then
+              mkdir -p "$APP/Frameworks"
+              cp -R Native/TrollTools/CydiaSubstrate.framework "$APP/Frameworks/"
+              chmod 755 "$APP/Frameworks/CydiaSubstrate.framework/CydiaSubstrate" 2>/dev/null || true
+            fi
+            ls -lh "$APP/bin"
+          fi
+
+          # ------------------------------------------------------------------
           # 编译 JIT helper（必须在签名之前：它是独立进程，要单独签名）
           # ------------------------------------------------------------------
           echo "==> 编译 JIT helper"

@@ -1,72 +1,85 @@
 //
 //  SPGlassKit.m
 //
+//  液态玻璃视觉参考 sunimp/TabBar（MIT）的设计思路：
+//    · 胶囊容器：内容高 56，内边距 4，总高 64，圆角 = 高度/2
+//    · 选中指示：一个「液态透镜」—— 比容器略小的圆角矩形，
+//      用弹簧从旧位置滑到新位置，同时纵向轻微压缩再回弹（水感）
+//    · 背景：UIVisualEffectView 模糊 + 极轻的色调叠层
+//    · 细描边：上亮下暗模拟玻璃边缘折射
+//
+//  没有照搬它的 CAFilter 私有 API 与 Lottie 依赖 —— 只借视觉参数，
+//  实现全部用公开 API，保证 TrollStore 环境稳定运行。
+//
 
 #import "SPGlassKit.h"
 #import "SPTheme.h"
 
-#pragma mark - SPGlassMaterial
+#pragma mark - 玻璃材质
 
 @implementation SPGlassMaterial
 
 + (void)applyTo:(UIView *)view cornerRadius:(CGFloat)radius tint:(UIColor *)tint {
-    static const NSInteger kBlurTag = 0x6C6179;   // 'glay'
-    static const NSInteger kTintTag = 0x74696E74; // 'tint'
-    static const NSInteger kBorderTag = 0x626F7264;
+    if (!view) return;
 
-    [[view viewWithTag:kBlurTag] removeFromSuperview];
-    [[view viewWithTag:kTintTag] removeFromSuperview];
-    [[view viewWithTag:kBorderTag].layer removeFromSuperlayer];
-
-    // 1) 模糊层：系统厚材质，深浅色自动适配
-    UIVisualEffectView *blur = [[UIVisualEffectView alloc]
-        initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemThickMaterial]];
-    blur.tag = kBlurTag;
-    blur.userInteractionEnabled = NO;
-    blur.translatesAutoresizingMaskIntoConstraints = NO;
-    [view insertSubview:blur atIndex:0];
-    [NSLayoutConstraint activateConstraints:@[
-        [blur.topAnchor constraintEqualToAnchor:view.topAnchor],
-        [blur.leadingAnchor constraintEqualToAnchor:view.leadingAnchor],
-        [blur.trailingAnchor constraintEqualToAnchor:view.trailingAnchor],
-        [blur.bottomAnchor constraintEqualToAnchor:view.bottomAnchor],
-    ]];
-
-    // 2) 色调层：给玻璃一点「自己的颜色」，避免纯灰
-    UIColor *t = tint ?: [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
-        return tc.userInterfaceStyle == UIUserInterfaceStyleDark
-            ? [UIColor colorWithWhite:1.0 alpha:0.06]
-            : [UIColor colorWithWhite:1.0 alpha:0.55];
-    }];
-    UIView *tintView = [[UIView alloc] init];
-    tintView.tag = kTintTag;
-    tintView.userInteractionEnabled = NO;
-    tintView.backgroundColor = t;
-    tintView.translatesAutoresizingMaskIntoConstraints = NO;
-    [view insertSubview:tintView aboveSubview:blur];
-    [NSLayoutConstraint activateConstraints:@[
-        [tintView.topAnchor constraintEqualToAnchor:view.topAnchor],
-        [tintView.leadingAnchor constraintEqualToAnchor:view.leadingAnchor],
-        [tintView.trailingAnchor constraintEqualToAnchor:view.trailingAnchor],
-        [tintView.bottomAnchor constraintEqualToAnchor:view.bottomAnchor],
-    ]];
-
-    // 3) 折射高光：上亮下暗的描边
-    // 先移除旧的描边/高光，避免每次 layout 叠加
-    for (CALayer *l in [view.layer.sublayers copy]) {
-        if ([l.name isEqualToString:@"sp.glass.border"] ||
-            [l.name isEqualToString:@"sp.glass.highlight"]) [l removeFromSuperlayer];
+    // 1) 模糊
+    UIVisualEffectView *blur = nil;
+    for (UIView *sub in view.subviews) {
+        if ([sub isKindOfClass:UIVisualEffectView.class]) { blur = (UIVisualEffectView *)sub; break; }
     }
-    CAGradientLayer *highlight = [self specularHighlightForBounds:view.bounds cornerRadius:radius];
-    [view.layer addSublayer:highlight];
-    CALayer *border = [self specularBorderForBounds:view.bounds cornerRadius:radius];
+    if (!blur) {
+        blur = [[UIVisualEffectView alloc] initWithEffect:
+                [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterial]];
+        blur.translatesAutoresizingMaskIntoConstraints = NO;
+        blur.userInteractionEnabled = NO;
+        [view insertSubview:blur atIndex:0];
+        [NSLayoutConstraint activateConstraints:@[
+            [blur.topAnchor constraintEqualToAnchor:view.topAnchor],
+            [blur.leadingAnchor constraintEqualToAnchor:view.leadingAnchor],
+            [blur.trailingAnchor constraintEqualToAnchor:view.trailingAnchor],
+            [blur.bottomAnchor constraintEqualToAnchor:view.bottomAnchor],
+        ]];
+    }
+
+    // 2) 色调叠层（很轻，只负责偏色，不抢背景）
+    if (tint) {
+        UIView *tintView = nil;
+        for (UIView *sub in view.subviews) {
+            if ([sub.restorationIdentifier isEqualToString:@"sp.glass.tint"]) { tintView = sub; break; }
+        }
+        if (!tintView) {
+            tintView = [[UIView alloc] init];
+            tintView.restorationIdentifier = @"sp.glass.tint";
+            tintView.userInteractionEnabled = NO;
+            tintView.translatesAutoresizingMaskIntoConstraints = NO;
+            [view insertSubview:tintView aboveSubview:blur];
+            [NSLayoutConstraint activateConstraints:@[
+                [tintView.topAnchor constraintEqualToAnchor:view.topAnchor],
+                [tintView.leadingAnchor constraintEqualToAnchor:view.leadingAnchor],
+                [tintView.trailingAnchor constraintEqualToAnchor:view.trailingAnchor],
+                [tintView.bottomAnchor constraintEqualToAnchor:view.bottomAnchor],
+            ]];
+        }
+        tintView.backgroundColor = [tint colorWithAlphaComponent:0.10];
+        tintView.layer.cornerRadius = radius;
+        if (@available(iOS 13.0, *)) tintView.layer.cornerCurve = kCACornerCurveContinuous;
+        tintView.clipsToBounds = YES;
+    }
+
+    // 3) 描边（上亮下暗）
+    CALayer *border = [self specularBorderForBounds:CGRectZero cornerRadius:radius];
+    border.name = @"sp.glass.border";
+    for (CALayer *l in view.layer.sublayers) {
+        if ([l.name isEqualToString:@"sp.glass.border"]) [l removeFromSuperlayer];
+    }
     [view.layer addSublayer:border];
+    border.frame = view.bounds;
 
     view.clipsToBounds = NO;
     view.layer.cornerRadius = radius;
     if (@available(iOS 13.0, *)) view.layer.cornerCurve = kCACornerCurveContinuous;
 
-    // 4) 外投影：让玻璃「浮」起来
+    // 4) 外投影
     view.layer.shadowColor = UIColor.blackColor.CGColor;
     view.layer.shadowOpacity = 0.18;
     view.layer.shadowRadius = 18;
@@ -74,272 +87,261 @@
     view.layer.masksToBounds = NO;
 }
 
-/// 玻璃描边：用 CAShapeLayer 描一圈，颜色随深浅色切换
-/// （CAGradientLayer 没有 strokeColor，所以这里单独用形状层）
 + (CALayer *)specularBorderForBounds:(CGRect)bounds cornerRadius:(CGFloat)radius {
-    CAShapeLayer *border = [CAShapeLayer layer];
-    border.name = @"sp.glass.border";
-    border.frame = bounds;
-    UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(bounds, 0.5, 0.5)
-                                                    cornerRadius:radius];
-    border.path = path.CGPath;
-    border.fillColor = UIColor.clearColor.CGColor;
-    border.lineWidth = 1.0;
-
+    CAShapeLayer *shape = [CAShapeLayer layer];
+    shape.frame = bounds;
+    shape.path = [UIBezierPath bezierPathWithRoundedRect:bounds cornerRadius:radius].CGPath;
+    shape.fillColor = UIColor.clearColor.CGColor;
+    shape.lineWidth = 1.0;
     BOOL dark = (UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark);
-    border.strokeColor = dark
-        ? [UIColor colorWithWhite:1.0 alpha:0.28].CGColor
-        : [UIColor colorWithWhite:0.0 alpha:0.07].CGColor;
-    return border;
-}
-
-/// 玻璃内部的高光渐变（上亮下暗），单独一层铺在模糊层之上
-+ (CAGradientLayer *)specularHighlightForBounds:(CGRect)bounds cornerRadius:(CGFloat)radius {
-    CAGradientLayer *g = [CAGradientLayer layer];
-    g.name = @"sp.glass.highlight";
-    g.frame = bounds;
-    g.cornerRadius = radius;
-    if (@available(iOS 13.0, *)) g.cornerCurve = kCACornerCurveContinuous;
-
-    BOOL dark = (UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark);
-    if (dark) {
-        g.colors = @[
-            (id)[UIColor colorWithWhite:1.0 alpha:0.12].CGColor,
-            (id)[UIColor colorWithWhite:1.0 alpha:0.03].CGColor,
-            (id)[UIColor clearColor].CGColor,
-        ];
-    } else {
-        g.colors = @[
-            (id)[UIColor colorWithWhite:1.0 alpha:0.65].CGColor,
-            (id)[UIColor colorWithWhite:1.0 alpha:0.10].CGColor,
-            (id)[UIColor clearColor].CGColor,
-        ];
-    }
-    g.locations = @[@0.0, @0.45, @1.0];
-    g.startPoint = CGPointMake(0.5, 0.0);
-    g.endPoint = CGPointMake(0.5, 1.0);
-    return g;
+    shape.strokeColor = dark
+        ? [UIColor colorWithWhite:1.0 alpha:0.30].CGColor
+        : [UIColor colorWithWhite:0.0 alpha:0.06].CGColor;
+    return shape;
 }
 
 @end
 
-#pragma mark - SPGlassCard
+#pragma mark - 玻璃卡片
 
 @interface SPGlassCard ()
-@property (nonatomic, strong) UIView *pressedOverlay;
+@property (nonatomic, strong) UIView *container;
 @end
 
 @implementation SPGlassCard
 
 - (instancetype)initWithFrame:(CGRect)frame {
     if ((self = [super initWithFrame:frame])) {
-        _padding = 14;
-        _cornerRadius = SPRadiusXL;
-        self.backgroundColor = UIColor.clearColor;
+        _padding = SPSpaceM;
+        _cornerRadius = SPRadiusL;
 
-        _contentView = [[UIView alloc] init];
-        _contentView.translatesAutoresizingMaskIntoConstraints = NO;
-        [self addSubview:_contentView];
+        _container = [[UIView alloc] init];
+        _container.translatesAutoresizingMaskIntoConstraints = NO;
+        [self addSubview:_container];
         [NSLayoutConstraint activateConstraints:@[
-            [_contentView.topAnchor constraintEqualToAnchor:self.topAnchor constant:_padding],
-            [_contentView.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:_padding],
-            [_contentView.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-_padding],
-            [_contentView.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:-_padding],
+            [_container.topAnchor constraintEqualToAnchor:self.topAnchor],
+            [_container.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
+            [_container.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
+            [_container.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
         ]];
+        _contentView = _container;
+
+        [SPGlassMaterial applyTo:_container cornerRadius:_cornerRadius tint:nil];
     }
     return self;
 }
 
 - (void)layoutSubviews {
     [super layoutSubviews];
-    [SPGlassMaterial applyTo:self cornerRadius:self.cornerRadius tint:nil];
+    for (CALayer *l in _container.layer.sublayers) {
+        if ([l.name isEqualToString:@"sp.glass.border"]) l.frame = _container.bounds;
+    }
 }
 
 - (void)press {
-    [SPMotion pressDown:self];
+    [SPMotion pressDown:_container];
 }
 
 - (void)releasePressed {
-    [SPMotion pressUp:self];
+    [SPMotion pressUp:_container];
 }
 
 @end
 
-#pragma mark - SPFloatTabBar
-
-@interface SPFloatTabButton : UIView
-@property (nonatomic, copy) NSString *symbolName;
-@property (nonatomic, copy) NSString *selectedSymbolName;
-@property (nonatomic, strong) UIImageView *iconView;
-@property (nonatomic, strong) UILabel *titleLabel;
-@property (nonatomic, strong) UIView *glow;
-@property (nonatomic, assign) BOOL selected;
-@end
-
-@implementation SPFloatTabButton
-
-- (instancetype)initWithTitle:(NSString *)title symbol:(NSString *)symbol selectedSymbol:(NSString *)sel {
-    if ((self = [super init])) {
-        self.translatesAutoresizingMaskIntoConstraints = NO;
-
-        _glow = [[UIView alloc] init];
-        _glow.translatesAutoresizingMaskIntoConstraints = NO;
-        _glow.backgroundColor = [SPTheme accent];
-        _glow.alpha = 0;
-        _glow.layer.cornerRadius = SPRadiusL;
-        [self addSubview:_glow];
-
-        _iconView = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:symbol]];
-        _iconView.contentMode = UIViewContentModeScaleAspectFit;
-        _iconView.translatesAutoresizingMaskIntoConstraints = NO;
-        [self addSubview:_iconView];
-
-        _titleLabel = [[UILabel alloc] init];
-        _titleLabel.text = title;
-        _titleLabel.font = [SPTheme scaled:UIFontTextStyleCaption2 weight:UIFontWeightMedium];
-        _titleLabel.textAlignment = NSTextAlignmentCenter;
-        _titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
-        [self addSubview:_titleLabel];
-
-        [NSLayoutConstraint activateConstraints:@[
-            [_glow.centerXAnchor constraintEqualToAnchor:self.centerXAnchor],
-            [_glow.centerYAnchor constraintEqualToAnchor:self.iconView.centerYAnchor],
-            [_glow.widthAnchor constraintEqualToConstant:44],
-            [_glow.heightAnchor constraintEqualToConstant:30],
-
-            [_iconView.topAnchor constraintEqualToAnchor:self.topAnchor constant:6],
-            [_iconView.centerXAnchor constraintEqualToAnchor:self.centerXAnchor],
-            [_iconView.widthAnchor constraintEqualToConstant:24],
-            [_iconView.heightAnchor constraintEqualToConstant:24],
-
-            [_titleLabel.topAnchor constraintEqualToAnchor:_iconView.bottomAnchor constant:2],
-            [_titleLabel.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
-            [_titleLabel.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
-            [_titleLabel.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:-4],
-        ]];
-        self.symbolName = symbol;
-        self.selectedSymbolName = sel;
-        self.selected = NO;
-    }
-    return self;
-}
-
-- (void)setSelected:(BOOL)selected {
-    _selected = selected;
-    self.iconView.image = [UIImage systemImageNamed:(selected ? self.selectedSymbolName : self.symbolName)];
-    self.iconView.tintColor = selected ? [SPTheme accent] : [SPTheme textDim];
-    self.titleLabel.textColor = selected ? [SPTheme accent] : [SPTheme textDim];
-    [SPMotion spring:^{
-        self.glow.alpha = selected ? 0.16 : 0.0;
-        self.iconView.transform = selected ? CGAffineTransformMakeScale(1.06, 1.06) : CGAffineTransformIdentity;
-    }];
-}
-
-@end
+#pragma mark - 悬浮底部栏
 
 @interface SPFloatTabBar ()
-@property (nonatomic, strong) UIVisualEffectView *blur;
-@property (nonatomic, strong) UIView *container;
-@property (nonatomic, strong) NSMutableArray<SPFloatTabButton *> *buttons;
-@property (nonatomic, strong) UIView *indicator;
-@property (nonatomic, assign) BOOL scrolledDown;
+@property (nonatomic, strong) UIView *capsule;          // 胶囊容器
+@property (nonatomic, strong) SPLiquidLens *lens;        // 液态选中指示
+@property (nonatomic, strong) NSMutableArray<UIButton *> *buttons;
+@property (nonatomic, assign) NSInteger lensIndex;
+@property (nonatomic, assign) BOOL didSetup;
 @end
 
 @implementation SPFloatTabBar
+
+static CGFloat const kItemHeight = 56;   // 参考 TabBar 的 itemHeight
+static CGFloat const kInnerInset = 4;    // 参考 TabBar 的 innerInset
 
 - (instancetype)initWithTitles:(NSArray<NSString *> *)titles
                        symbols:(NSArray<NSString *> *)symbols
                selectedSymbols:(NSArray<NSString *> *)selectedSymbols {
     if ((self = [super initWithFrame:CGRectZero])) {
-        self.titles = titles;
-        self.symbols = symbols;
-        self.selectedSymbols = selectedSymbols;
+        _titles = [titles copy];
+        _symbols = [symbols copy];
+        _selectedSymbols = [selectedSymbols copy];
         _buttons = [NSMutableArray array];
-        [self build];
+        _lensIndex = 0;
+        [self commonInit];
     }
     return self;
 }
 
-- (void)build {
-    self.backgroundColor = UIColor.clearColor;
-    self.translatesAutoresizingMaskIntoConstraints = NO;
+- (instancetype)initWithFrame:(CGRect)frame {
+    if ((self = [super initWithFrame:frame])) {
+        _buttons = [NSMutableArray array];
+        [self commonInit];
+    }
+    return self;
+}
 
-    self.container = [[UIView alloc] init];
-    self.container.translatesAutoresizingMaskIntoConstraints = NO;
-    [self addSubview:self.container];
+- (void)commonInit {
+    self.backgroundColor = UIColor.clearColor;
+
+    // 胶囊容器
+    _capsule = [[UIView alloc] init];
+    _capsule.translatesAutoresizingMaskIntoConstraints = NO;
+    [self addSubview:_capsule];
     [NSLayoutConstraint activateConstraints:@[
-        [self.container.topAnchor constraintEqualToAnchor:self.topAnchor],
-        [self.container.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
-        [self.container.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
-        [self.container.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
-        [self.heightAnchor constraintEqualToConstant:64],
+        [_capsule.topAnchor constraintEqualToAnchor:self.topAnchor],
+        [_capsule.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
+        [_capsule.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
+        [_capsule.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
+        [_capsule.heightAnchor constraintEqualToConstant:kItemHeight + kInnerInset * 2],
     ]];
+
+    // 玻璃背景（模糊 + 描边 + 投影）
+    [SPGlassMaterial applyTo:_capsule cornerRadius:(kItemHeight + kInnerInset * 2) / 2.0 tint:nil];
+
+    // 液态选中指示（照搬 LiquidGlassKit 的 LiquidLensView）
+    // 静止态是半透明白胶囊，按下时变成完整液态玻璃
+    _lens = [[SPLiquidLens alloc] initWithFrame:CGRectZero];
+    _lens.restingColor = [[UIColor whiteColor] colorWithAlphaComponent:0.20];
+    [_capsule addSubview:_lens];
+
+    [self rebuildButtons];
+}
+
+- (void)setTitles:(NSArray<NSString *> *)titles { _titles = [titles copy]; [self rebuildButtons]; }
+- (void)setSymbols:(NSArray<NSString *> *)symbols { _symbols = [symbols copy]; [self rebuildButtons]; }
+- (void)setSelectedSymbols:(NSArray<NSString *> *)selectedSymbols { _selectedSymbols = [selectedSymbols copy]; [self rebuildButtons]; }
+
+- (void)rebuildButtons {
+    for (UIButton *b in self.buttons) [b removeFromSuperview];
+    [self.buttons removeAllObjects];
+
+    NSUInteger n = MIN(self.titles.count, MIN(self.symbols.count, self.selectedSymbols.count));
+    if (n == 0) return;
 
     UIStackView *stack = [[UIStackView alloc] init];
     stack.axis = UILayoutConstraintAxisHorizontal;
     stack.distribution = UIStackViewDistributionFillEqually;
-    stack.alignment = UIStackViewAlignmentFill;
+    stack.spacing = 0;
     stack.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.container addSubview:stack];
+    [_capsule addSubview:stack];
     [NSLayoutConstraint activateConstraints:@[
-        [stack.topAnchor constraintEqualToAnchor:self.container.topAnchor constant:4],
-        [stack.leadingAnchor constraintEqualToAnchor:self.container.leadingAnchor constant:SPSpaceS],
-        [stack.trailingAnchor constraintEqualToAnchor:self.container.trailingAnchor constant:-SPSpaceS],
-        [stack.bottomAnchor constraintEqualToAnchor:self.container.bottomAnchor constant:-4],
+        [stack.topAnchor constraintEqualToAnchor:_capsule.topAnchor constant:kInnerInset],
+        [stack.leadingAnchor constraintEqualToAnchor:_capsule.leadingAnchor constant:kInnerInset],
+        [stack.trailingAnchor constraintEqualToAnchor:_capsule.trailingAnchor constant:-kInnerInset],
+        [stack.bottomAnchor constraintEqualToAnchor:_capsule.bottomAnchor constant:-kInnerInset],
     ]];
 
-    for (NSInteger i = 0; i < (NSInteger)self.titles.count; i++) {
-        SPFloatTabButton *b = [[SPFloatTabButton alloc] initWithTitle:self.titles[i]
-                                                               symbol:self.symbols[i]
-                                                       selectedSymbol:self.selectedSymbols[i]];
-        b.tag = 7000 + i;
-        [b addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapped:)]];
+    for (NSUInteger i = 0; i < n; i++) {
+        UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
+        b.tag = (NSInteger)i;
+        [b addTarget:self action:@selector(tapItem:) forControlEvents:UIControlEventTouchUpInside];
+
+        UIButtonConfiguration *cfg = [UIButtonConfiguration plainConfiguration];
+        cfg.imagePlacement = NSDirectionalRectEdgeTop;
+        cfg.imagePadding = 3;
+        cfg.title = self.titles[i];
+        cfg.baseForegroundColor = [SPTheme textDim];
+        [cfg setAttributedTitle:[[NSAttributedString alloc]
+            initWithString:self.titles[i]
+                attributes:@{NSFontAttributeName: [SPTheme scaled:UIFontTextStyleCaption2
+                                                           weight:UIFontWeightMedium],
+                             NSForegroundColorAttributeName: [SPTheme textDim]}]
+                      forState:UIControlStateNormal];
+        [cfg setAttributedTitle:[[NSAttributedString alloc]
+            initWithString:self.titles[i]
+                attributes:@{NSFontAttributeName: [SPTheme scaled:UIFontTextStyleCaption2
+                                                           weight:UIFontWeightSemibold],
+                             NSForegroundColorAttributeName: [SPTheme accent]}]
+                      forState:UIControlStateSelected];
+        b.configuration = cfg;
+        [b setImage:[UIImage systemImageNamed:self.symbols[i]] forState:UIControlStateNormal];
+        [b setImage:[UIImage systemImageNamed:self.selectedSymbols[i]] forState:UIControlStateSelected];
+
         [stack addArrangedSubview:b];
         [self.buttons addObject:b];
     }
-    self.selectedIndex = 0;
+
+    // 透镜放在 stack 下面，避免挡住图标
+    [_capsule sendSubviewToBack:_lens];
+    [self updateSelection:NO];
 }
 
-- (void)layoutSubviews {
-    [super layoutSubviews];
-    [SPGlassMaterial applyTo:self.container cornerRadius:32 tint:nil];
+- (void)setSelectedIndex:(NSInteger)selectedIndex {
+    if (selectedIndex < 0 || selectedIndex >= (NSInteger)self.buttons.count) return;
+    if (_selectedIndex == selectedIndex) return;
+    _selectedIndex = selectedIndex;
+    [self updateSelection:YES];
 }
 
-- (void)traitCollectionDidChange:(UITraitCollection *)previous {
-    [super traitCollectionDidChange:previous];
-    // 深浅色切换：玻璃描边与色调都要重算
-    [SPGlassMaterial applyTo:self.container cornerRadius:32 tint:nil];
-    for (SPFloatTabButton *b in self.buttons) {
-        b.selected = b.selected;   // 触发颜色刷新
-    }
-}
-
-- (void)tapped:(UITapGestureRecognizer *)g {
-    NSInteger idx = g.view.tag - 7000;
-    if (idx < 0 || idx >= (NSInteger)self.buttons.count) return;
-    [self setSelectedIndex:idx];
+- (void)tapItem:(UIButton *)sender {
+    NSInteger idx = sender.tag;
+    [_lens setLifted:YES];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.18 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        [self->_lens setLifted:NO];
+    });
+    BOOL reselect = (idx == self.selectedIndex);
+    self.selectedIndex = idx;
     [SPMotion hapticLight];
     if ([self.delegate respondsToSelector:@selector(floatTabBar:didSelectIndex:)]) {
         [self.delegate floatTabBar:self didSelectIndex:idx];
     }
+    if (reselect) SPLog(@"重选 tab %ld", (long)idx);
 }
 
-- (void)setSelectedIndex:(NSInteger)selectedIndex {
-    _selectedIndex = selectedIndex;
-    for (NSInteger i = 0; i < (NSInteger)self.buttons.count; i++) {
-        self.buttons[i].selected = (i == selectedIndex);
+- (void)updateSelection:(BOOL)animated {
+    for (UIButton *b in self.buttons) {
+        b.selected = (b.tag == self.selectedIndex);
+        b.configuration.baseForegroundColor = b.selected ? [SPTheme accent] : [SPTheme textDim];
+    }
+    [self layoutIfNeeded];
+    [self positionLensAnimated:animated];
+}
+
+- (CGRect)lensFrameForIndex:(NSInteger)index {
+    if (index < 0 || index >= (NSInteger)self.buttons.count) return CGRectZero;
+    UIButton *b = self.buttons[index];
+    return [b convertRect:b.bounds toView:_capsule];
+}
+
+- (void)positionLensAnimated:(BOOL)animated {
+    CGRect target = [self lensFrameForIndex:self.selectedIndex];
+    if (CGRectIsEmpty(target)) return;
+    _lens.targetFrame = target;
+    [_lens moveToTargetAnimated:animated];
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    for (CALayer *l in _capsule.layer.sublayers) {
+        if ([l.name isEqualToString:@"sp.glass.border"]) l.frame = _capsule.bounds;
+    }
+    CGRect target = [self lensFrameForIndex:self.selectedIndex];
+    if (!CGRectIsEmpty(target)) {
+        _lens.targetFrame = target;
+        _lens.frame = CGRectInset(target, 4, 4);
     }
 }
 
 - (void)setScrolledDown:(BOOL)scrolledDown {
-    if (_scrolledDown == scrolledDown) return;
-    _scrolledDown = scrolledDown;
-    [SPMotion animate:^{
-        self.transform = scrolledDown
-            ? CGAffineTransformMakeScale(0.94, 0.94)
-            : CGAffineTransformIdentity;
-        self.alpha = scrolledDown ? 0.92 : 1.0;
-    } duration:0.22];
+    // 向下滚时略微缩一点，模仿系统 tab bar 收起
+    CGFloat scale = scrolledDown ? 0.94 : 1.0;
+    CGFloat alpha = scrolledDown ? 0.92 : 1.0;
+    [UIView animateWithDuration:0.22 delay:0
+                        options:UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionBeginFromCurrentState
+                     animations:^{
+        self.transform = CGAffineTransformMakeScale(scale, scale);
+        self.alpha = alpha;
+    } completion:nil];
+}
+
+- (CGSize)intrinsicContentSize {
+    return CGSizeMake(UIViewNoIntrinsicMetric, kItemHeight + kInnerInset * 2);
 }
 
 @end

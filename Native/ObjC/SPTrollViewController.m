@@ -56,8 +56,7 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
     [super viewDidLoad];
     self.view.backgroundColor = [SPTheme background];
     self.title = @"注入";
-    self.navigationController.navigationBar.prefersLargeTitles = YES;
-    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
 
     self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
     self.table.backgroundColor = [SPTheme background];
@@ -397,8 +396,28 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
         return cell;
     }
     if (ip.section == 2) {
-        NSArray *titles = @[@"弱加载（--weak）", @"CoreTrust 绕过", @"注入后 ldid 补签", @"同时导出 ipa"];
+        // 选项区：功能照搬 TrollFools，文案与图标按 Spark 的口径重写
+        NSArray *titles = @[@"弱加载（--weak）",
+                            @"CoreTrust 绕过",
+                            @"注入后 ldid 补签",
+                            @"同时导出 ipa"];
+        NSArray *symbols = @[@"link.badge.plus",
+                             @"checkmark.shield",
+                             @"signature",
+                             @"shippingbox"];
+        NSArray *details = @[@"目标 App 缺该框架时不报错继续加载",
+                             @"去掉系统签名校验，巨魔安装必需",
+                             @"insert_dylib 会移除原签名，这里重新生成",
+                             @"打包成 ipa，可直接交给 TrollStore 覆盖安装"];
+
         cell.textLabel.text = titles[ip.row];
+        cell.detailTextLabel.text = details[ip.row];
+        cell.detailTextLabel.font = [SPTheme scaled:UIFontTextStyleCaption1 weight:UIFontWeightRegular];
+        cell.detailTextLabel.textColor = [SPTheme textDim];
+        cell.detailTextLabel.numberOfLines = 2;
+        cell.imageView.image = [UIImage systemImageNamed:symbols[ip.row]];
+        cell.imageView.tintColor = [SPTheme accent];
+
         UISwitch *sw = [[UISwitch alloc] init];
         sw.tag = 8100 + ip.row;
         if (ip.row == 0) sw.on = self.weakLoad;
@@ -412,10 +431,12 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
     }
     if (ip.row == 0) {
         cell.textLabel.text = @"预览注入命令";
+        cell.detailTextLabel.text = @"先看清楚每一步要做什么";
         cell.imageView.image = [UIImage systemImageNamed:@"list.bullet.rectangle"];
         cell.imageView.tintColor = [SPTheme info];
     } else {
         cell.textLabel.text = @"开始注入";
+        cell.detailTextLabel.text = @"自动备份为 .sparkbak，可随时恢复";
         cell.textLabel.textColor = [SPTheme accent];
         cell.imageView.image = [UIImage systemImageNamed:@"syringe.fill"];
         cell.imageView.tintColor = [SPTheme accent];
@@ -514,7 +535,15 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
 }
 
 - (NSMutableString *)commandScript {
+    // 搜索顺序很重要：**包内自带的优先**
+    // （照搬 TrollFools —— 它把 ct_bypass / insert_dylib / optool 打进 App，
+    //  不依赖用户另外装，也不依赖设备上是否有 Rein）
     NSMutableArray *dirs = [NSMutableArray array];
+
+    NSString *bundleBin = [[[NSBundle mainBundle] bundlePath]
+                           stringByAppendingPathComponent:@"bin"];
+    [dirs addObject:bundleBin];
+
     NSString *reinRoot = [SPToolchain shared].reinRoot;
     [dirs addObjectsFromArray:@[
         SPToolchainInstallerBinDir(), [[[SPToolchain shared] scan] pathFor:SPToolchainComponentDarwin],
@@ -592,9 +621,15 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
     [s appendString:@"say '准备 CydiaSubstrate'\n"];
     [s appendString:@"mkdir -p \"$APP/Frameworks\"\n"];
     [s appendString:@"SUB=\"\"\n"];
-    [s appendString:@"for c in \"$APP/Frameworks/CydiaSubstrate.framework\" \\\n"
-                 "         \"$(dirname \"$APP\")/CydiaSubstrate.framework\" \\\n"
-                 "         /Library/Frameworks/CydiaSubstrate.framework \\\n"
+    // 包内自带的 CydiaSubstrate 优先（照搬 TrollFools 的做法）
+    NSString *bundleSub = [[[NSBundle mainBundle] bundlePath]
+        stringByAppendingPathComponent:@"Frameworks/CydiaSubstrate.framework"];
+    [s appendString:[NSString stringWithFormat:
+                 @"for c in %@ \\\n"
+                  "         \"$APP/Frameworks/CydiaSubstrate.framework\" \\\n"
+                  "         \"$(dirname \"$APP\")/CydiaSubstrate.framework\" \\\n",
+                 [SPUtil shellQuote:bundleSub]]];
+    [s appendString:@"         /Library/Frameworks/CydiaSubstrate.framework \\\n"
                  "         /var/jb/Library/Frameworks/CydiaSubstrate.framework \\\n"
                  "         /usr/lib/libsubstrate.dylib; do\n"
                  "  [ -e \"$c\" ] && { SUB=\"$c\"; break; }\n"
@@ -613,33 +648,98 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
                  "  echo '[!] 找不到 CydiaSubstrate：注入后 tweak 不会加载（可从 TrollStore 版的 App 里拷一份）'\n"
                  "fi\n"];
 
-    // 插入加载命令
+    // ---- 插入加载命令（照搬 TrollFools 的做法）----
+    //
+    // TrollFools 用的是 @rpath/ 而不是 @executable_path/：
+    //   · dylib      → @rpath/XXX.dylib
+    //   · framework  → @rpath/XXX.framework/XXX
+    //   · Substrate  → @executable_path/Frameworks/CydiaSubstrate.framework/CydiaSubstrate
+    // 原因：@rpath 能被 LC_RPATH 解析，App 在不同位置都能找到；
+    // 而且 install_name_tool 改写依赖时也更自然。
     [s appendString:@"say '插入加载命令'\n"];
-    NSMutableArray *loads = [NSMutableArray arrayWithObject:@"@executable_path/CydiaSubstrate.framework/CydiaSubstrate"];
+
+    NSString *substrateLoad =
+        @"@executable_path/Frameworks/CydiaSubstrate.framework/CydiaSubstrate";
+
+    // 1) Substrate 最后插（先插插件，避免 Substrate 抢位置）
+    NSMutableArray<NSString *> *assetLoads = [NSMutableArray array];
     for (SPTrollPlugin *p in plugins) {
         NSString *ext = p.path.pathExtension.lowercaseString;
-        if ([ext isEqualToString:@"dylib"]) [loads addObject:[@"@executable_path/" stringByAppendingString:p.name]];
-        else if ([ext isEqualToString:@"framework"]) {
-            [loads addObject:[NSString stringWithFormat:@"@executable_path/Frameworks/%@/%@",
-                              p.name, p.name.stringByDeletingPathExtension]];
+        if ([ext isEqualToString:@"dylib"]) {
+            [assetLoads addObject:[@"@rpath/" stringByAppendingString:p.name]];
+        } else if ([ext isEqualToString:@"framework"]) {
+            [assetLoads addObject:[NSString stringWithFormat:@"@rpath/%@/%@",
+                                   p.name, p.name.stringByDeletingPathExtension]];
         }
     }
-    for (NSString *load in loads) {
-        [s appendString:[NSString stringWithFormat:@"\"$INS\" %@ %@ \"$EXE\" >/dev/null 2>&1 || echo '[!] 插入失败: %@'\n",
-                         self.weakLoad ? @"--weak --inplace" : @"--inplace", [SPUtil shellQuote:load], load]];
+
+    // 2) 每一步前先检测是否已注入（TrollFools 的幂等做法）
+    [s appendString:@"already() { \"$GREP\" -aq \"$1\" \"$EXE\" 2>/dev/null; }\n"];
+    [s appendString:[NSString stringWithFormat:@"GREP=%@\n",
+                     [SPUtil shellQuote:[SPUtil findExecutable:@[@"grep"] searchDirs:clean] ?: @"grep"]]];
+
+    for (NSString *load in assetLoads) {
+        [s appendString:[NSString stringWithFormat:
+            @"if already %@; then echo '  已存在 %@'\n"
+             "else \"$INS\" %@ %@ \"$EXE\" >/dev/null 2>&1 && ok '插入 %@' || echo '[!] 插入失败 %@'\n"
+             "fi\n",
+            [SPUtil shellQuote:[load lastPathComponent]],
+            [load lastPathComponent],
+            self.weakLoad ? @"--weak --inplace" : @"--inplace",
+            [SPUtil shellQuote:load],
+            [load lastPathComponent],
+            [load lastPathComponent]]];
     }
+
+    // 3) Substrate 加载命令（仅在真的准备好了 framework 时插）
+    [s appendString:[NSString stringWithFormat:
+        @"if [ -d \"$APP/Frameworks/CydiaSubstrate.framework\" ]; then\n"
+         "  if already CydiaSubstrate; then echo '  已存在 CydiaSubstrate'\n"
+         "  else \"$INS\" --inplace %@ \"$EXE\" >/dev/null 2>&1 && ok '插入 CydiaSubstrate' || echo '[!] 插入失败'\n"
+         "  fi\n"
+         "fi\n", [SPUtil shellQuote:substrateLoad]]];
+
+    // 4) 照搬 TrollFools：把插件对 Substrate 的依赖改写成包内路径
+    //    插件编译时链的是 /usr/lib/libsubstrate.dylib，
+    //    不改写的话注入后找不到符号（TrollFools 的
+    //    standardizeLoadCommandDylibToSubstrate 就是干这个）
+    [s appendString:@"say '规范化插件依赖'\n"];
+    [s appendString:[NSString stringWithFormat:
+        @"if [ -n \"$INT\" ] && [ -x \"$INT\" ]; then\n"
+         "  for f in \"$APP\"/*.dylib \"$APP/Frameworks\"/*.dylib; do\n"
+         "    [ -f \"$f\" ] || continue\n"
+         "    for old in /usr/lib/libsubstrate.dylib /usr/lib/libsubstitute.dylib \\\n"
+         "               @rpath/libsubstrate.dylib @rpath/libsubstitute.dylib; do\n"
+         "      \"$INT\" -change \"$old\" %@ \"$f\" 2>/dev/null && echo \"    改写 $(basename \\\"$f\\\") 的 $old\"\n"
+         "    done\n"
+         "  done\n"
+         "fi\n", [SPUtil shellQuote:substrateLoad]]];
+
     if (self.coreTrust && ct.length) {
-        // B5：有 ct_bypass 就去掉 CoreTrust 校验；没有就明确告知——
-        // 此时注入的 App 只能在越狱环境加载，TrollStore 里会闪退
+        // CoreTrust 绕过：TrollFools 对「每一个注入的二进制」都做，
+        // 不只是主程序 —— 否则插件自己加载时会被拦。
         [s appendString:[NSString stringWithFormat:
             @"if [ -x %@ ]; then\n"
              "  say 'CoreTrust 绕过'\n"
-             "  %@ \"$EXE\" 2>/dev/null && ok '已绕过 CoreTrust' || warn 'CoreTrust 绕过失败'\n"
+             "  for t in \"$EXE\" \"$APP\"/CydiaSubstrate.framework/CydiaSubstrate \\\n"
+             "           \"$APP/Frameworks/CydiaSubstrate.framework/CydiaSubstrate\" \\\n"
+             "           \"$APP\"/*.dylib \"$APP/Frameworks\"/*.dylib \\\n"
+             "           \"$APP/Frameworks\"/*.framework; do\n"
+             "    [ -e \"$t\" ] || continue\n"
+             "    if [ -d \"$t\" ]; then\n"
+             "      bname=$(basename \"$t\" .framework)\n"
+             "      [ -f \"$t/$bname\" ] && %@ \"$t/$bname\" 2>/dev/null\n"
+             "    else\n"
+             "      %@ \"$t\" 2>/dev/null\n"
+             "    fi\n"
+             "  done\n"
+             "  ok '已对所有注入目标做 CoreTrust 绕过'\n"
              "else\n"
              "  warn '没有 ct_bypass：注入后的 App 在 TrollStore 下可能闪退'\n"
-             "  warn '需要越狱环境，或自行放置 ct_bypass 到工具链 bin 目录'\n"
              "fi\n",
-            [SPUtil shellQuote:ct], [SPUtil shellQuote:ct]]];
+            [SPUtil shellQuote:ct],
+            [SPUtil shellQuote:ct],
+            [SPUtil shellQuote:ct]]];
     }
     if (self.wantLdid) {
         [s appendString:@"say '补签'\n"];

@@ -54,8 +54,7 @@ typedef NS_ENUM(NSInteger, SPRevAction) {
     [super viewDidLoad];
     self.view.backgroundColor = [SPTheme background];
     self.title = @"逆向";
-    self.navigationController.navigationBar.prefersLargeTitles = YES;
-    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
 
     self.titles = @[@"架构与头信息", @"导出符号与入口", @"字符串与 ObjC 类",
                     @"导入的库与符号", @"段与节", @"熵值（加壳检测）",

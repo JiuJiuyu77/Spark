@@ -10,6 +10,7 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "SPLiquidGlass.h"
 
 NS_ASSUME_NONNULL_BEGIN
 

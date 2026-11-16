@@ -46,8 +46,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
     [super viewDidLoad];
     self.view.backgroundColor = [SPTheme background];
     self.title = @"设置";
-    self.navigationController.navigationBar.prefersLargeTitles = YES;
-    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
 
     // 草稿：读取「默认选项」，改动即时落盘
     self.draft = [[SPStore shared] optionsForProjectPath:@"__defaults__"];

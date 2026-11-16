@@ -19,8 +19,7 @@
     [super viewDidLoad];
     self.view.backgroundColor = [SPTheme background];
     self.title = @"外部文件夹";
-    self.navigationController.navigationBar.prefersLargeTitles = YES;
-    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
 
     self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
     self.table.backgroundColor = [SPTheme background];

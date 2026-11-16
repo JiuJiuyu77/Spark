@@ -21,6 +21,7 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
     self.title = @"签名审计";
     self.view.backgroundColor = [SPTheme background];
     self.issues = [NSMutableArray array];

@@ -22,8 +22,7 @@
     [super viewDidLoad];
     self.view.backgroundColor = [SPTheme background];
     self.title = @"存储空间";
-    self.navigationController.navigationBar.prefersLargeTitles = YES;
-    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
 
     self.diskLabel = [[UILabel alloc] init];
     self.diskLabel.font = [SPTheme scaled:UIFontTextStyleSubheadline weight:UIFontWeightMedium];

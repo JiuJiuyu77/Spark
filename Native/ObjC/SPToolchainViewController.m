@@ -33,8 +33,7 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
     [super viewDidLoad];
     self.view.backgroundColor = [SPTheme background];
     self.title = @"工具链";
-    self.navigationController.navigationBar.prefersLargeTitles = YES;
-    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
 
     // 与 SPToolchainComponent 枚举一一对应
     self.componentKeys = @[@"Theos", @"iPhoneOS SDK", @"Darwin 编译工具", @"OLLVM 混淆",

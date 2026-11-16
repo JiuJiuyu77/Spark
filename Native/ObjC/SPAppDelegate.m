@@ -170,13 +170,13 @@
     [self.tabs.view addSubview:self.floatBar];
     UILayoutGuide *safe = self.tabs.view.safeAreaLayoutGuide;
     [NSLayoutConstraint activateConstraints:@[
-        [self.floatBar.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:SPSpaceHuge],
-        [self.floatBar.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-SPSpaceHuge],
-        [self.floatBar.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-6],
+        [self.floatBar.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:SPFloatingBarSideInset],
+        [self.floatBar.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-SPFloatingBarSideInset],
+        [self.floatBar.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-SPSpaceXS],
     ]];
 
     // 让内容底部留出悬浮栏的高度，避免最后一行被挡住
-    self.tabs.additionalSafeAreaInsets = UIEdgeInsetsMake(0, 0, 74, 0);
+    self.tabs.additionalSafeAreaInsets = UIEdgeInsetsMake(0, 0, SPFloatingBarInset, 0);
 }
 
 #pragma mark - SPFloatTabBarDelegate
