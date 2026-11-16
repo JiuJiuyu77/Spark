@@ -169,14 +169,14 @@ jobs:
             deadline=$((SECONDS + 500))
             while [ $SECONDS -lt $deadline ]; do
               # 只认「curl 成功退出」的那份
-              for f in /tmp/tc.*.done; do
-                [ -f "$f" ] || continue
-                n=$(basename "$f" .done)   # tc.N
-                src="/tmp/$n.tar.gz"
+              for donefile in /tmp/tc.*.done; do
+                [ -f "$donefile" ] || continue
+                idx=$(basename "$donefile" .done)   # tc.1 / tc.2
+                src="/tmp/${idx}.tar.gz"
                 [ -s "$src" ] || continue
                 # macOS runner 用 -f%z，Linux 用 -c%s
                 sz=$(stat -f%z "$src" 2>/dev/null || stat -c%s "$src" 2>/dev/null || echo 0)
-                echo "  采用 $n（$((sz / 1048576)) MB）"
+                echo "  采用 ${idx}（$((sz / 1048576)) MB）"
                 mv "$src" /tmp/tc.tar.gz
                 ok=1
                 break
