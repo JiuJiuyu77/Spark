@@ -182,12 +182,28 @@ def check_file(path: str):
                     f'{name}:{i}: 字典字面量 @" {m.group(1)}": {val} 可能为 nil，'
                     f'会抛 attempt to insert nil。加 ?: @""。')
 
+    # 3d. 关键文件操作不能忽略错误
+    #
+    # copyItemAtPath:error:NULL 且不检查返回值，会让「安装失败」变成
+    # 「看起来成功」—— 工具链缺文件却写了 .installed 标记。
+    RISKY_OPS = ('copyItemAtPath:', 'moveItemAtPath:')
+    for i, line in enumerate(lines, 1):
+        code = line.split('//')[0]
+        if 'error:NULL' not in code:
+            continue
+        if not any(op in code for op in RISKY_OPS):
+            continue
+        if re.search(r'(if\s*\(|BOOL\s+\w+\s*=)', code):
+            continue
+        warnings.append(
+            f'{name}:{i}: {code.strip()[:60]}… 忽略返回值且丢弃 error，失败会静默成功。')
+
     # 4. 统计
     n_null = text.count('error:NULL')
     if n_null:
         notes.append(f'{name}: error:NULL ×{n_null}')
 
-    return problems, notes
+    return problems, notes, warnings
 
 
 def main() -> int:
@@ -199,10 +215,12 @@ def main() -> int:
 
     all_problems = []
     all_notes = []
+    all_warnings = []
     for f in files:
-        p, n = check_file(f)
+        p, n, w = check_file(f)
         all_problems.extend(p)
         all_notes.extend(n)
+        all_warnings.extend(w)
 
     # 已知例外：SPSession 的 runSyncShell 是同步 API，调用方保证在后台线程
     all_problems = [p for p in all_problems
@@ -215,6 +233,10 @@ def main() -> int:
         return 1
 
     print(f'[ok] 质量检查通过（{len(files)} 个文件）')
+    if all_warnings:
+        print(f'     提示：{len(all_warnings)} 处建议关注')
+        for w in all_warnings[:10]:
+            print('       - ' + w)
     if all_notes:
         total = sum(int(n.split('×')[1]) for n in all_notes)
         print(f'     提示：error:NULL 共 {total} 处（多为可选参数，可接受）')

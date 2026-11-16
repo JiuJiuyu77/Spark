@@ -139,9 +139,17 @@
         }
         NSString *newContent = [lines componentsJoinedByString:@"\n"];
         if (![newContent writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:error]) {
-            // 写失败就把备份还原
+            // 写失败就把备份还原。**必须检查结果**：
+            // 还原也可能失败（权限、磁盘满），如果静默忽略，
+            // 用户会拿到一个「改了一半」的源文件却以为没改动。
+            NSError *rollbackErr = nil;
             [fm removeItemAtPath:path error:NULL];
-            [fm copyItemAtPath:backup toPath:path error:NULL];
+            if (![fm copyItemAtPath:backup toPath:path error:&rollbackErr]) {
+                SPLog(@"[!] 回滚失败 %@：%@（备份保留在 %@）",
+                      path.lastPathComponent,
+                      rollbackErr.localizedDescription ?: @"未知错误",
+                      backup.lastPathComponent);
+            }
             return NO;
         }
     }

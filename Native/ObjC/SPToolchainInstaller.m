@@ -147,6 +147,8 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
     while ((rel = [e nextObject])) [entries addObject:rel];
     NSUInteger total = MAX(entries.count, 1);
     NSUInteger idx = 0;
+    NSUInteger failedCopies = 0;
+    NSError *firstCopyError = nil;
 
     for (rel in entries) {
         @autoreleasepool {
@@ -164,15 +166,31 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
                 [fm createDirectoryAtPath:[to stringByDeletingLastPathComponent]
               withIntermediateDirectories:YES attributes:nil error:NULL];
                 [fm removeItemAtPath:to error:NULL];
-                if (([fm copyItemAtPath:from toPath:to error:NULL])) {
-                    NSDictionary *attrs = [fm attributesOfItemAtPath:from error:NULL];
-                    if (attrs) {
-                        id perm = attrs[NSFilePosixPermissions];
-                        if ([perm isKindOfClass:[NSNumber class]]) {
-                            NSMutableDictionary *newAttrs = [NSMutableDictionary dictionary];
-                            newAttrs[NSFilePosixPermissions] = (NSNumber *)perm;
-                            [fm setAttributes:newAttrs ofItemAtPath:to error:NULL];
-                        }
+
+                // 复制失败**必须**记下来。
+                // 之前这里是 copyItemAtPath:error:NULL 且不检查返回值，
+                // 结果是「工具链缺文件但装上了标记」。用户看到「已就绪」，
+                // 一编译就失败 —— 这类问题极难自查。
+                NSError *copyErr = nil;
+                if (![fm copyItemAtPath:from toPath:to error:&copyErr]) {
+                    failedCopies++;
+                    if (!firstCopyError) firstCopyError = copyErr;
+                    SPLog(@"[!] 复制失败 %@：%@", rel, copyErr.localizedDescription);
+                    if (failedCopies >= 20) {
+                        SPLog(@"[!] 复制失败超过 20 个，中止展开");
+                        return SPError(SPErrorCodeIO,
+                            [NSString stringWithFormat:@"展开工具链失败（已有 %lu 个文件复制失败）：%@",
+                             (unsigned long)failedCopies, firstCopyError.localizedDescription]);
+                    }
+                    continue;
+                }
+                NSDictionary *attrs = [fm attributesOfItemAtPath:from error:NULL];
+                if (attrs) {
+                    id perm = attrs[NSFilePosixPermissions];
+                    if ([perm isKindOfClass:[NSNumber class]]) {
+                        NSMutableDictionary *newAttrs = [NSMutableDictionary dictionary];
+                        newAttrs[NSFilePosixPermissions] = (NSNumber *)perm;
+                        [fm setAttributes:newAttrs ofItemAtPath:to error:NULL];
                     }
                 }
             }
@@ -208,7 +226,36 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
             }
         }
     }
-    SPLog(@"工具链展开完成：bin %lu 个，已 chmod 755", (unsigned long)fixed);
+    SPLog(@"工具链展开完成：bin %lu 个，已 chmod 755，复制失败 %lu 个",
+          (unsigned long)fixed, (unsigned long)failedCopies);
+
+    // 写标记前先验收：关键文件不全就不要说装好了。
+    // 否则用户看到「已就绪」，编译时才发现缺 clang/ld64/logos.pl。
+    NSMutableArray<NSString *> *missing = [NSMutableArray array];
+    NSArray<NSString *> *required = @[
+        @"theos/makefiles/common.mk",
+        @"theos/bin/logos.pl",
+    ];
+    for (NSString *r in required) {
+        if (![fm fileExistsAtPath:[dst stringByAppendingPathComponent:r]]) {
+            [missing addObject:r];
+        }
+    }
+    BOOL hasLinker = [fm isExecutableFileAtPath:[self.binDir stringByAppendingPathComponent:@"ld64"]];
+    BOOL hasClang  = [fm isExecutableFileAtPath:[self.binDir stringByAppendingPathComponent:@"clang-16"]];
+    if (!hasLinker && !hasClang) [missing addObject:@"bin/ld64 或 bin/clang-16"];
+
+    if (missing.count) {
+        // 清掉半成品，避免 isInstalled 误判
+        [fm removeItemAtPath:dst error:NULL];
+        return SPError(SPErrorCodeMissingToolchain,
+            [NSString stringWithFormat:
+             @"工具链解包不完整，缺少：%@
+
+"
+              "请重新安装，或用「设置 → 工具链 → 重新展开」。",
+             [missing componentsJoinedByString:@"、"]]);
+    }
 
     // 落一个标记文件（isInstalled 用）
     NSString *stampText = [NSString stringWithFormat:@"installed at %@\n", [NSDate date]];
