@@ -250,9 +250,7 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
         [fm removeItemAtPath:dst error:NULL];
         return SPError(SPErrorCodeMissingToolchain,
             [NSString stringWithFormat:
-             @"工具链解包不完整，缺少：%@
-
-"
+             @"工具链解包不完整，缺少：%@\n\n"
               "请重新安装，或用「设置 → 工具链 → 重新展开」。",
              [missing componentsJoinedByString:@"、"]]);
     }
