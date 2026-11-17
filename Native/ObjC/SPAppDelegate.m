@@ -40,6 +40,10 @@
     BOOL isRoot = [[SPPrivileged shared] elevateSelf];
     SPLog(@"启动身份：uid=%d gid=%d root=%@", (int)getuid(), (int)getgid(), isRoot ? @"是" : @"否");
 
+    // 提权失败要让用户知道：否则表现是「编译时报一堆 Permission denied」，
+    // 看不出是身份问题，而原因其实在启动时就已确定。
+    [[NSUserDefaults standardUserDefaults] setBool:!isRoot forKey:@"Spark.notRoot"];
+
     // 崩溃兜底：尽早装，才能捕获启动期异常
     [[SPCrashGuard shared] install];
 

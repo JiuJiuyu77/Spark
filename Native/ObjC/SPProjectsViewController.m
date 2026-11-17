@@ -200,6 +200,14 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
+    // 身份问题优先提示：它会让编译必然失败，而且从编译日志里
+    // 完全看不出原因（只会看到一堆 Permission denied）。
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"Spark.notRoot"]) {
+        return @"⚠️ Spark 没有以 root 身份运行，编译会失败。\n"
+                "请用 TrollStore 安装（需要 platform-application 权限）。\n"
+                "可以在「我的 → 运行环境自检」里确认子进程身份。";
+    }
+
     SPToolchainScan *scan = [SPToolchain shared].scan;
     NSArray *remedies = [scan remedies];
     if (remedies.count) return [remedies componentsJoinedByString:@"\n"];

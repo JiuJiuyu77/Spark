@@ -59,9 +59,26 @@
 #pragma mark - 探活
 
 - (void)probeWithCompletion:(void (^)(NSString *))completion {
-    [self runAsRoot:@"id; echo SPARK_UID=$(id -u)" completion:^(BOOL ok, BOOL wasRoot, NSString *output) {
+    // 自检要能回答「为什么不是 root」：
+    //   App 自身 uid、能否 setuid、子进程实际 uid、shell 在哪、能否写临时目录
+    NSString *probe =
+        @"echo \"APP_UID=$(id -u) APP_GID=$(id -g)\"; "
+         "echo \"SHELL=$(command -v sh || echo none)\"; "
+         "echo \"SUB_UID=$(id -u)\"; "
+         "echo \"SUB_GID=$(id -g)\"; "
+         "echo \"HOME=$HOME\"; "
+         "T=/tmp/spark-probe-$$; "
+         "if mkdir -p \"$T\" 2>/dev/null && touch \"$T/x\" 2>/dev/null; then "
+         "echo \"TMP_WRITE=yes\"; rm -rf \"$T\"; else echo \"TMP_WRITE=no\"; fi; "
+         "for b in make clang-16 ld64 ldid dpkg-deb perl; do "
+         "  p=$(command -v $b 2>/dev/null); echo \"TOOL_$b=${p:-missing}\"; done";
+
+    [self runAsRoot:probe completion:^(BOOL ok, BOOL wasRoot, NSString *output) {
         NSString *detail = [NSString stringWithFormat:@"%@\n\n%@",
-                            wasRoot ? @"✓ 子进程以 root 运行" : @"✗ 子进程以普通用户运行",
+                            wasRoot ? @"✓ 子进程以 root 运行"
+                                    : @"✗ 子进程以普通用户运行 —— 编译会失败\n"
+                                      @"原因通常是：Spark 不是通过 TrollStore 安装，\n"
+                                      @"或安装时缺少 platform-application 权限。",
                             output ?: @""];
         if (completion) completion(detail);
     }];

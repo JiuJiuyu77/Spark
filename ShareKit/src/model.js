@@ -367,6 +367,21 @@ export function buildScript(project, options = {}, profile = {}) {
                '{ warn "PATH 里没有 ld64，链接会失败"; exit 6; }');
   }
   lines.push('command -v ldid >/dev/null 2>&1 && ok "ldid $(command -v ldid)" || warn "没有 ldid，打包后不会补签"');
+  // 身份检查：子进程必须是 root。
+  //
+  // TrollStore 装的 App 本身以 root 运行，子进程会继承；但如果 App
+  // 被以 mobile 身份启动（或提权失败），make 会在写 .theos/、
+  // 改 layout 权限时被拒，报一堆 Permission denied —— 很难看出是身份问题。
+  // 这里直接判定，并把「为什么」写清楚。
+  lines.push('U=$(id -u)');
+  lines.push('if [ "$U" != "0" ]; then ' +
+             '{ warn "子进程没有 root 权限（当前 uid=$U）"; ' +
+             'warn "原因：Spark 以 mobile 身份启动，或提权失败"; ' +
+             'warn "处理：用 TrollStore 重新安装 Spark（需要 platform-application 权限）"; ' +
+             'warn "自查：设置 → 运行环境自检，看「子进程身份」一项"; ' +
+             'exit 9; }; fi');
+  lines.push('ok "子进程以 root 运行"');
+
   // THEOS 是编译前提：没有它 make 连 makefiles 都找不到。
   // 之前只是 warn，会一路跑到 make 才报一堆看不懂的错。
   lines.push('[ -n "${THEOS:-}" ] && [ -d "$THEOS" ] && ok "THEOS=$THEOS" || ' +
