@@ -70,6 +70,9 @@ typedef NS_ENUM(NSInteger, SPBuildTarget) {
 /// 单例，扫描是懒加载 + 可刷新
 + (instancetype)shared;
 
+/// 自动发现 Rein / DSH.app 的运行时根目录（找不到返回 nil）
++ (nullable NSString *)discoverReinRoot;
+
 /// 探测根目录（按优先级）：用户设置的安装目录、Rein 目录、App 包内
 @property (nonatomic, copy) NSString *reinRoot;      // 默认 /var/mobile/Documents/Rein
 @property (nonatomic, copy, nullable) NSString *homeRoot; // 用户自定义安装目录

@@ -507,6 +507,14 @@ jobs:
           # ct_bypass / insert_dylib / optool / CydiaSubstrate.framework
           # 放在 .app/bin 下，注入时优先用它们，不必依赖用户自备
           # ------------------------------------------------------------------
+          # 交叉编译工具：ish 路线用，需要打进 .app/tools
+          if [ -d tools ]; then
+            mkdir -p "$APP/tools"
+            cp tools/spark-cross-build.sh tools/macho_sign.py "$APP/tools/" 2>/dev/null || true
+            chmod 755 "$APP/tools/spark-cross-build.sh" 2>/dev/null || true
+            echo "  已打包 tools/"
+          fi
+
           echo "==> 安装内置注入工具"
           if [ -d Native/TrollTools ]; then
             mkdir -p "$APP/bin"

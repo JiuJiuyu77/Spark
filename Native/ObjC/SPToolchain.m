@@ -111,12 +111,67 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
 
 @implementation SPToolchain
 
+/// 自动找 Rein / DSH.app 的运行时根目录。
+///
+/// 判定依据：目录下同时有 theos-root 与 sdks（Rein 的特征），
+/// 或者有 tools/theos-root（Rein 源码目录的特征）。
++ (nullable NSString *)discoverReinRoot {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSMutableArray<NSString *> *candidates = [NSMutableArray array];
+
+    // ① 用户目录
+    [candidates addObject:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Rein"]];
+
+    // ② 已安装的 App（TrollStore / 越狱都在这两个位置之一）
+    for (NSString *base in @[@"/var/containers/Bundle/Application",
+                             @"/private/var/containers/Bundle/Application",
+                             @"/Applications"]) {
+        for (NSString *uuid in [fm contentsOfDirectoryAtPath:base error:NULL] ?: @[]) {
+            NSString *dir = [base stringByAppendingPathComponent:uuid];
+            // 先看 UUID 这一层是不是 App 本体
+            BOOL isDir = NO;
+            if ([fm fileExistsAtPath:[dir stringByAppendingPathComponent:@"theos-root"] isDirectory:&isDir] && isDir) {
+                [candidates addObject:dir];
+            }
+            // 再看里面的 *.app（DSH.app / Rein.app）
+            for (NSString *sub in [fm contentsOfDirectoryAtPath:dir error:NULL] ?: @[]) {
+                if (![sub.pathExtension.lowercaseString isEqualToString:@"app"]) continue;
+                [candidates addObject:[dir stringByAppendingPathComponent:sub]];
+            }
+        }
+    }
+
+    for (NSString *c in candidates) {
+        BOOL d1 = NO, d2 = NO;
+        [fm fileExistsAtPath:[c stringByAppendingPathComponent:@"theos-root"] isDirectory:&d1];
+        [fm fileExistsAtPath:[c stringByAppendingPathComponent:@"sdks"] isDirectory:&d2];
+        if (d1 && d2) {
+            SPLog(@"自动发现 Rein 运行时：%@", c);
+            return c;
+        }
+        // 源码目录形态
+        NSString *tr = [c stringByAppendingPathComponent:@"tools/theos-root"];
+        if ([fm fileExistsAtPath:tr isDirectory:&d1] && d1) {
+            SPLog(@"自动发现 Rein 源码目录：%@", c);
+            return c;
+        }
+    }
+    return nil;
+}
+
 + (instancetype)shared {
     static SPToolchain *t; static dispatch_once_t once;
     dispatch_once(&once, ^{
         t = [SPToolchain new];
         NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
-        t.reinRoot = [d stringForKey:kDefaultsReinRoot] ?: @"/var/mobile/Documents/Rein";
+        // Rein 有两个常见安装位置：
+        //   ① /var/mobile/Documents/Rein        —— 用户自己解压的目录
+        //   ② /var/containers/Bundle/Application/<UUID>/DSH.app
+        //      —— TrollStore 安装的 App 本体（实际最常见）
+        // 之前只认 ①，所以装了 Rein App 也探测不到工具链。
+        NSString *saved = [d stringForKey:kDefaultsReinRoot];
+        NSString *auto = [SPToolchain discoverReinRoot];
+        t.reinRoot = saved.length ? saved : (auto ?: @"/var/mobile/Documents/Rein");
         t.homeRoot = [d stringForKey:kDefaultsHomeRoot];
         [t rescan];
     });

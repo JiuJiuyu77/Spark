@@ -75,8 +75,22 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
 
 - (void)refreshAction {
     [SPMotion hapticLight];
+
+    // 刷新时顺便自动找一次 Rein / DSH.app：
+    // 用户装了 Rein 但没手动填路径的情况很常见。
+    SPToolchain *tc = [SPToolchain shared];
+    NSString *before = tc.reinRoot;
+    NSString *found = [SPToolchain discoverReinRoot];
+    if (found.length && ![found isEqualToString:before]) {
+        tc.reinRoot = found;
+        [[NSUserDefaults standardUserDefaults] setObject:found forKey:@"Spark.reinRoot"];
+        [self toast:[NSString stringWithFormat:@"已发现 Rein：%@", found.lastPathComponent]];
+    }
+
+    [tc rescan];
     [self refresh];
-    [self toast:@"已重新扫描"];
+
+    if (!found.length) [self toast:@"已重新扫描（未找到 Rein 目录）"];
 }
 
 #pragma mark - Table

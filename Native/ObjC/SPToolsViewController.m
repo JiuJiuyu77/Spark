@@ -16,6 +16,7 @@
 #import "SPCrashViewController.h"
 #import "SPRemoteViewController.h"
 #import "SPSignatureViewController.h"
+#import "SPCrossBuildViewController.h"
 #import "SPStore.h"
 #import "SPCompat.h"
 
@@ -139,6 +140,13 @@
     audit.tint = [SPTheme success];
     audit.controllerClass = SPSignatureViewController.class;
 
+    SPToolItem *cross = [SPToolItem new];
+    cross.title = @"快速编译";
+    cross.detail = @"不依赖 Theos：单文件直出已签名 dylib";
+    cross.symbol = @"bolt.horizontal.circle.fill";
+    cross.tint = [SPTheme info];
+    cross.controllerClass = SPCrossBuildViewController.class;
+
     SPToolItem *remote = [SPToolItem new];
     remote.title = @"局域网工作台";
     remote.detail = @"手机当服务器，电脑浏览器编辑与构建";
@@ -154,7 +162,7 @@
     logs.controllerClass = SPLogsViewController.class;
 
     self.groupTitles = @[@"编译", @"分析与注入", @"文件与记录", @"远程与诊断"];
-    self.groups = @[@[tc], @[rev, inj], @[mount, logs], @[remote, crash, audit]];
+    self.groups = @[@[tc], @[rev, inj], @[cross, mount, logs], @[remote, crash, audit]];
 }
 
 #pragma mark - Table
