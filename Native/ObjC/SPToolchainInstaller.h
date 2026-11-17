@@ -55,7 +55,12 @@ typedef void (^SPInstallCompletion)(BOOL ok, NSError *_Nullable error);
 /// 直接给出各组件路径（安装后可用）
 @property (nonatomic, readonly) NSString *binDir;       // usr/bin（优先）或 bin
 @property (nonatomic, readonly) NSString *baseBinDir;   // 始终是 bin（基础命令）
-@property (nonatomic, readonly) NSString *perl5Dir;     // lib/perl5
+@property (nonatomic, readonly) NSString *perl5Dir;
+/// Rein 结构：Linux 容器启动器与 rootfs（不存在时返回路径但不保证可用）
+@property (nonatomic, readonly) NSString *ishdPath;
+@property (nonatomic, readonly) NSString *alpineRoot;
+/// 是否具备完整 Linux 运行时（ishd + alpine-rootfs）
+@property (nonatomic, readonly) BOOL hasLinuxRuntime;     // lib/perl5
 @property (nonatomic, readonly) NSString *libDir;       // usr/lib（优先）或 lib
 @property (nonatomic, readonly) NSString *theosPath;    // Toolchain/theos
 @property (nonatomic, readonly) NSString *ollvmRoot;    // Toolchain/ollvm

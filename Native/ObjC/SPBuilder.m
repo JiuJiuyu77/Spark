@@ -58,7 +58,12 @@
         // perl 模块：logos.pl 预处理 .x 必需
         [lines addObject:@"[ -d \"$SPARK_TC/usr/lib/perl5\" ] && export PERL5LIB=\"$SPARK_TC/usr/lib/perl5:${PERL5LIB:-}\""];
         // THEOS 指向包内 theos/
-        [lines addObject:@"[ -d \"$SPARK_TC/theos\" ] && export THEOS=\"$SPARK_TC/theos\""];
+        // THEOS 位置随运行时结构不同：
+        //   A. usr/bin + theos/            → $SPARK_TC/theos
+        //   B. Rein 对齐：theos-root/theos  → $SPARK_TC/theos-root/theos
+        //   C. theos-min                    → $SPARK_TC/theos-min
+        [lines addObject:@"for t in \"$SPARK_TC/theos\" \"$SPARK_TC/theos-root/theos\" \"$SPARK_TC/theos-min\"; do "
+                      "[ -f \"$t/makefiles/common.mk\" ] && { export THEOS=\"$t\"; break; }; done"];
     }
 
     NSString *pathPrefix = [[SPToolchain shared] pathPrefixForProfile:profile];

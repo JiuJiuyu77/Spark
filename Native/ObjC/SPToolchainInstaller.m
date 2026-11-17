@@ -39,22 +39,53 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
 
 - (BOOL)hasBundledToolchain { return self.bundledRoot != nil; }
 
+/// 运行时结构有三种来源，统一在这里判定：
+///   A. CodexApp / 我们早期打的包：  usr/bin  + usr/lib  + theos/
+///   B. Rein(DSH.app) 对齐包：       helpers/ + alpine-rootfs/ +
+///                                   theos-root/usr/bin + sdks/
+///   C. 最早期：                     bin/ + lib/ + theos/
+/// 判错任何一个都会导致「工具链显示就绪但编译失败」。
 - (NSString *)binDir {
-    // CodexApp 结构：usr/bin；旧版结构：bin/。优先 usr/bin（编译链都在那里）
-    NSString *usr = [self.installRoot stringByAppendingPathComponent:@"usr/bin"];
-    if ([NSFileManager.defaultManager fileExistsAtPath:usr]) return usr;
+    NSFileManager *fm = NSFileManager.defaultManager;
+    for (NSString *rel in @[@"usr/bin", @"theos-root/usr/bin", @"bin"]) {
+        NSString *p = [self.installRoot stringByAppendingPathComponent:rel];
+        if ([fm fileExistsAtPath:p]) return p;
+    }
     return [self.installRoot stringByAppendingPathComponent:@"bin"];
 }
 - (NSString *)libDir {
-    NSString *usr = [self.installRoot stringByAppendingPathComponent:@"usr/lib"];
-    if ([NSFileManager.defaultManager fileExistsAtPath:usr]) return usr;
+    NSFileManager *fm = NSFileManager.defaultManager;
+    for (NSString *rel in @[@"usr/lib", @"theos-root/usr/lib", @"lib"]) {
+        NSString *p = [self.installRoot stringByAppendingPathComponent:rel];
+        if ([fm fileExistsAtPath:p]) return p;
+    }
     return [self.installRoot stringByAppendingPathComponent:@"lib"];
 }
-- (NSString *)theosPath     { return [self.installRoot stringByAppendingPathComponent:@"theos"]; }
+- (NSString *)theosPath {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    for (NSString *rel in @[@"theos", @"theos-root/theos", @"theos-min"]) {
+        NSString *p = [self.installRoot stringByAppendingPathComponent:rel];
+        if ([fm fileExistsAtPath:[p stringByAppendingPathComponent:@"makefiles/common.mk"]]) return p;
+    }
+    return [self.installRoot stringByAppendingPathComponent:@"theos"];
+}
 - (NSString *)baseBinDir    { return [self.installRoot stringByAppendingPathComponent:@"bin"]; }
 - (NSString *)perl5Dir      { return [[self libDir] stringByAppendingPathComponent:@"perl5"]; }
 - (NSString *)ollvmRoot     { return [self.installRoot stringByAppendingPathComponent:@"ollvm"]; }
 - (NSString *)reverseBinDir { return [self.installRoot stringByAppendingPathComponent:@"reverse/bin"]; }
+
+/// Rein 结构特有：Linux 容器启动器
+- (NSString *)ishdPath {
+    return [self.installRoot stringByAppendingPathComponent:@"helpers/ishd"];
+}
+- (NSString *)alpineRoot {
+    return [self.installRoot stringByAppendingPathComponent:@"alpine-rootfs"];
+}
+/// 是否具备 Rein 的完整运行时（能跑 Linux 侧命令）
+- (BOOL)hasLinuxRuntime {
+    return [NSFileManager.defaultManager fileExistsAtPath:self.ishdPath]
+        && [NSFileManager.defaultManager fileExistsAtPath:self.alpineRoot];
+}
 
 #pragma mark - 状态
 
