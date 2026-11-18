@@ -589,6 +589,7 @@ static CGFloat const kInnerInset = 3;    // 参考 TabBar 的 innerInset（略�
     return CGSizeMake(UIViewNoIntrinsicMetric, kItemHeight + kInnerInset * 2);
 }
 
+@end
 
 #pragma mark - 表格头部容器
 //
@@ -666,4 +667,3 @@ UIView *SPTableHeader(NSString *symbol, NSString *title, NSString *subtitle,
     return c;
 }
 
-@end
