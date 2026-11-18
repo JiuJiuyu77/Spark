@@ -4,6 +4,7 @@
 
 #import "SPSession.h"
 #import "SPCompat.h"
+#import "SPToolchainInstaller.h"
 #import <spawn.h>
 #import <signal.h>
 #import <sys/wait.h>
@@ -376,9 +377,54 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
 
 #pragma mark 公开入口
 
+/// 找一个能真正执行的 shell —— 这是「退出码 -1」最常见的原因。
+///
+/// iOS 沙盒里 /bin/sh 往往 isExecutableFileAtPath 返回 YES 但 posix_spawn
+/// 仍失败（沙盒规则拦截 /bin 下的系统二进制），于是子进程根本没起来，
+/// 退出码就是 -1、耗时 0 秒 —— 与「编译失败」看起来完全一样。
+///
+/// 优先级：
+///   1. 运行时自带的 bash（tools/helpers/bash 或 usr/bin/bash）
+///   2. 运行时 usr/bin 下的 bash / sh
+///   3. /var/jb/bin/sh（越狱）
+///   4. /bin/sh（最后才试）
++ (NSString *)resolveShell {
+    static NSString *cached;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSFileManager *fm = NSFileManager.defaultManager;
+        NSMutableArray<NSString *> *cands = [NSMutableArray array];
+
+        // App 包内的 helpers（Rein 对齐包里就在这里）
+        NSString *bundle = [[NSBundle mainBundle] bundlePath];
+        [cands addObject:[bundle stringByAppendingPathComponent:@"Toolchain/helpers/bash"]];
+        [cands addObject:[bundle stringByAppendingPathComponent:@"Toolchain/helpers/sh"]];
+
+        // 工具链安装目录
+        SPToolchainInstaller *inst = [SPToolchainInstaller shared];
+        NSString *root = inst.installRoot;
+        [cands addObject:[root stringByAppendingPathComponent:@"helpers/bash"]];
+        [cands addObject:[root stringByAppendingPathComponent:@"usr/bin/bash"]];
+        [cands addObject:[root stringByAppendingPathComponent:@"bin/bash"]];
+        [cands addObject:[root stringByAppendingPathComponent:@"helpers/sh"]];
+        [cands addObject:[root stringByAppendingPathComponent:@"usr/bin/sh"]];
+
+        // 越狱 / 系统兜底
+        [cands addObject:@"/var/jb/bin/sh"];
+        [cands addObject:@"/bin/sh"];
+        [cands addObject:@"/usr/bin/sh"];
+
+        for (NSString *c in cands) {
+            if ([fm isExecutableFileAtPath:c]) { cached = c; break; }
+        }
+        if (!cached) cached = @"/bin/sh";
+        SPLog(@"使用 shell：%@", cached);
+    });
+    return cached;
+}
+
 - (int)runShell:(NSString *)script {
-    NSString *sh = @"/bin/sh";
-    if (![[NSFileManager defaultManager] isExecutableFileAtPath:sh]) sh = @"/var/jb/bin/sh";
+    NSString *sh = [SPSession resolveShell];
 
     // posix_spawn 在 iOS 上没有可用的 chdir，改在脚本前面拼一句 cd；
     // exec 失败时 cd 也失败，脚本会立刻以非 0 退出，语义一样。

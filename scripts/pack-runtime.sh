@@ -68,7 +68,10 @@ mkdir -p "$PKGROOT"/bin "$PKGROOT"/usr/bin "$PKGROOT"/usr/lib "$PKGROOT"/usr/sbi
 # ---------------------------------------------------------------
 
 say "1/5 全量复制 theos-root → usr/"
-for sub in bin sbin usr etc; do
+# helpers 必须有：里面是 bash（shell 本体）与 ldid 等。
+# 少了它 posix_spawn 会找不到可执行的 shell，
+# 表现是「退出码 -1、耗时 0 秒」，与编译失败极难区分。
+for sub in bin sbin usr etc helpers; do
     [ -d "$THEOS_ROOT/$sub" ] || continue
     cp -R "$THEOS_ROOT/$sub/." "$PKGROOT/$sub/" 2>/dev/null || warn "复制 $sub 有失败项"
     n=$(find "$PKGROOT/$sub" -type f 2>/dev/null | wc -l | tr -d ' ')

@@ -71,6 +71,32 @@
         emit([self step:SPSelfTestStageEnv title:@"临时目录可写" passed:writable
                  detail:tmp hint:writable ? nil : (werr.localizedDescription ?: @"无法写入临时目录")]);
 
+        // ── 1.5 shell 能否真的启动 ──
+        // 「退出码 -1、耗时 0 秒」几乎都是这一步失败：
+        // posix_spawn 拒绝了 /bin/sh（沙盒不允许执行系统二进制），
+        // 子进程根本没起来。必须单独验证，否则用户只会看到 -1。
+        __block BOOL shellOK = NO;
+        __block NSString *shellDetail = nil;
+        dispatch_semaphore_t shSem = dispatch_semaphore_create(0);
+        SPSession *shProbe = [[SPSession alloc] initWithEnvironment:@{} workingDirectory:tmp];
+        shProbe.timeout = 15;
+        shProbe.onFinish = ^(SPCommandResult *r) {
+            shellOK = (r.exitCode == 0);
+            if (!shellOK) {
+                shellDetail = r.launchError.localizedDescription
+                           ?: [NSString stringWithFormat:@"退出码 %ld", (long)r.exitCode];
+            }
+            dispatch_semaphore_signal(shSem);
+        };
+        [shProbe runShell:@"echo spark-shell-ok"];
+        dispatch_semaphore_wait(shSem, dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_SEC));
+
+        emit([self step:SPSelfTestStageEnv title:@"shell 可启动" passed:shellOK
+                 detail:shellOK ? [SPSession resolveShell] : (shellDetail ?: @"超时")
+                   hint:shellOK ? nil
+                        : @"posix_spawn 被拒绝：运行时里的 bash 可能没打进 ipa，"
+                          @"或 App 不是以 root 运行。检查 设置 → 工具链 是否含 helpers/bash"]);
+
         // ── 2. 工具链 ──
         NSString *bin = inst.binDir;
         NSArray *tools = @[@"clang-16", @"ld64", @"ldid", @"make", @"perl"];

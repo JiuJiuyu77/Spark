@@ -92,6 +92,12 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
         [r addObject:@"OLLVM 未安装：不开混淆不影响普通构建，需要时安装 Arkari LLVM 16。"];
     if (![self has:SPToolchainComponentReverse])
         [r addObject:@"逆向工具（radare2/mt-macho）未安装：签名分析、注入 dylib 会不可用。"];
+
+    // SSH 单独说明：它不是「坏了」，而是 iOS 本来就不带。
+    // 只打一个叉会让人以为功能有 bug。
+    if (![self has:SPToolchainComponentDevices])
+        [r addObject:@"SSH 未安装：iOS 默认没有 ssh 客户端，需要额外安装 OpenSSH"
+                 "（或改用局域网工作台 / 远程 CI 构建）。这不影响本机编译。"];
     return r;
 }
 
@@ -173,7 +179,10 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
         // 变量名不能用 auto —— 它在 C++ 里是关键字，
         // 这个文件被当 ObjC++ 编译时会直接报 expected identifier。
         NSString *discovered = [SPToolchain discoverReinRoot];
-        t.reinRoot = saved.length ? saved : (discovered ?: @"/var/mobile/Documents/Rein");
+        // 找不到就留空，不要再写死成 /var/mobile/Documents/Rein ——
+        // 那个路径在只装 App 的环境里根本不存在，
+        // 会让后续探测全在错误路径上打转。
+        t.reinRoot = saved.length ? saved : (discovered ?: @"");
         t.homeRoot = [d stringForKey:kDefaultsHomeRoot];
         [t rescan];
     });
@@ -307,7 +316,20 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     self.resolvedNode = [self firstExistingFile:@[@"bin/node22", @"bin/node", @"helpers/node"] fromRoots:roots];
     [scan setPath:self.resolvedNode for:SPToolchainComponentNode];
 
-    self.resolvedSSH = [SPUtil findExecutable:@[@"ssh"] searchDirs:@[@"/usr/bin", @"/usr/local/bin", @"/bin", @"/var/jb/usr/bin"]];
+    // SSH 不在搜索常见系统路径里通常是因为根本没装 ——
+    // iOS 不带 ssh，需要单独装 OpenSSH（Rein 也不自带）。
+    // 这里把工具链目录也纳入搜索（有些包会带 OpenSSH 客户端），
+    // 找不到时状态文案要说明「未安装」而不是只打个叉。
+    SPToolchainInstaller *inst = [SPToolchainInstaller shared];
+    NSMutableArray *sshDirs = [NSMutableArray arrayWithObjects:
+        @"/usr/bin", @"/usr/local/bin", @"/bin",
+        @"/var/jb/usr/bin", @"/var/jb/bin", @"/usr/sbin", @"/var/jb/usr/sbin", nil];
+    for (NSString *d in @[inst.binDir, inst.baseBinDir,
+                          [inst.installRoot stringByAppendingPathComponent:@"helpers"],
+                          [inst.installRoot stringByAppendingPathComponent:@"usr/sbin"]]) {
+        if (d.length) [sshDirs addObject:d];
+    }
+    self.resolvedSSH = [SPUtil findExecutable:@[@"ssh"] searchDirs:sshDirs];
     [scan setPath:self.resolvedSSH for:SPToolchainComponentDevices];
 
     self.scan = scan;

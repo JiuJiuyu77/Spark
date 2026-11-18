@@ -141,6 +141,24 @@
 #pragma mark - 执行
 
 - (void)start {
+    // 非 root 时不要「跑一遍再失败」：
+    // 访问 SDK / 受保护路径会被直接拒绝，表现是无输出的瞬间退出，
+    // 用户完全不知道发生了什么。这里先拦下来并说清楚。
+    if (getuid() != 0) {
+        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"需要 root 权限"
+            message:[NSString stringWithFormat:
+                @"当前 uid=%d，不是 root。\n\n"
+                 "测试构建会读 SDK、写临时目录、启动子进程，"
+                 "这些在非 root 下都会被拒绝，表现为「瞬间退出、没有输出」。\n\n"
+                 "请用 TrollStore 安装 Spark（需要 platform-application 权限）。",
+                (int)getuid()]
+            preferredStyle:UIAlertControllerStyleAlert];
+        [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:a animated:YES completion:nil];
+        [SPMotion hapticError];
+        return;
+    }
+
     self.running = YES;
     [self.steps removeAllObjects];
     [self.logLines removeAllObjects];

@@ -129,7 +129,8 @@ typedef NS_ENUM(NSInteger, SPSection) {
     switch (s) {
         case SPSectionBuildDefaults: return 9;
         case SPSectionObfuscation:   return 4;
-        case SPSectionToolchain:     return 7 + (NSInteger)[[SPToolchainDownloader shared] components].count;
+        // 运行时已全部内嵌进 ipa，不再有「按需下载」的组件行
+        case SPSectionToolchain:     return 7;
         case SPSectionFiles:         return 5;
         case SPSectionMCP:           return 4;
         case SPSectionTarget:        return 4;
@@ -632,7 +633,8 @@ typedef NS_ENUM(NSInteger, SPSection) {
                 break;
             }
             default: {
-                NSArray<SPComponentInfo *> *comps = [[SPToolchainDownloader shared] components];
+                // 运行时已全部内嵌，这里不再有可下载组件
+                NSArray<SPComponentInfo *> *comps = @[];
                 NSInteger idx = ip.row - 7;
                 if (idx >= 0 && idx < (NSInteger)comps.count) {
                     SPComponentInfo *c = comps[idx];

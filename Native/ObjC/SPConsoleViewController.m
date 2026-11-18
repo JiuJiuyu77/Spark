@@ -430,8 +430,16 @@
         [self setStatus:@"已停止" symbol:@"stop.circle" color:[SPTheme warn]];
     } else {
         [SPMotion animate:^{ self.progress.progress = 0; } duration:0.2];
-        [self setStatus:[NSString stringWithFormat:@"编译失败 · exit %ld", (long)job.exitCode]
-                symbol:@"xmark.octagon.fill" color:[SPTheme danger]];
+        // exit -1 不是「编译失败」，而是**子进程根本没起来**
+        // （posix_spawn 失败）。直接显示 -1 会误导人去看编译日志，
+        // 而日志其实是空的。这里区分开。
+        if (job.exitCode == -1) {
+            [self setStatus:@"子进程启动失败" symbol:@"exclamationmark.triangle.fill"
+                    color:[SPTheme danger]];
+        } else {
+            [self setStatus:[NSString stringWithFormat:@"编译失败 · exit %ld", (long)job.exitCode]
+                    symbol:@"xmark.octagon.fill" color:[SPTheme danger]];
+        }
         [SPMotion hapticError];
         [self showHint:job.failureHint ?: @"编译失败，请查看日志最后几行。"];
         [self offerAutofixForJob:job];
