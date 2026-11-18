@@ -103,6 +103,11 @@
         return;
     }
 
+    // alpine-rootfs 必须可写（ishd 要 mount_root / 应用 RootfsPatch）。
+    // 包内是只读的，这里按需复制一份到 Documents —— 只有 8MB，很快；
+    // 511MB 的 theos-root 依然直接用包内路径，不复制。
+    rootfsPath = [self prepareWritableRootfs:rootfsPath];
+
     // chroot 必须有 root
     if (getuid() != 0 && ![[SPPrivileged shared] ensureRoot]) {
         NSError *e = SPError(SPErrorCodeLaunchFailed,
@@ -161,6 +166,37 @@
                      [SPUtil shellQuote:rootfsPath]];
     SPLog(@"启动 Linux 容器：%@", cmd);
     [s runShell:cmd];
+}
+
+/// 把（可能只读的）rootfs 准备到可写位置。
+/// 已经在 Documents 里就直接返回；在 App 包里就复制一份。
+- (NSString *)prepareWritableRootfs:(NSString *)rootfs {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSString *writable = [[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark"]
+                          stringByAppendingPathComponent:@"alpine-rootfs"];
+
+    // 已经是可写位置
+    if ([rootfs hasPrefix:NSHomeDirectory()]) return rootfs;
+
+    // 已经复制过（且比包内的新）
+    if ([fm fileExistsAtPath:writable]) {
+        SPLog(@"复用已准备好的 rootfs：%@", writable);
+        return writable;
+    }
+
+    SPLog(@"首次准备 rootfs（复制 %@）", rootfs.lastPathComponent);
+    [fm removeItemAtPath:writable error:NULL];
+    [fm createDirectoryAtPath:[writable stringByDeletingLastPathComponent]
+  withIntermediateDirectories:YES attributes:nil error:NULL];
+
+    NSError *err = nil;
+    if (![fm copyItemAtPath:rootfs toPath:writable error:&err]) {
+        SPLog(@"[!] 复制 rootfs 失败：%@", err.localizedDescription);
+        // 复制失败时退回原路径（可能只读，容器大概率起不来，
+        // 但至少让 startWithRootfs 报出真实的错误而不是这里静默失败）
+        return rootfs;
+    }
+    return writable;
 }
 
 #pragma mark - 执行

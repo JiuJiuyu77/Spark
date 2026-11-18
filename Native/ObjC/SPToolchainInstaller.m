@@ -26,7 +26,24 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
 #pragma mark - 路径
 
 - (NSString *)installRoot {
-    return [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/Toolchain"];
+    // **优先直接用 App 包内的运行时，不复制。**
+    //
+    // 之前一律复制到 Documents：511MB 的内容在首次启动时拷一遍，
+    // 既慢（十几秒到几十秒）又占双倍空间（包内 511M + Documents 511M）。
+    // 而运行时是只读的，包内路径完全够用。
+    //
+    // 只有当用户手动导入过外部运行时（Documents 里那份更新/存在），
+    // 才用 Documents 的 —— 这样「从文件导入」功能仍然有效。
+    NSString *docs = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/Toolchain"];
+    NSFileManager *fm = NSFileManager.defaultManager;
+
+    BOOL docsReady = [fm fileExistsAtPath:[docs stringByAppendingPathComponent:@".installed"]];
+    if (docsReady) return docs;
+
+    NSString *bundled = self.bundledRoot;
+    if (bundled.length) return bundled;
+
+    return docs;
 }
 
 - (NSString *)bundledRoot {
@@ -104,8 +121,16 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
 
 - (BOOL)isInstalled {
     NSFileManager *fm = NSFileManager.defaultManager;
-    NSString *stamp = [self.installRoot stringByAppendingPathComponent:@".installed"];
-    if (![fm fileExistsAtPath:stamp]) return NO;
+
+    // 包内运行时不需要 .installed 标记：
+    // 它随 App 一起装好，判定标准就是「关键文件在不在」。
+    // 只有 Documents 里的导入运行时才需要标记。
+    BOOL usingBundled = [self.installRoot isEqualToString:self.bundledRoot ?: @""];
+    if (!usingBundled) {
+        NSString *stamp = [self.installRoot stringByAppendingPathComponent:@".installed"];
+        if (![fm fileExistsAtPath:stamp]) return NO;
+    }
+
     // 至少要有 ld64 或 clang，且 Theos makefiles 在
     BOOL hasCompiler = NO;
     for (NSString *d in @[self.binDir, self.baseBinDir]) {
