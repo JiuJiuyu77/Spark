@@ -17,6 +17,8 @@
 @property (nonatomic, strong) NSMutableArray<SPAuditIssue *> *issues;
 @property (nonatomic, copy, nullable) NSString *target;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
+/// 状态文案：渲染在分区 footer 里（不占头部空间）
+@property (nonatomic, copy, nullable) NSString *statusText;
 @end
 
 @implementation SPSignatureViewController
@@ -63,8 +65,9 @@
 /// 之前是自己拼了一个 frame 写死的 UILabel 当 tableHeaderView，
 /// 既不响应动态字体，还会覆盖掉统一的玻璃头部。
 - (void)updateSummaryText:(NSString *)text color:(UIColor *)color {
+    // UIKit 的 footer 只吃纯文本，color 目前只用于将来扩展；
+    // 保留参数是为了调用处语义清晰（成功/失败）。
     self.statusText = text;
-    self.statusColor = color;
     [self.table reloadData];
 }
 
