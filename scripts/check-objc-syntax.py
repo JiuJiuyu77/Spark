@@ -115,6 +115,26 @@ def check(path: str):
         if re.search(r'@interface\s+\w+\s*\([^)]*\)\s*<[^>]+>\s*<', line):
             PROBLEMS.append(f'{name}:{lineno}: @interface 后跟了两个协议列表，应合并成 <A, B>')
 
+    # 4f. block 内重复使用外层同名变量（最常见的手改残留）
+    #     表现：clang 报 "no visible @interface for 'NSString' declares addObject:"
+    #     本地脚本看不出来，只能靠这条规则提前拦。
+    for i, line in enumerate(lines, 1):
+        m = re.search(r'\b(NSMutableArray|NSMutableString|NSArray)\s*\*\s*(\w+)\s*=\s*\[.*(mutableCopy|array|string)\]', line)
+        if not m:
+            continue
+        var = m.group(2)
+        # 往上找同名变量，但**只限同一方法内**（遇到方法签名就停）
+        for j in range(i - 2, max(0, i - 40) - 1, -1):
+            if re.match(r'\s*[-+]\s*\(', lines[j]):
+                break   # 到了方法边界，说明不同方法，不算遮蔽
+            prev = lines[j]
+            pm = re.search(r'\b(NSString|NSArray|NSURL|NSDictionary)\s*\*\s*' + re.escape(var) + r'\s*=', prev)
+            if pm:
+                PROBLEMS.append(
+                    f'{name}:{i}: {var} 与外层第 {j+1} 行的 {pm.group(1)} *{var} 同名，'
+                    f'会被遮蔽 → clang 报诡异的方法不存在')
+                break
+
     # 4d. @implementation / @interface 与 @end 必须配对
     clean = re.sub(r'"(?:[^"\\\n]|\\.)*"', '""', text)
     n_impl = len(re.findall(r'@implementation\b', clean))

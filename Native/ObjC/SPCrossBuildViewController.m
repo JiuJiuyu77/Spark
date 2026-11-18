@@ -222,7 +222,7 @@
         if (r.exitCode == 0) {
             [msgs addObject:[NSString stringWithFormat:@"[ok] 产物：%@", outPath.lastPathComponent]];
         } else {
-            [out addObject:[NSString stringWithFormat:@"[x] 失败，退出码 %ld", (long)r.exitCode]];
+            [msgs addObject:[NSString stringWithFormat:@"[x] 失败，退出码 %ld", (long)r.exitCode]];
         }
         [self finishWithMessages:msgs];
     };

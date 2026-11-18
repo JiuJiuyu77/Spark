@@ -303,15 +303,15 @@
 }
 
 + (NSString *)summaryForReport:(SPCrashReport *)r {
-    NSMutableString *s = [NSMutableString string];
-    [s appendFormat:@"%@", r.appName.length ? r.appName : @"应用"];
-    if (r.exceptionType.length) [s appendFormat:@" 崩溃：%@", r.exceptionType];
-    if (r.signal.length) [s appendFormat:@"（%@）", r.signal];
+    NSMutableString *buf = [NSMutableString string];
+    [buf appendFormat:@"%@", r.appName.length ? r.appName : @"应用"];
+    if (r.exceptionType.length) [buf appendFormat:@" 崩溃：%@", r.exceptionType];
+    if (r.signal.length) [buf appendFormat:@"（%@）", r.signal];
     SPCrashFinding *first = r.findings.firstObject;
     if (first && first.severity >= SPCrashSeverityWarn) {
-        [s appendFormat:@"\n结论：%@", first.title];
+        [buf appendFormat:@"\n结论：%@", first.title];
     }
-    return s;
+    return buf;
 }
 
 #pragma mark - 扫描目录
