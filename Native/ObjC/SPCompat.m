@@ -6,6 +6,64 @@
 
 NSString *const SPErrorDomain = @"Spark.Error";
 
+#pragma mark - 日志（内存环形缓冲 + 文件）
+
+static NSMutableArray<NSString *> *SPLogBuffer(void) {
+    static NSMutableArray *buf;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ buf = [NSMutableArray array]; });
+    return buf;
+}
+
+NSString *SPLogFilePath(void) {
+    static NSString *p;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSString *dir = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/logs"];
+        [[NSFileManager defaultManager] createDirectoryAtPath:dir
+                                  withIntermediateDirectories:YES attributes:nil error:NULL];
+        p = [dir stringByAppendingPathComponent:@"spark.log"];
+    });
+    return p;
+}
+
+void SPAppendLog(NSString *message) {
+    if (!message.length) return;
+
+    static NSDateFormatter *fmt;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        fmt = [NSDateFormatter new];
+        fmt.dateFormat = @"HH:mm:ss.SSS";
+    });
+    NSString *line = [NSString stringWithFormat:@"%@ %@", [fmt stringFromDate:NSDate.date], message];
+
+    // 环形缓冲：最多 4000 条，避免长构建吃光内存
+    NSMutableArray *buf = SPLogBuffer();
+    @synchronized (buf) {
+        [buf addObject:line];
+        if (buf.count > 4000) [buf removeObjectsInRange:NSMakeRange(0, buf.count - 4000)];
+    }
+
+    // 落盘：用低层 API 追加，比每次读写整个文件快得多
+    static dispatch_queue_t ioq;
+    dispatch_once(&once, ^{ ioq = dispatch_queue_create("spark.log.io", DISPATCH_QUEUE_SERIAL); });
+    dispatch_async(ioq, ^{
+        FILE *f = fopen(SPLogFilePath().fileSystemRepresentation, "a");
+        if (!f) return;
+        fprintf(f, "%s\n", line.UTF8String);
+        fclose(f);
+    });
+}
+
+NSArray<NSString *> *SPRecentLogs(NSUInteger limit) {
+    NSMutableArray *buf = SPLogBuffer();
+    @synchronized (buf) {
+        NSUInteger n = MIN(limit, buf.count);
+        return [buf subarrayWithRange:NSMakeRange(buf.count - n, n)];
+    }
+}
+
 @implementation SPVersion
 
 + (instancetype)shared {

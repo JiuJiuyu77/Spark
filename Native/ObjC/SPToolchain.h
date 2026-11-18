@@ -74,7 +74,7 @@ typedef NS_ENUM(NSInteger, SPBuildTarget) {
 + (nullable NSString *)discoverReinRoot;
 
 /// 探测根目录（按优先级）：用户设置的安装目录、Rein 目录、App 包内
-@property (nonatomic, copy) NSString *reinRoot;      // 默认 /var/mobile/Documents/Rein
+@property (nonatomic, copy) NSString *reinRoot;      // 外部 Theos 根目录（可选，内置运行时优先）
 @property (nonatomic, copy, nullable) NSString *homeRoot; // 用户自定义安装目录
 
 - (void)rescan;

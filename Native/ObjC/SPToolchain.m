@@ -83,21 +83,23 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
 - (NSArray<NSString *> *)remedies {
     NSMutableArray *r = [NSMutableArray array];
     if (![self has:SPToolchainComponentTheos])
-        [r addObject:@"未找到 Theos：点「探测 Rein 目录」或把 theos 放到 Rein/tools/theos-local。"];
+        [r addObject:@"未找到 Theos：内置运行时可能没展开，去「工具链 → 展开工具链」。"];
     if (![self has:SPToolchainComponentSDK])
         [r addObject:@"未找到 iPhoneOS*.sdk：可在「工具链 → SDK 商店」里下载，或安装到 theos/sdks。"];
     if (![self has:SPToolchainComponentDarwin] && [self has:SPToolchainComponentTheos])
-        [r addObject:@"真机编译需要 Darwin 版 clang/ld64/ldid（Rein 的 theos-root/usr/bin 里有一套）。"];
+        [r addObject:@"编译需要 Darwin 版 clang/ld64/ldid：内置运行时里自带，检查工具链是否展开完整。"];
     if (![self has:SPToolchainComponentOLLVM])
         [r addObject:@"OLLVM 未安装：不开混淆不影响普通构建，需要时安装 Arkari LLVM 16。"];
     if (![self has:SPToolchainComponentReverse])
         [r addObject:@"逆向工具（radare2/mt-macho）未安装：签名分析、注入 dylib 会不可用。"];
 
-    // SSH 单独说明：它不是「坏了」，而是 iOS 本来就不带。
-    // 只打一个叉会让人以为功能有 bug。
-    if (![self has:SPToolchainComponentDevices])
-        [r addObject:@"SSH 未安装：iOS 默认没有 ssh 客户端，需要额外安装 OpenSSH"
-                 "（或改用局域网工作台 / 远程 CI 构建）。这不影响本机编译。"];
+    // SSH 单独说明：iOS 系统本身不带 ssh 客户端，
+    // 只打一个叉会让人以为功能坏了。
+    if (![self has:SPToolchainComponentDevices]) {
+        [r addObject:@"SSH 不可用：iOS 不自带 ssh 客户端，也没有内置在运行时里。\n"
+                 "  · 不影响本机编译\n"
+                 "  · 需要远程构建时，用「局域网工作台」或「GitHub CI」，两者都不依赖 ssh"];
+    }
     return r;
 }
 

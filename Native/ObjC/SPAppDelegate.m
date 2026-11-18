@@ -30,6 +30,16 @@
 @property (nonatomic, strong) SPFloatTabBar *floatBar;
 @end
 
+/// 详情页隐藏底栏：编译控制台需要完整高度，
+/// 否则「开始编译」会被悬浮底栏压住。
+/// 用通知让 AppDelegate 处理，避免各页面直接依赖它。
+void SPSetFloatBarHidden(BOOL hidden, BOOL animated) {
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"SPFloatBarVisibility"
+                                                        object:nil
+                                                      userInfo:@{@"hidden": @(hidden),
+                                                                 @"animated": @(animated)}];
+}
+
 @implementation SPAppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
@@ -185,10 +195,44 @@
         [self.floatBar.heightAnchor constraintEqualToConstant:SPFloatingBarHeight],
     ]];
 
+    // 详情页可以请求隐藏底栏（编译控制台等全屏页）
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(onFloatBarVisibility:)
+                                                 name:@"SPFloatBarVisibility"
+                                               object:nil];
+
     // 让内容底部留出悬浮栏的高度，避免最后一行被挡住
     self.tabs.additionalSafeAreaInsets = UIEdgeInsetsZero;
     for (UIViewController *nav in self.tabs.viewControllers) {
         nav.additionalSafeAreaInsets = UIEdgeInsetsMake(0, 0, SPFloatingBarHeight + SPSpaceM, 0);
+    }
+}
+
+- (void)onFloatBarVisibility:(NSNotification *)note {
+    BOOL hidden = [note.userInfo[@"hidden"] boolValue];
+    BOOL animated = [note.userInfo[@"animated"] boolValue];
+
+    // 隐藏时把内容底部预留也收掉，页面才能真正用满高度
+    self.tabs.additionalSafeAreaInsets = hidden
+        ? UIEdgeInsetsZero
+        : UIEdgeInsetsMake(0, 0, SPFloatingBarHeight + SPSpaceM, 0);
+    for (UIViewController *nav in self.tabs.viewControllers) {
+        nav.additionalSafeAreaInsets = self.tabs.additionalSafeAreaInsets;
+    }
+
+    void (^apply)(void) = ^{
+        self.floatBar.alpha = hidden ? 0 : 1;
+        self.floatBar.transform = hidden
+            ? CGAffineTransformMakeTranslation(0, 80)
+            : CGAffineTransformIdentity;
+        self.floatBar.userInteractionEnabled = !hidden;
+    };
+    if (animated) {
+        [UIView animateWithDuration:0.24 delay:0
+                            options:UIViewAnimationOptionCurveEaseInOut
+                         animations:apply completion:nil];
+    } else {
+        apply();
     }
 }
 

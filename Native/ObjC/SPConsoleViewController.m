@@ -10,6 +10,7 @@
 #import "SPSession.h"
 #import "SPStore.h"
 #import "SPCompat.h"
+#import "SPAppDelegate.h"
 #import "SPCrashGuard.h"
 #import "SPGit.h"
 #import "SPPrivileged.h"
@@ -57,6 +58,18 @@
     [_ticker invalidate];
     _ticker = nil;
     [NSObject cancelPreviousPerformRequestsWithTarget:self];
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    // 编译控制台是全屏操作页：隐藏悬浮底栏，
+    // 否则「开始编译」按钮会被它压住（用户报的冲突）。
+    SPSetFloatBarHidden(YES, NO);
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    SPSetFloatBarHidden(NO, YES);
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
@@ -241,7 +254,10 @@
     [NSLayoutConstraint activateConstraints:@[
         [self.actionBar.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.actionBar.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [self.actionBar.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        // 贴安全区底部：容器已为悬浮底栏预留了 additionalSafeAreaInsets，
+        // 直接用 view.bottomAnchor 会让「开始编译」被底栏压住 —— 这就是
+        // 用户报的「悬浮底栏和构建按钮冲突」。
+        [self.actionBar.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor],
 
         // 按钮必须约束在 actionBar.contentView 内部，
         // 不能绑到 self.view.safeArea，否则按钮会跑出操作条、层级错乱

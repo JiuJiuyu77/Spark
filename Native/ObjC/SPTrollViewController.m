@@ -350,7 +350,7 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 4; }
 
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s {
-    return @[@"目标", @"插件", @"选项", @"操作"][s];
+    return SPAt(@[@"目标", @"插件", @"选项", @"操作"], s, @"");
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {

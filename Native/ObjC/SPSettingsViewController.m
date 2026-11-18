@@ -168,7 +168,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
                     break;
                 case 1:
                     cell.textLabel.text = @"混淆强度";
-                    cell.detailTextLabel.text = @[@"无", @"轻度", @"均衡", @"强力", @"自定义"][o.obfuscation];
+                    cell.detailTextLabel.text = SPAt(@[@"无", @"轻度", @"均衡", @"强力", @"自定义"], o.obfuscation, @"");
                     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
                     break;
                 case 2:
@@ -227,7 +227,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             SPSettings *s = SPSettings.shared;
             switch (ip.row) {
-                case 0: cell.detailTextLabel.text = @[@"本机", @"远程 SSH", @"GitHub CI"][s.defaultTarget]; break;
+                case 0: cell.detailTextLabel.text = SPAt(@[@"本机", @"远程 SSH", @"GitHub CI"], s.defaultTarget, @""); break;
                 case 1: cell.detailTextLabel.text = s.sshHost.length
                     ? [NSString stringWithFormat:@"%@@%@:%ld", s.sshUser, s.sshHost, (long)s.sshPort] : @"未配置"; break;
                 case 2: cell.detailTextLabel.text = s.githubRepo.length ? s.githubRepo : @"未配置"; break;
@@ -308,12 +308,12 @@ typedef NS_ENUM(NSInteger, SPSection) {
     switch (row) {
         case 0:
             cell.textLabel.text = @"架构";
-            cell.detailTextLabel.text = @[@"arm64", @"arm64e", @"arm64 + arm64e"][o.arch];
+            cell.detailTextLabel.text = SPAt(@[@"arm64", @"arm64e", @"arm64 + arm64e"], o.arch, @"");
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             break;
         case 1:
             cell.textLabel.text = @"包格式";
-            cell.detailTextLabel.text = @[@"deb（有根）", @"deb（无根 rootless）", @"deb（隐根 roothide）", @".app", @".tipa"][o.format];
+            cell.detailTextLabel.text = SPAt(@[@"deb（有根）", @"deb（无根 rootless）", @"deb（隐根 roothide）", @".app", @".tipa"], o.format, @"");
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             break;
         case 2:

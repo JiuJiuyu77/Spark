@@ -12,8 +12,24 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// 日志宏：默认走 os_log 太重，这里直接给 NSLog 加文件短名。
-#define SPLog(fmt, ...) NSLog((@"[Spark] " fmt), ##__VA_ARGS__)
+/// 日志：除了系统日志，同时写入内存环形缓冲 + 文件。
+///
+/// 为什么必须改：
+///  之前 SPLog 只调 NSLog，内容只进系统日志（Console.app 才能看）。
+///  App 内的日志页面完全看不到这些 —— 用户看到的就是「日志不完整」，
+///  而真正的错误信息（setuid 失败、shell 找不到、着色器缺失）全在里面。
+#define SPLog(fmt, ...) do { \
+    NSString *_msg = [NSString stringWithFormat:(@"[Spark] " fmt), ##__VA_ARGS__]; \
+    NSLog(@"%@", _msg); \
+    SPAppendLog(_msg); \
+} while (0)
+
+/// 供 SPLog 使用：追加到内存缓冲并落盘（线程安全，可重入）
+FOUNDATION_EXPORT void SPAppendLog(NSString *message);
+/// 取最近 N 条日志（日志页面用）
+FOUNDATION_EXPORT NSArray<NSString *> *SPRecentLogs(NSUInteger limit);
+/// 日志文件路径（「分享日志」用）
+FOUNDATION_EXPORT NSString *SPLogFilePath(void);
 
 /// 只在 DEBUG 下输出
 #ifdef DEBUG
@@ -21,6 +37,16 @@ NS_ASSUME_NONNULL_BEGIN
 #else
 #  define SPDebug(fmt, ...) do {} while (0)
 #endif
+
+/// 数组安全取值：数组字面量下标越界会抛 NSRangeException，
+/// 而这类代码常在 cellForRow / heightForRow 里（主线程 UI 更新路径），
+/// 一抛就是 abort —— 表现为「进设置页就闪退」。
+/// 用 SPAt(array, index, 默认值) 替代 @[...][idx]。
+#define SPAt(arr, idx, fallback) ({ \
+    NSArray *_a = (arr); \
+    NSInteger _i = (idx); \
+    (_a != nil && _i >= 0 && _i < (NSInteger)_a.count) ? _a[(NSUInteger)_i] : (fallback); \
+})
 
 /// 安全的对象取值（避免 valueForKey 抛 NSException）
 static inline id SPOrNil(id _Nullable a, id fallback) { return a ?: fallback; }

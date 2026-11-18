@@ -55,7 +55,9 @@
 #pragma mark - 表格
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tv {
-    return self.steps.count ? (self.showLog ? 3 : 2) : 1;
+    // 至少要有「操作」分区，否则「开始测试」按钮根本不会出现 ——
+    // 之前无步骤时只返回 1 个分区，按钮被藏起来了。
+    return 2 + (self.showLog && self.logLines.count ? 1 : 0);
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s {
@@ -75,7 +77,7 @@
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     if (s == 0) return (NSInteger)self.steps.count;
-    if (s == 1) return self.steps.count ? 2 : 1;
+    if (s == 1) return 2;   // 开始测试 + 查看日志
     return (NSInteger)self.logLines.count;
 }
 
