@@ -110,6 +110,23 @@ done
 ok "Theos + $SDKN 个 SDK"
 [ -f "$PKGROOT/theos/bin/logos.pl" ] || die "theos/bin/logos.pl 没拷进来"
 
+# 逐个 SDK 校验：
+# 从 WebDAV / 网络路径复制大目录会静默失败，
+# 曾经出现过「iPhoneOS17.0.sdk 存在但是空目录」，
+# copy 返回 0、目录存在，直到编译时才报找不到 SDKSettings.json。
+for d in "$PKGROOT"/theos/sdks/iPhoneOS*.sdk; do
+	[ -d "$d" ] || continue
+	name=$(basename "$d")
+	cnt=$(find "$d" -type f 2>/dev/null | wc -l | tr -d ' ')
+	if [ ! -f "$d/SDKSettings.json" ]; then
+		die "$name 缺 SDKSettings.json（复制失败，目录可能是空的）"
+	fi
+	if [ "$cnt" -lt 1000 ]; then
+		die "$name 只有 $cnt 个文件（正常应 5000+，复制不完整）"
+	fi
+	ok "$name（$cnt 个文件）"
+done
+
 say "4/5 权限与 manifest"
 chmod -R 755 "$PKGROOT/bin" 2>/dev/null || true
 chmod -R 755 "$PKGROOT/usr/bin" 2>/dev/null || true

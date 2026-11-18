@@ -133,12 +133,13 @@ jobs:
           # 可用仓库变量 TOOLCHAIN_SOURCE 覆盖为任意直链
           SRC="${{ vars.TOOLCHAIN_SOURCE }}"
           if [ -z "$SRC" ]; then
-            SRC="https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v1/SparkTheosRuntime.tar.gz"
-            # 与 Spark-Runtime 上传时一致的 sha256（见 docs/runtime-decision.md）
-            TC_SHA="3547bbd074b3b379713be82200ad3347bfec0884cd017916644a9679be5b2ab9"
+            # runtime-v2：完整内嵌（288 个工具 + SDK 16.5/17.0/26.5）
+            # 旧的 runtime-v1 只带 43 个工具、2 个 SDK，已在集成场景下暴露缺口
+            SRC="https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v2/SparkTheosFull.tar.gz"
+            TC_SHA="d87ad01b4244a5f1b033c85d01cc8dbb8d0de7e68f6f72040d42cd77f6f8ea50"
           fi
 
-          if [ -d "$TC/theos/bin" ]; then
+          if [ -d "$TC/theos/bin" ] || [ -d "$TC/theos-root/theos/bin" ] || [ -d "$TC/theos-full/bin" ]; then
             echo "仓库内已有工具链"
           else
             echo "下载：$SRC"
@@ -223,7 +224,7 @@ jobs:
 
           # Theos 本体
           THEOSDIR=""
-          for c in "$TC/theos" "$TC/TheosRuntime/theos"; do
+          for c in "$TC/theos" "$TC/theos-root/theos" "$TC/theos-full" "$TC/TheosRuntime/theos"; do
             [ -d "$c" ] && { THEOSDIR="$c"; break; }
           done
           [ -n "$THEOSDIR" ] || { echo "::error::包里没有 theos/ 目录"; exit 1; }
@@ -232,7 +233,7 @@ jobs:
 
           # 编译链：clang-16 / ld64 / ldid / perl 必须在，否则 make 跑到链接就挂
           BINDIR=""
-          for c in "$TC/usr/bin" "$TC/TheosRuntime/usr/bin" "$TC/bin"; do
+          for c in "$TC/theos-root/usr/bin" "$TC/usr/bin" "$TC/TheosRuntime/usr/bin" "$TC/bin"; do
             [ -d "$c" ] && { BINDIR="$c"; break; }
           done
           [ -n "$BINDIR" ] || { echo "::error::包里没有 usr/bin 或 bin（缺编译链）"; exit 1; }
