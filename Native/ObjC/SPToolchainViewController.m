@@ -181,7 +181,7 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             SPSettings *s = SPSettings.shared;
             switch (ip.row) {
-                case 0: cell.detailTextLabel.text = SPAt(@[@"本机（真机编译）", @"远程设备", @"GitHub CI"], s.defaultTarget, @""); break;
+                case 0: cell.detailTextLabel.text = SPAtIndex(@[@"本机（真机编译）", @"远程设备", @"GitHub CI"], s.defaultTarget, @""); break;
                 case 1: cell.detailTextLabel.text = s.sshHost.length
                     ? [NSString stringWithFormat:@"%@@%@:%ld", s.sshUser, s.sshHost, (long)s.sshPort] : @"未配置"; break;
                 case 2: cell.detailTextLabel.text = s.githubRepo.length ? s.githubRepo : @"未配置"; break;

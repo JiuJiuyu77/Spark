@@ -38,15 +38,12 @@ FOUNDATION_EXPORT NSString *SPLogFilePath(void);
 #  define SPDebug(fmt, ...) do {} while (0)
 #endif
 
-/// 数组安全取值：数组字面量下标越界会抛 NSRangeException，
-/// 而这类代码常在 cellForRow / heightForRow 里（主线程 UI 更新路径），
-/// 一抛就是 abort —— 表现为「进设置页就闪退」。
-/// 用 SPAt(array, index, 默认值) 替代 @[...][idx]。
-#define SPAt(arr, idx, fallback) ({ \
-    NSArray *_a = (arr); \
-    NSInteger _i = (idx); \
-    (_a != nil && _i >= 0 && _i < (NSInteger)_a.count) ? _a[(NSUInteger)_i] : (fallback); \
-})
+/// 数组安全取值：越界会抛 NSRangeException，
+/// 而这类代码常在 cellForRow 里（主线程 UI 路径），一抛就是 abort。
+///
+/// 用**函数**而不是宏：宏的参数里只要出现逗号（数组字面量必然有）
+/// 就会被当成多个参数，编译报 "too many arguments to macro"。
+FOUNDATION_EXPORT id SPAtIndex(NSArray *array, NSInteger index, id fallback);
 
 /// 安全的对象取值（避免 valueForKey 抛 NSException）
 static inline id SPOrNil(id _Nullable a, id fallback) { return a ?: fallback; }

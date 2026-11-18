@@ -6,6 +6,13 @@
 
 NSString *const SPErrorDomain = @"Spark.Error";
 
+id SPAtIndex(NSArray *array, NSInteger index, id fallback) {
+    if (![array isKindOfClass:NSArray.class]) return fallback;
+    if (index < 0 || index >= (NSInteger)array.count) return fallback;
+    id v = array[(NSUInteger)index];
+    return v ?: fallback;
+}
+
 #pragma mark - 日志（内存环形缓冲 + 文件）
 
 static NSMutableArray<NSString *> *SPLogBuffer(void) {

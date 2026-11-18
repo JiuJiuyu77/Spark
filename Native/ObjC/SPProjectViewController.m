@@ -243,9 +243,9 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
         }
         case SPProjectSectionOptions: {
             switch (ip.row) {
-                case 0: cell.textLabel.text = @"架构"; cell.detailTextLabel.text = SPAt(@[@"arm64", @"arm64e", @"arm64 + arm64e"], o.arch, @"");
+                case 0: cell.textLabel.text = @"架构"; cell.detailTextLabel.text = SPAtIndex(@[@"arm64", @"arm64e", @"arm64 + arm64e"], o.arch, @"");
                     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault; break;
-                case 1: cell.textLabel.text = @"包格式"; cell.detailTextLabel.text = SPAt(@[@"deb（有根）", @"deb（无根 rootless）", @"deb（隐根 roothide）", @".app", @".tipa"], o.format, @"");
+                case 1: cell.textLabel.text = @"包格式"; cell.detailTextLabel.text = SPAtIndex(@[@"deb（有根）", @"deb（无根 rootless）", @"deb（隐根 roothide）", @".app", @".tipa"], o.format, @"");
                     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault; break;
                 case 2: cell.textLabel.text = @"编译配置"; cell.detailTextLabel.text = o.debug ? @"Debug" : @"Release";
                     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault; break;
@@ -261,7 +261,7 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
         case SPProjectSectionObfuscation: {
             switch (ip.row) {
                 case 0: cell.textLabel.text = @"启用 OLLVM"; [self addSwitch:cell on:o.useOLLVM tag:4004]; break;
-                case 1: cell.textLabel.text = @"混淆强度"; cell.detailTextLabel.text = SPAt(@[@"无", @"轻度", @"均衡", @"强力", @"自定义"], o.obfuscation, @"");
+                case 1: cell.textLabel.text = @"混淆强度"; cell.detailTextLabel.text = SPAtIndex(@[@"无", @"轻度", @"均衡", @"强力", @"自定义"], o.obfuscation, @"");
                     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; cell.selectionStyle = UITableViewCellSelectionStyleDefault; break;
                 default: cell.textLabel.text = @"启用的 Pass";
                     cell.detailTextLabel.text = o.obfuscationPasses.count ? [o.obfuscationPasses componentsJoinedByString:@" + "] : @"—";
