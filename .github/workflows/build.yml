@@ -382,9 +382,17 @@ jobs:
           # 液态玻璃着色器：xcrun metal 编成 default.metallib
           if [ -d Native/Shaders ]; then
             echo "==> 编译 Metal 着色器"
-            xcrun -sdk iphoneos metal -c Native/Shaders/*.metal \
-              -o "$RUNNER_TEMP/shaders.air" || { echo "::error::metal 编译失败"; exit 1; }
-            xcrun -sdk iphoneos metallib "$RUNNER_TEMP/shaders.air" \
+            # metal 一次只能给一个 -o；多个 .metal 会报
+            # "cannot specify -o when generating multiple output files"。
+            # 逐个编译成 .air 再一起 link。
+            AIRS=()
+            for m in Native/Shaders/*.metal; do
+              air="$RUNNER_TEMP/$(basename "${m%.metal}").air"
+              xcrun -sdk iphoneos metal -c "$m" -o "$air" \
+                || { echo "::error::metal 编译失败：$m"; exit 1; }
+              AIRS+=("$air")
+            done
+            xcrun -sdk iphoneos metallib "${AIRS[@]}" \
               -o "$APP/default.metallib" || { echo "::error::metallib 链接失败"; exit 1; }
             ls -lh "$APP/default.metallib"
           fi
