@@ -57,97 +57,46 @@ PKGROOT="$WORK/$OUT_NAME"
 mkdir -p "$PKGROOT"/bin "$PKGROOT"/usr/bin "$PKGROOT"/usr/lib "$PKGROOT"/usr/sbin \
          "$PKGROOT"/sbin "$PKGROOT"/etc "$PKGROOT"/var "$PKGROOT"/Library
 
-say "1/6 基础命令 → bin/"
-BASIC="cat chgrp chown cp date dd dir echo false gunzip gzexe gzip kill ln ls \
-mkdir mknod mktemp mv pwd rm rmdir sleep sync touch true uname which env"
-n=0
-for b in $BASIC; do
-	if [ -f "$THEOS_ROOT/usr/bin/$b" ]; then
-		cp "$THEOS_ROOT/usr/bin/$b" "$PKGROOT/bin/" 2>/dev/null && n=$((n+1))
-	fi
-done
-ok "$n 个"
-
-say "2/6 编译工具 → usr/bin/"
-# 这些是 Realm 的编译链核心，一个都不能少
-TOOLS="clang-16 clang++-16 clang clang++ clang-cpp ld64 ld ld-classic \
-as ar ranlib nm strip lipo ldid ldid2 install_name_tool \
-otool otool-classic ObjectDump bitcode_strip \
-make dpkg-deb dpkg dpkg-query dpkg-split dpkg-realpath dpkg-statoverride \
-tar gzip gunzip unzip zip ditto fakeroot plutil PlistBuddy \
-sed awk grep egrep fgrep find xargs basename dirname tee head tail \
-chmod chflags chcon apply"
-n=0
-MISSING=""
-for b in $TOOLS; do
-	if [ -f "$THEOS_ROOT/usr/bin/$b" ]; then
-		cp "$THEOS_ROOT/usr/bin/$b" "$PKGROOT/usr/bin/" 2>/dev/null && n=$((n+1))
-	else
-		MISSING="$MISSING $b"
-	fi
-done
-ok "$n 个"
-[ -n "$MISSING" ] && warn "缺失:$MISSING"
-
-# perl（logos.pl / nic.pl 必需）
-if [ -f "$THEOS_ROOT/usr/bin/perl" ]; then
-	cp "$THEOS_ROOT/usr/bin/perl" "$PKGROOT/usr/bin/" && ok "perl"
-else
-	die "找不到 perl —— logos.pl 无法运行，.x 文件无法编译"
-fi
-
-say "3/6 clang 运行时 → usr/lib/"
-# clang 资源（头文件）
-if [ -d "$THEOS_ROOT/usr/lib/clang" ]; then
-	cp -R "$THEOS_ROOT/usr/lib/clang" "$PKGROOT/usr/lib/" && ok "lib/clang"
-fi
-
-# LLVM 运行库（clang-16 是薄壳，真正代码在 libLLVM-16.dylib）
-if [ -d "$THEOS_ROOT/usr/lib/llvm-16" ]; then
-	mkdir -p "$PKGROOT/usr/lib/llvm-16/lib"
-	cp -R "$THEOS_ROOT/usr/lib/llvm-16/lib/"*.dylib "$PKGROOT/usr/lib/llvm-16/lib/" 2>/dev/null || true
-	cp -R "$THEOS_ROOT/usr/lib/llvm-16/bin" "$PKGROOT/usr/lib/llvm-16/" 2>/dev/null || true
-	cp -R "$THEOS_ROOT/usr/lib/llvm-16/share" "$PKGROOT/usr/lib/llvm-16/" 2>/dev/null || true
-	ok "lib/llvm-16"
-fi
-
-# 去重：libLLVM.dylib 与 libLLVM-16.dylib 同内容（各 108MB）
+# ---------------------------------------------------------------
+# 全量内嵌：整个 theos-root 原样带走，不再手工挑白名单
 #
-# 注意：**不能用符号链接**！TrollStore 安装时执行
-#   ldid -s Payload/Spark.app
-# 它会递归签名目录里每个文件，读到符号链接时同样报
-# "Unknown header magic" 导致整个安装失败（已实测踩坑）。
-# 用硬链接：两个名字指向同一份数据，ldid 看到的是普通文件。
-LLVM_LIB="$PKGROOT/usr/lib/llvm-16/lib"
-if [ -f "$LLVM_LIB/libLLVM.dylib" ] && [ -f "$LLVM_LIB/libLLVM-16.dylib" ]; then
-	A=$(stat -c %s "$LLVM_LIB/libLLVM.dylib" 2>/dev/null || echo 0)
-	B=$(stat -c %s "$LLVM_LIB/libLLVM-16.dylib" 2>/dev/null || echo 1)
-	if [ "$A" = "$B" ]; then
-		rm -f "$LLVM_LIB/libLLVM.dylib"
-		if ln "$LLVM_LIB/libLLVM-16.dylib" "$LLVM_LIB/libLLVM.dylib" 2>/dev/null; then
-			ok "libLLVM 去重（硬链接，省 108MB）"
-		else
-			# 硬链接不可用（跨卷）时宁可复制，也不能留符号链接
-			cp "$LLVM_LIB/libLLVM-16.dylib" "$LLVM_LIB/libLLVM.dylib"
-			warn "硬链接失败，改为复制（包体 +108MB）"
-		fi
-	fi
-fi
+# 之前是手工列 TOOLS=...，结果只带了 43 个工具（Rein 有 288 个），
+# 缺的那些在特定场景下才会暴露（比如 otool/bitcode_strip/
+# ldid2/dpkg-split），排查成本很高。
+# 现在整目录复制：usr/bin、usr/lib、usr/share、etc、sbin 全要，
+# 唯一的取舍是不带注释里明确不需要的东西。
+# ---------------------------------------------------------------
 
-# 其它运行库（dpkg / perl 依赖）
-count=0
-for f in "$THEOS_ROOT"/usr/lib/*.dylib; do
-	[ -e "$f" ] || continue
-	cp "$f" "$PKGROOT/usr/lib/" 2>/dev/null && count=$((count+1))
+say "1/5 全量复制 theos-root → usr/"
+for sub in bin sbin usr etc; do
+    [ -d "$THEOS_ROOT/$sub" ] || continue
+    cp -R "$THEOS_ROOT/$sub/." "$PKGROOT/$sub/" 2>/dev/null || warn "复制 $sub 有失败项"
+    n=$(find "$PKGROOT/$sub" -type f 2>/dev/null | wc -l | tr -d ' ')
+    ok "$sub（累计 $n 个文件）"
 done
-[ "$count" -gt 0 ] && ok "$count 个 dylib"
 
-# perl5 模块（96MB，logos 需要）
-if [ -d "$THEOS_ROOT/usr/lib/perl5" ]; then
-	cp -R "$THEOS_ROOT/usr/lib/perl5" "$PKGROOT/usr/lib/" && ok "lib/perl5"
+# 顶层 bin 也补一份基础命令（有些脚本按 /bin 找）
+if [ -d "$THEOS_ROOT/bin" ]; then
+    cp -R "$THEOS_ROOT/bin/." "$PKGROOT/bin/" 2>/dev/null || true
 fi
 
-say "4/6 Theos 本体 → theos/"
+# 校验：编译链必需项一个都不能少
+say "2/5 校验编译链"
+MISSING=""
+for b in clang-16 ld64 ldid make dpkg-deb perl; do
+    if [ -x "$PKGROOT/usr/bin/$b" ] || [ -x "$PKGROOT/bin/$b" ]; then
+        ok "$b"
+    else
+        MISSING="$MISSING $b"
+    fi
+done
+[ -z "$MISSING" ] || die "编译链缺必需工具：$MISSING"
+
+# 统计实际带了多少工具（对齐 Rein 的 288 个）
+BINCOUNT=$(ls "$PKGROOT/usr/bin" 2>/dev/null | wc -l | tr -d ' ')
+ok "usr/bin 共 $BINCOUNT 个工具"
+
+say "3/5 Theos 本体 → theos/"
 mkdir -p "$PKGROOT/theos/sdks"
 for part in makefiles bin lib vendor include templates mod extras package.json Prefix.pch LICENSE.md; do
 	[ -e "$THEOS_FULL/$part" ] && cp -R "$THEOS_FULL/$part" "$PKGROOT/theos/" 2>/dev/null
@@ -161,7 +110,7 @@ done
 ok "Theos + $SDKN 个 SDK"
 [ -f "$PKGROOT/theos/bin/logos.pl" ] || die "theos/bin/logos.pl 没拷进来"
 
-say "5/6 权限与 manifest"
+say "4/5 权限与 manifest"
 chmod -R 755 "$PKGROOT/bin" 2>/dev/null || true
 chmod -R 755 "$PKGROOT/usr/bin" 2>/dev/null || true
 
@@ -204,7 +153,7 @@ else
 	warn "找不到 fix-bundles.py，跳过（可能导致安装失败）"
 fi
 
-say "6/6 压缩"
+say "5/5 压缩"
 PKG="$OUTDIR/SparkTheosRuntime.tar.gz"
 rm -f "$PKG"
 # 必须先 tar 再 gzip：busybox 的 `tar czf` 与 `tar | gzip` 在低内存设备上会失败
