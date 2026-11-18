@@ -170,8 +170,10 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
         //      —— TrollStore 安装的 App 本体（实际最常见）
         // 之前只认 ①，所以装了 Rein App 也探测不到工具链。
         NSString *saved = [d stringForKey:kDefaultsReinRoot];
-        NSString *auto = [SPToolchain discoverReinRoot];
-        t.reinRoot = saved.length ? saved : (auto ?: @"/var/mobile/Documents/Rein");
+        // 变量名不能用 auto —— 它在 C++ 里是关键字，
+        // 这个文件被当 ObjC++ 编译时会直接报 expected identifier。
+        NSString *discovered = [SPToolchain discoverReinRoot];
+        t.reinRoot = saved.length ? saved : (discovered ?: @"/var/mobile/Documents/Rein");
         t.homeRoot = [d stringForKey:kDefaultsHomeRoot];
         [t rescan];
     });

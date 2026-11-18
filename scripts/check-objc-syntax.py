@@ -115,6 +115,21 @@ def check(path: str):
         if re.search(r'@interface\s+\w+\s*\([^)]*\)\s*<[^>]+>\s*<', line):
             PROBLEMS.append(f'{name}:{lineno}: @interface 后跟了两个协议列表，应合并成 <A, B>')
 
+    # 4g. 不能用 C++ 关键字作变量名
+    #     ObjC 文件里看不出问题，但这些 .m 会被当 ObjC++ 编译，
+    #     auto / new / delete / class / template 等会直接报语法错。
+    CPP_KEYWORDS = ('auto', 'new', 'delete', 'class', 'template', 'namespace',
+                    'virtual', 'explicit', 'mutable', 'friend', 'operator',
+                    'constexpr', 'nullptr', 'typename', 'throw', 'catch')
+    for i, line in enumerate(lines, 1):
+        code = line.split('//')[0]
+        for kw in CPP_KEYWORDS:
+            if re.search(r'\b\w+\s*\*\s*' + kw + r'\s*[=;]', code):
+                PROBLEMS.append(
+                    f'{name}:{i}: 变量名用了 C++ 关键字 "{kw}"，'
+                    f'被当 ObjC++ 编译时会报语法错')
+                break
+
     # 4f. block 内重复使用外层同名变量（最常见的手改残留）
     #     表现：clang 报 "no visible @interface for 'NSString' declares addObject:"
     #     本地脚本看不出来，只能靠这条规则提前拦。
