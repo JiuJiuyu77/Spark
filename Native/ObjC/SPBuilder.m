@@ -57,13 +57,19 @@
         [lines addObject:@"[ -d \"$SPARK_TC/usr/lib\" ] && export DYLD_LIBRARY_PATH=\"$TC_LIBS:${DYLD_LIBRARY_PATH:-}\""];
         // perl 模块：logos.pl 预处理 .x 必需
         [lines addObject:@"[ -d \"$SPARK_TC/usr/lib/perl5\" ] && export PERL5LIB=\"$SPARK_TC/usr/lib/perl5:${PERL5LIB:-}\""];
-        // THEOS 指向包内 theos/
-        // THEOS 位置随运行时结构不同：
-        //   A. usr/bin + theos/            → $SPARK_TC/theos
-        //   B. Rein 对齐：theos-root/theos  → $SPARK_TC/theos-root/theos
-        //   C. theos-min                    → $SPARK_TC/theos-min
-        [lines addObject:@"for t in \"$SPARK_TC/theos\" \"$SPARK_TC/theos-root/theos\" \"$SPARK_TC/theos-min\"; do "
-                      "[ -f \"$t/makefiles/common.mk\" ] && { export THEOS=\"$t\"; break; }; done"];
+        // THEOS 位置随运行时结构不同，判定条件是
+        // 「有 makefiles 且 sdks 里有真实 SDK」。
+        //
+        // 只判 common.mk 会踩坑：Rein 对齐包里
+        // theos-root/theos/sdks 只有一个 .keep 占位，
+        // 选中它之后 make 会报「找不到 SDK」。
+        // theos-full 才带真 SDK，所以排在最前。
+        [lines addObject:@"for t in \"$SPARK_TC/theos-full\" \"$SPARK_TC/theos\" "
+                      "\"$SPARK_TC/TheosRuntime/theos\" \"$SPARK_TC/theos-root/theos\"; do "
+                      "[ -f \"$t/makefiles/common.mk\" ] || continue; "
+                      "ls \"$t\"/sdks/iPhoneOS*.sdk >/dev/null 2>&1 || continue; "
+                      "export THEOS=\"$t\"; break; done"];
+        [lines addObject:@"[ -n \"${THEOS:-}\" ] || warn '没找到带 SDK 的 theos 目录'"];
     }
 
     NSString *pathPrefix = [[SPToolchain shared] pathPrefixForProfile:profile];

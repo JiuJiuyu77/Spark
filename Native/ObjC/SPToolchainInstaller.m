@@ -56,11 +56,10 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
 
 - (BOOL)hasBundledToolchain { return self.bundledRoot != nil; }
 
-/// 运行时结构有三种来源，统一在这里判定：
-///   A. CodexApp / 我们早期打的包：  usr/bin  + usr/lib  + theos/
-///   B. Rein(DSH.app) 对齐包：       helpers/ + alpine-rootfs/ +
-///                                   theos-root/usr/bin + sdks/
-///   C. 最早期：                     bin/ + lib/ + theos/
+/// 运行时结构有两种，统一在这里判定：
+///   A. Rein 对齐包（当前使用）：theos-root/{usr/bin,usr/lib}
+///                               + theos-full/{makefiles,sdks}
+///   B. 早期/CodexApp 形态：     usr/bin + usr/lib + theos/
 /// 判错任何一个都会导致「工具链显示就绪但编译失败」。
 - (NSString *)binDir {
     NSFileManager *fm = NSFileManager.defaultManager;
