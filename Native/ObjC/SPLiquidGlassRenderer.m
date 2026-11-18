@@ -105,7 +105,6 @@ static SPGlassParams SPGlassParamsForPreset(SPGlassPreset preset) {
         [self buildPipeline];
 
         self.backgroundColor = UIColor.clearColor;
-        self.isOpaque = NO;
         self.userInteractionEnabled = NO;
         self.contentMode = UIViewContentModeRedraw;
         self.clipsToBounds = NO;
@@ -148,6 +147,9 @@ static SPGlassParams SPGlassParamsForPreset(SPGlassPreset preset) {
     if (err) SPLog(@"[!] 管线创建失败：%@", err.localizedDescription);
 }
 
+/// 自身透明：液态玻璃靠背景纹理 + 着色器输出，不需要不透明层
+- (BOOL)isOpaque { return NO; }
+
 - (void)setPreset:(SPGlassPreset)preset {
     _preset = preset;
     [self setNeedsDisplay];
@@ -183,8 +185,8 @@ static SPGlassParams SPGlassParamsForPreset(SPGlassPreset preset) {
     // 本视图在宿主坐标系中的位置（用 presentation layer 以便动画期间跟随）
     CALayer *mine = self.layer.presentationLayer ?: self.layer;
     CGRect frameInHost = [mine convertRect:mine.bounds toLayer:host.layer];
-    CGRect capRect = CGRectMake(frameInHost.midX - capSize.width / 2,
-                                frameInHost.midY - capSize.height / 2,
+    CGRect capRect = CGRectMake(CGRectGetMidX(frameInHost) - capSize.width / 2,
+                                CGRectGetMidY(frameInHost) - capSize.height / 2,
                                 capSize.width, capSize.height);
 
     NSDictionary *attrs = @{
