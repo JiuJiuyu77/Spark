@@ -99,35 +99,58 @@ done
 BINCOUNT=$(ls "$PKGROOT/usr/bin" 2>/dev/null | wc -l | tr -d ' ')
 ok "usr/bin 共 $BINCOUNT 个工具"
 
-say "3/5 Theos 本体 → theos/"
-mkdir -p "$PKGROOT/theos/sdks"
+say "3/5 Theos 本体 + SDK"
+
+# 与 Rein 的实际布局对齐（核对过 DSH.app）：
+#   theos-root/theos/           ← Theos 本体（makefiles/bin/extras…）
+#   theos-root/theos/sdks/      ← **空目录**（Rein 里就是空的）
+#   sdks/iPhoneOS*.sdk          ← SDK 独立放在顶层
+# 之前我按「SDK 在 theos/sdks 下」布局，与实际不符。
+# 这里两种都放：theos/sdks 里软链到顶层 sdks，兼容两种查找方式。
+
+THEOS_SRC="$THEOS_ROOT/theos"
+[ -d "$THEOS_SRC" ] || THEOS_SRC="$THEOS_FULL"
+[ -d "$THEOS_SRC" ] || die "找不到 Theos 本体（theos-root/theos 或 theos-full）"
+
+mkdir -p "$PKGROOT/theos" "$PKGROOT/sdks"
 for part in makefiles bin lib vendor include templates mod extras package.json Prefix.pch LICENSE.md; do
-	[ -e "$THEOS_FULL/$part" ] && cp -R "$THEOS_FULL/$part" "$PKGROOT/theos/" 2>/dev/null
+    [ -e "$THEOS_SRC/$part" ] && cp -R "$THEOS_SRC/$part" "$PKGROOT/theos/" 2>/dev/null
 done
-# SDK：优先 17.0 + 16.5，有 26.5 也带上
+
+# SDK：优先从 theos 自带目录取，其次从顶层 sdks/
 SDKN=0
-for sdk in "$THEOS_FULL"/sdks/iPhoneOS*.sdk; do
-	[ -d "$sdk" ] || continue
-	cp -R "$sdk" "$PKGROOT/theos/sdks/" 2>/dev/null && SDKN=$((SDKN+1))
+for sdk in "$THEOS_SRC"/sdks/iPhoneOS*.sdk "$REIN"/sdks/iPhoneOS*.sdk; do
+    [ -d "$sdk" ] || continue
+    name=$(basename "$sdk")
+    # 已复制过就跳过（两个来源可能重复）
+    [ -d "$PKGROOT/sdks/$name" ] && continue
+    cp -R "$sdk" "$PKGROOT/sdks/" 2>/dev/null && SDKN=$((SDKN + 1))
 done
-ok "Theos + $SDKN 个 SDK"
+ok "Theos 本体 + $SDKN 个 SDK"
 [ -f "$PKGROOT/theos/bin/logos.pl" ] || die "theos/bin/logos.pl 没拷进来"
 
-# 逐个 SDK 校验：
-# 从 WebDAV / 网络路径复制大目录会静默失败，
-# 曾经出现过「iPhoneOS17.0.sdk 存在但是空目录」，
-# copy 返回 0、目录存在，直到编译时才报找不到 SDKSettings.json。
-for d in "$PKGROOT"/theos/sdks/iPhoneOS*.sdk; do
-	[ -d "$d" ] || continue
-	name=$(basename "$d")
-	cnt=$(find "$d" -type f 2>/dev/null | wc -l | tr -d ' ')
-	if [ ! -f "$d/SDKSettings.json" ]; then
-		die "$name 缺 SDKSettings.json（复制失败，目录可能是空的）"
-	fi
-	if [ "$cnt" -lt 1000 ]; then
-		die "$name 只有 $cnt 个文件（正常应 5000+，复制不完整）"
-	fi
-	ok "$name（$cnt 个文件）"
+# theos/sdks 指向顶层 sdks（有些 makefile 会直接查 $THEOS/sdks）
+rm -rf "$PKGROOT/theos/sdks"
+mkdir -p "$PKGROOT/theos/sdks"
+for d in "$PKGROOT/sdks"/*.sdk; do
+    [ -d "$d" ] || continue
+    ln -sf "../../sdks/$(basename "$d")" "$PKGROOT/theos/sdks/$(basename "$d")" 2>/dev/null || true
+done
+
+# 逐个 SDK 校验：从网络路径复制大目录会静默失败，
+# 曾出现「iPhoneOS17.0.sdk 存在但是空目录」，copy 返回 0、目录存在，
+# 直到编译才报找不到 SDKSettings.json。
+for d in "$PKGROOT"/sdks/iPhoneOS*.sdk; do
+    [ -d "$d" ] || continue
+    name=$(basename "$d")
+    cnt=$(find "$d" -type f 2>/dev/null | wc -l | tr -d ' ')
+    if [ ! -f "$d/SDKSettings.json" ]; then
+        die "$name 缺 SDKSettings.json（复制失败，可能是空目录）"
+    fi
+    if [ "$cnt" -lt 1000 ]; then
+        die "$name 只有 $cnt 个文件（正常 5000+，复制不完整）"
+    fi
+    ok "$name（$cnt 个文件）"
 done
 
 say "4/5 权限与 manifest"

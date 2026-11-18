@@ -83,18 +83,33 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
     //   · theos-full 优先 —— Rein 对齐包里只有它带真实 SDK
     //   · theos-root/theos 的 sdks 里可能只有 .keep（空目录），
     //     只判 common.mk 存在会选中它，然后在编译时报「找不到 SDK」
-    NSArray *cands = @[@"theos-full", @"theos", @"TheosRuntime/theos",
-                       @"theos-root/theos", @"theos-min"];
+    NSArray *cands = @[@"theos", @"theos-full", @"theos-root/theos",
+                       @"TheosRuntime/theos", @"theos-min"];
+
+    // SDK 可能在 theos/sdks，也可能独立在顶层 sdks/（Rein 的布局就是这样），
+    // 两处都要看，否则会误判「没有可用 SDK」。
+    NSArray *sdkDirs = @[
+        @"sdks",
+        @"theos/sdks",
+        @"theos-root/theos/sdks",
+    ];
+    BOOL (^hasSDKIn)(NSString *) = ^BOOL(NSString *root) {
+        for (NSString *rel in sdkDirs) {
+            NSString *dir = [root stringByAppendingPathComponent:rel];
+            for (NSString *name in [fm contentsOfDirectoryAtPath:dir error:NULL] ?: @[]) {
+                if (![name hasPrefix:@"iPhoneOS"] || ![name hasSuffix:@".sdk"]) continue;
+                NSString *settings = [[dir stringByAppendingPathComponent:name]
+                                      stringByAppendingPathComponent:@"SDKSettings.json"];
+                if ([fm fileExistsAtPath:settings]) return YES;
+            }
+        }
+        return NO;
+    };
+
     for (NSString *rel in cands) {
         NSString *p = [self.installRoot stringByAppendingPathComponent:rel];
         if (![fm fileExistsAtPath:[p stringByAppendingPathComponent:@"makefiles/common.mk"]]) continue;
-        // 还要确认 sdks 里真的有 SDK
-        NSString *sdks = [p stringByAppendingPathComponent:@"sdks"];
-        BOOL hasSDK = NO;
-        for (NSString *name in [fm contentsOfDirectoryAtPath:sdks error:NULL] ?: @[]) {
-            if ([name hasPrefix:@"iPhoneOS"] && [name hasSuffix:@".sdk"]) { hasSDK = YES; break; }
-        }
-        if (hasSDK) return p;
+        if (hasSDKIn(self.installRoot)) return p;
     }
     // 都不可用：退回第一个有 makefiles 的（让上层报出具体缺什么）
     for (NSString *rel in cands) {
@@ -277,6 +292,19 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
             fixed++;
         }
     }
+    // helpers/ 必须可执行：里面是 bash（shell 本体）。
+    // 少了执行位，posix_spawn 会拒绝启动，表现为「退出码 -1、耗时 0 秒」。
+    NSString *helpers = [self.installRoot stringByAppendingPathComponent:@"helpers"];
+    NSArray *helperBins = [fm contentsOfDirectoryAtPath:helpers error:NULL] ?: @[];
+    for (NSString *b in helperBins) {
+        NSString *p = [helpers stringByAppendingPathComponent:b];
+        BOOL isDir = NO;
+        if ([fm fileExistsAtPath:p isDirectory:&isDir] && !isDir) {
+            [fm setAttributes:@{NSFilePosixPermissions: @(0755)} ofItemAtPath:p error:NULL];
+        }
+    }
+    if (helperBins.count) SPLog(@"helpers 已 chmod 755：%lu 个（含 bash）", (unsigned long)helperBins.count);
+
     // 逆向工具与 ollvm 里的可执行文件
     for (NSString *d in @[self.reverseBinDir, [self.ollvmRoot stringByAppendingPathComponent:@"bin"]]) {
         for (NSString *b in [fm contentsOfDirectoryAtPath:d error:NULL] ?: @[]) {

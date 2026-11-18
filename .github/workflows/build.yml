@@ -130,7 +130,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: Native/Resources/Toolchain
-          key: theos-runtime-v2-${{ runner.os }}-${{ hashFiles('.github/workflows/build.yml') }}
+          key: theos-runtime-v3-${{ runner.os }}-${{ hashFiles('.github/workflows/build.yml') }}
 
       - name: Prepare bundled toolchain
         id: tc
@@ -149,10 +149,11 @@ jobs:
           # 可用仓库变量 TOOLCHAIN_SOURCE 覆盖为任意直链
           SRC="${{ vars.TOOLCHAIN_SOURCE }}"
           if [ -z "$SRC" ]; then
-            # runtime-v2：完整内嵌（288 个工具 + SDK 16.5/17.0/26.5）
+            # runtime-v3：完整内嵌 + helpers/bash
+            # v2 缺 bash，导致 posix_spawn 找不到 shell（退出码 -1）
             # 旧的 runtime-v1 只带 43 个工具、2 个 SDK，已在集成场景下暴露缺口
-            SRC="https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v2/SparkTheosFull.tar.gz"
-            TC_SHA="d87ad01b4244a5f1b033c85d01cc8dbb8d0de7e68f6f72040d42cd77f6f8ea50"
+            SRC="https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v3/SparkTheosRuntimeV3.tar.gz"
+            TC_SHA="5e26dbe33a23165131be37ac9c77ea4cf0bcbbcb1411ca054bc255a7d6fd1c7c"
           fi
 
           if [ -d "$TC/theos/bin" ] || [ -d "$TC/theos-root/theos/bin" ] || [ -d "$TC/theos-full/bin" ]; then
