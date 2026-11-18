@@ -16,7 +16,6 @@
 #import "SPJIT.h"
 #import "SPBackground.h"
 #import "SPPrivileged.h"
-#import "SPLinuxRuntime.h"
 #import "SPFileBrowserViewController.h"
 #import "SPMountsViewController.h"
 #import "SPMount.h"
@@ -627,14 +626,8 @@ typedef NS_ENUM(NSInteger, SPSection) {
             case 4: [[SPToolchain shared] rescan]; [self.table reloadData]; [self toast:@"已重新扫描"]; break;
             case 5: [self showToolchainDetail]; break;
             case 6: {
-                // 运行环境自检：身份 + Linux 容器，一起看
-                // 「子进程不是 root」和「容器起不来」是两类完全不同的故障，
-                // 放在同一处输出，避免用户来回切页面猜。
                 [[SPPrivileged shared] probeWithCompletion:^(NSString *detail) {
-                    [[SPLinuxRuntime shared] probeWithCompletion:^(SPLinuxRuntimeState st, NSString *containerDetail) {
-                        NSString *linux = [NSString stringWithFormat:@"\n\n── Linux 容器 ──\n%@", containerDetail];
-                        [self alert:@"运行环境自检" message:[detail stringByAppendingString:linux]];
-                    }];
+                    [self alert:@"运行身份" message:detail];
                 }];
                 break;
             }

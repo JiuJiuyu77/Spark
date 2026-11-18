@@ -1,5 +1,8 @@
 #!/bin/sh
-# spark-cross-build.sh —— 用 ish 自带的 clang 交叉编译 iOS dylib
+# spark-cross-build.sh —— 用系统 clang + ld64.lld 交叉编译 iOS dylib
+#
+# 不依赖 Linux 容器：clang 本身支持 -target arm64-apple-ios，
+# ld64.lld 支持 -adhoc_codesign，两步就能产出已签名的 Mach-O。
 #
 # 为什么需要这条路
 # ---------------
@@ -8,7 +11,7 @@
 #   · App 以 root 运行（否则写不了 .theos/）
 #   · 足够的磁盘与内存
 #
-# ish 里的 clang 本身就能产出 arm64 Mach-O（实测
+# clang 本身就能产出 arm64 Mach-O（实测
 # `clang -target arm64-apple-ios15.0 -c` 得到 cffaedfe），
 # 配合 ld64.lld 的 -Wl,-adhoc_codesign 可以直接签名。
 # 所以只要有一个 SDK 的 .tbd 桩，就能在没有 Theos 的情况下

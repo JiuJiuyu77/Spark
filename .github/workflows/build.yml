@@ -507,7 +507,7 @@ jobs:
           # ct_bypass / insert_dylib / optool / CydiaSubstrate.framework
           # 放在 .app/bin 下，注入时优先用它们，不必依赖用户自备
           # ------------------------------------------------------------------
-          # 交叉编译工具：ish 路线用，打进 .app/tools
+          # 交叉编译工具：clang 交叉编译路线用，打进 .app/tools
           #
           # 注意：**不能给 .sh 加执行位**。
           # TrollStore 用 ldid -s 递归签名 .app，遇到 #! 开头的可执行脚本

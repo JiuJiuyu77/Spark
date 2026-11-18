@@ -91,18 +91,6 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
 - (NSString *)ollvmRoot     { return [self.installRoot stringByAppendingPathComponent:@"ollvm"]; }
 - (NSString *)reverseBinDir { return [self.installRoot stringByAppendingPathComponent:@"reverse/bin"]; }
 
-/// Rein 结构特有：Linux 容器启动器
-- (NSString *)ishdPath {
-    return [self.installRoot stringByAppendingPathComponent:@"helpers/ishd"];
-}
-- (NSString *)alpineRoot {
-    return [self.installRoot stringByAppendingPathComponent:@"alpine-rootfs"];
-}
-/// 是否具备 Rein 的完整运行时（能跑 Linux 侧命令）
-- (BOOL)hasLinuxRuntime {
-    return [NSFileManager.defaultManager fileExistsAtPath:self.ishdPath]
-        && [NSFileManager.defaultManager fileExistsAtPath:self.alpineRoot];
-}
 
 #pragma mark - 状态
 
