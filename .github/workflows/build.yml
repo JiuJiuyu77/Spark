@@ -123,11 +123,27 @@ jobs:
       #     2) 仓库内 Native/Resources/Toolchain 已存在 —— 直接用
       #     3) 都没有 —— 构建出「不含工具链」的瘦包，App 里会提示导入
       # -----------------------------------------------------------------------
+      # 工具链 259MB，每次都重新下载是构建超时的主要来源。
+      # 命中缓存时直接复用，未命中才下载。
+      - name: Cache bundled toolchain
+        id: tc-cache
+        uses: actions/cache@v4
+        with:
+          path: Native/Resources/Toolchain
+          key: theos-runtime-v2-${{ runner.os }}-${{ hashFiles('.github/workflows/build.yml') }}
+
       - name: Prepare bundled toolchain
         id: tc
         run: |
           set -euo pipefail
           TC="Native/Resources/Toolchain"
+
+          # 缓存命中且内容完整 → 直接用，省掉 259MB 下载（这是超时的主因）
+          if [ -d "$TC/theos-full/sdks" ] && [ -d "$TC/theos-root/usr/bin" ]; then
+            echo "缓存命中：$(du -sh "$TC" | cut -f1)"
+            ls "$TC/theos-full/sdks"
+            exit 0
+          fi
 
           # 默认从 Spark-Runtime 拿 Theos（含 16.5 + 17.0 双 SDK）
           # 可用仓库变量 TOOLCHAIN_SOURCE 覆盖为任意直链
