@@ -507,12 +507,17 @@ jobs:
           # ct_bypass / insert_dylib / optool / CydiaSubstrate.framework
           # 放在 .app/bin 下，注入时优先用它们，不必依赖用户自备
           # ------------------------------------------------------------------
-          # 交叉编译工具：ish 路线用，需要打进 .app/tools
+          # 交叉编译工具：ish 路线用，打进 .app/tools
+          #
+          # 注意：**不能给 .sh 加执行位**。
+          # TrollStore 用 ldid -s 递归签名 .app，遇到 #! 开头的可执行脚本
+          # 会报 "Unknown header magic" 整个安装失败（我们踩过这个坑）。
+          # App 侧本来就用 `sh <脚本>` 调用，不需要执行位。
           if [ -d tools ]; then
             mkdir -p "$APP/tools"
             cp tools/spark-cross-build.sh tools/macho_sign.py "$APP/tools/" 2>/dev/null || true
-            chmod 755 "$APP/tools/spark-cross-build.sh" 2>/dev/null || true
-            echo "  已打包 tools/"
+            chmod 644 "$APP/tools/"* 2>/dev/null || true
+            echo "  已打包 tools/（不带执行位，避免 ldid 报错）"
           fi
 
           echo "==> 安装内置注入工具"
