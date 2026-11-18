@@ -590,17 +590,80 @@ static CGFloat const kInnerInset = 3;    // 参考 TabBar 的 innerInset（略�
 }
 
 
-#pragma mark - 表格头部工厂
+#pragma mark - 表格头部容器
+//
+// tableHeaderView 的宽度不会自动跟随表格，必须自己在 layoutSubviews
+// 里重新测一次。包一层容器是最稳妥的做法。
 
-UIView *SPTableHeader(NSString *symbol, NSString *title, NSString *subtitle,
-                      UIColor *tint, CGFloat width) {
+@interface SPHeaderContainer : UIView
+@property (nonatomic, copy) NSString *symbol;
+@property (nonatomic, copy) NSString *title;
+@property (nonatomic, copy) NSString *subtitle;
+@property (nonatomic, strong, nullable) UIColor *tint;
+@property (nonatomic, weak) SPGlassHeaderView *inner;
+@property (nonatomic, assign) CGFloat lastWidth;
+@end
+
+@implementation SPHeaderContainer
+
+- (instancetype)initWithSymbol:(NSString *)symbol
+                         title:(NSString *)title
+                      subtitle:(NSString *)subtitle
+                          tint:(UIColor *)tint {
+    if ((self = [super initWithFrame:CGRectZero])) {
+        _symbol = [symbol copy];
+        _title = [title copy];
+        _subtitle = [subtitle copy];
+        _tint = tint;
+        self.backgroundColor = UIColor.clearColor;
+    }
+    return self;
+}
+
+- (void)relayoutForWidth:(CGFloat)width {
+    if (width <= 0 || fabs(width - self.lastWidth) < 0.5) return;
+    self.lastWidth = width;
+
+    [self.inner removeFromSuperview];
     SPGlassHeaderView *h = [[SPGlassHeaderView alloc] initWithFrame:CGRectMake(0, 0, width, 96)];
-    [h configureWithSymbol:symbol ?: @"circle" title:title ?: @"" subtitle:subtitle tint:tint];
+    [h configureWithSymbol:self.symbol ?: @"circle"
+                     title:self.title ?: @""
+                  subtitle:self.subtitle
+                      tint:self.tint];
     CGSize sz = [h systemLayoutSizeFittingSize:CGSizeMake(width, UIViewNoIntrinsicMetric)
                        withHorizontalFittingPriority:UILayoutPriorityRequired
                              verticalFittingPriority:UILayoutPriorityFittingSizeLevel];
     h.frame = CGRectMake(0, 0, width, MAX(96, sz.height));
-    return h;
+    [self addSubview:h];
+    self.inner = h;
+
+    CGRect f = self.frame;
+    f.size = CGSizeMake(width, h.frame.size.height);
+    self.frame = f;
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    [self relayoutForWidth:self.bounds.size.width];
+}
+
+@end
+
+#pragma mark - 表格头部工厂
+
+UIView *SPTableHeader(NSString *symbol, NSString *title, NSString *subtitle,
+                      UIColor *tint, CGFloat width) {
+    // width 只是首帧估值。
+    // tableHeaderView 不会自动跟随表格宽度，写死 320 在 iPad / 横屏下
+    // 会明显偏窄（右侧留一大块空白）。这里包一层容器，
+    // 由它在 layoutSubviews 里按真实宽度重建。
+    SPHeaderContainer *c = [[SPHeaderContainer alloc] initWithSymbol:symbol
+                                                               title:title
+                                                            subtitle:subtitle
+                                                                tint:tint];
+    c.frame = CGRectMake(0, 0, width, 96);
+    [c relayoutForWidth:width];
+    return c;
 }
 
 @end

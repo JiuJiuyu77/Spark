@@ -17,7 +17,6 @@
 @property (nonatomic, strong) NSMutableArray<SPAuditIssue *> *issues;
 @property (nonatomic, copy, nullable) NSString *target;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
-@property (nonatomic, strong) UILabel *summaryLabel;
 @end
 
 @implementation SPSignatureViewController
@@ -47,12 +46,8 @@
         [self.table.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
     ]];
 
-    self.summaryLabel = [[UILabel alloc] init];
-    self.summaryLabel.textAlignment = NSTextAlignmentCenter;
-    self.summaryLabel.numberOfLines = 0;
-    self.summaryLabel.font = [SPTheme scaled:UIFontTextStyleFootnote weight:UIFontWeightRegular];
-    self.summaryLabel.textColor = [SPTheme textDim];
-    self.table.tableHeaderView = [self makeHeader];
+    // 状态文案走 statusText 属性，渲染在分区 footer 里
+    self.statusText = @"选一个 ipa（或已解包的 Payload 目录）检查装不上的原因";
 
     self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.spinner.hidesWhenStopped = YES;
@@ -64,12 +59,13 @@
     ]];
 }
 
-- (UIView *)makeHeader {
-    UIView *v = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 96)];
-    self.summaryLabel.frame = CGRectMake(20, 12, 280, 72);
-    [v addSubview:self.summaryLabel];
-    self.summaryLabel.text = @"选一个 ipa（或已解包的 Payload 目录）\n检查装不上的原因：缺签名 / 文件截断 / 空壳 bundle / ar 静态库";
-    return v;
+/// 状态统一放这里，由 tableView 的 footer 渲染。
+/// 之前是自己拼了一个 frame 写死的 UILabel 当 tableHeaderView，
+/// 既不响应动态字体，还会覆盖掉统一的玻璃头部。
+- (void)updateSummaryText:(NSString *)text color:(UIColor *)color {
+    self.statusText = text;
+    self.statusColor = color;
+    [self.table reloadData];
 }
 
 - (void)pickFile {
@@ -88,7 +84,7 @@
 
 - (void)auditPath:(NSString *)path {
     [self.spinner startAnimating];
-    self.summaryLabel.text = @"正在审计…";
+    [self updateSummaryText:@"正在审计…" color:[SPTheme textDim]];
 
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSString *appPath = path;
@@ -119,21 +115,24 @@
             [self.table reloadData];
 
             if (!result.count) {
-                self.summaryLabel.textColor = [SPTheme success];
-                self.summaryLabel.text = @"✅ 未发现问题\n该包应当可以正常安装";
+                [self updateSummaryText:@"✅ 未发现问题\n该包应当可以正常安装" color:[SPTheme success]];
             } else {
                 NSUInteger err = 0;
                 for (SPAuditIssue *i in result) if (i.level == SPAuditLevelError) err++;
-                self.summaryLabel.textColor = err ? [SPTheme danger] : [SPTheme warn];
-                self.summaryLabel.text = [NSString stringWithFormat:
+                [self updateSummaryText:[NSString stringWithFormat:
                     @"发现 %lu 项错误、%lu 项警告\n点每项看详情与建议",
-                    (unsigned long)err, (unsigned long)(result.count - err)];
+                    (unsigned long)err, (unsigned long)(result.count - err)]
+                                  color:err ? [SPTheme danger] : [SPTheme warn]];
             }
         });
     });
 }
 
 #pragma mark - 表格
+
+- (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
+    return self.statusText;
+}
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     return self.issues.count;
