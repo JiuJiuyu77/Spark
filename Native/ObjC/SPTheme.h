@@ -124,6 +124,22 @@ FOUNDATION_EXPORT const CGFloat SPFloatingBarSideInset; // 28
 
 /// 组件样式
 + (void)styleCell:(UITableViewCell *)cell;
+
+#pragma mark - 表格统一封装
+//
+// 之前 23 个页面各写各的：rowHeight 有 62 / 64 / AutomaticDimension 三种，
+// separatorColor、背景色、选区样式也各不相同 —— 这是「界面乱」的主要来源之一。
+// 统一走这两个工厂方法，改一处全局生效。
+
+/// 标准分组表格（圆角卡片、透明背景、语义色分隔线、自适应行高）
+FOUNDATION_EXPORT UITableView *SPMakeInsetTable(id<UITableViewDataSource, UITableViewDelegate> owner);
+
+/// 给表格套上统一样式的玻璃头部（图标 + 标题 + 副标题）
+FOUNDATION_EXPORT UIView *SPTableHeader(NSString *symbol,
+                                        NSString *title,
+                                        NSString *subtitle,
+                                        UIColor *tint,
+                                        CGFloat width);
 + (void)stylePrimaryButton:(UIButton *)button;
 + (void)styleSecondaryButton:(UIButton *)button;
 + (void)styleDestructiveButton:(UIButton *)button;

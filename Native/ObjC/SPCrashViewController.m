@@ -4,6 +4,7 @@
 
 #import "SPCrashViewController.h"
 #import "SPTheme.h"
+#import "SPGlassKit.h"
 #import "SPCrashAnalysis.h"
 #import "SPEditorViewController.h"
 #import "SPCompat.h"
@@ -22,15 +23,16 @@
     self.title = @"崩溃分析";
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
 
-    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    self.table = SPMakeInsetTable(self);
     self.table.backgroundColor = [SPTheme background];
     self.table.dataSource = self;
     self.table.delegate = self;
-    self.table.rowHeight = UITableViewAutomaticDimension;
     self.table.estimatedRowHeight = 76;
-    self.table.separatorColor = [SPTheme separator];
     [self.table registerClass:UITableViewCell.class forCellReuseIdentifier:@"c"];
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
+    // 统一玻璃头部：与其它页面保持一致的顶部观感
+    self.table.tableHeaderView = SPTableHeader(@"xmark.octagon.fill", @"崩溃分析", @"解析 .ips / .crash，给出结论与调用栈", [SPTheme accent], 320);
+
     [self.view addSubview:self.table];
     [NSLayoutConstraint activateConstraints:@[
         [self.table.topAnchor constraintEqualToAnchor:self.view.topAnchor],

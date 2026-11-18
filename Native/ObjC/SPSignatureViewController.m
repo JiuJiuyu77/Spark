@@ -4,6 +4,7 @@
 
 #import "SPSignatureViewController.h"
 #import "SPTheme.h"
+#import "SPGlassKit.h"
 #import "SPCompat.h"
 #import "SPSignatureAudit.h"
 #import "SPStore.h"
@@ -31,11 +32,13 @@
         [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd
                                                       target:self action:@selector(pickFile)];
 
-    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    self.table = SPMakeInsetTable(self);
     self.table.dataSource = self;
     self.table.delegate = self;
-    self.table.backgroundColor = UIColor.clearColor;
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
+    // 统一玻璃头部：与其它页面保持一致的顶部观感
+    self.table.tableHeaderView = SPTableHeader(@"checkmark.shield.fill", @"签名审计", @"排查 ipa 装不上的原因", [SPTheme accent], 320);
+
     [self.view addSubview:self.table];
     [NSLayoutConstraint activateConstraints:@[
         [self.table.topAnchor constraintEqualToAnchor:self.view.topAnchor],

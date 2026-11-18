@@ -61,11 +61,10 @@
     self.pathLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.pathLabel];
 
-    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    self.table = SPMakeInsetTable(self);
     self.table.backgroundColor = [SPTheme background];
     self.table.dataSource = self;
     self.table.delegate = self;
-    self.table.separatorColor = [SPTheme separator];
     [self.table registerClass:UITableViewCell.class forCellReuseIdentifier:@"row"];
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.table];

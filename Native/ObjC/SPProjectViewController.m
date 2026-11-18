@@ -5,6 +5,7 @@
 
 #import "SPProjectViewController.h"
 #import "SPTheme.h"
+#import "SPGlassKit.h"
 #import "SPStore.h"
 #import "SPBuilder.h"
 #import "SPConsoleViewController.h"
@@ -127,13 +128,15 @@ typedef NS_ENUM(NSInteger, SPProjectSection) {
 }
 
 - (void)buildTable {
-    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    self.table = SPMakeInsetTable(self);
     self.table.backgroundColor = [SPTheme background];
     self.table.dataSource = self;
     self.table.delegate = self;
-    self.table.separatorColor = [SPTheme separator];
     [self.table registerClass:UITableViewCell.class forCellReuseIdentifier:@"cell"];
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
+    // 统一玻璃头部：与其它页面保持一致的顶部观感
+    self.table.tableHeaderView = SPTableHeader(@"folder.fill", @"工程", @"编译、选项与产物", [SPTheme accent], 320);
+
     [self.view addSubview:self.table];
 
     [NSLayoutConstraint activateConstraints:@[

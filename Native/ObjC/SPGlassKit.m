@@ -589,4 +589,18 @@ static CGFloat const kInnerInset = 3;    // 参考 TabBar 的 innerInset（略�
     return CGSizeMake(UIViewNoIntrinsicMetric, kItemHeight + kInnerInset * 2);
 }
 
+
+#pragma mark - 表格头部工厂
+
+UIView *SPTableHeader(NSString *symbol, NSString *title, NSString *subtitle,
+                      UIColor *tint, CGFloat width) {
+    SPGlassHeaderView *h = [[SPGlassHeaderView alloc] initWithFrame:CGRectMake(0, 0, width, 96)];
+    [h configureWithSymbol:symbol ?: @"circle" title:title ?: @"" subtitle:subtitle tint:tint];
+    CGSize sz = [h systemLayoutSizeFittingSize:CGSizeMake(width, UIViewNoIntrinsicMetric)
+                       withHorizontalFittingPriority:UILayoutPriorityRequired
+                             verticalFittingPriority:UILayoutPriorityFittingSizeLevel];
+    h.frame = CGRectMake(0, 0, width, MAX(96, sz.height));
+    return h;
+}
+
 @end

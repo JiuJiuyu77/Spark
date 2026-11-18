@@ -5,6 +5,7 @@
 
 #import "SPToolchainViewController.h"
 #import "SPTheme.h"
+#import "SPGlassKit.h"
 #import "SPToolchain.h"
 #import "SPStore.h"
 #import "SPSession.h"
@@ -39,13 +40,15 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
     self.componentKeys = @[@"Theos", @"iPhoneOS SDK", @"Darwin 编译工具", @"OLLVM 混淆",
                            @"逆向工具", @"Python", @"Node", @"SSH（远程编译）"];
 
-    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    self.table = SPMakeInsetTable(self);
     self.table.backgroundColor = [SPTheme background];
     self.table.dataSource = self;
     self.table.delegate = self;
-    self.table.separatorColor = [SPTheme separator];
     [self.table registerClass:UITableViewCell.class forCellReuseIdentifier:@"c"];
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
+    // 统一玻璃头部：与其它页面保持一致的顶部观感
+    self.table.tableHeaderView = SPTableHeader(@"wrench.and.screwdriver.fill", @"工具链", @"探测、展开与诊断", [SPTheme accent], 320);
+
     [self.view addSubview:self.table];
     [NSLayoutConstraint activateConstraints:@[
         [self.table.topAnchor constraintEqualToAnchor:self.view.topAnchor],

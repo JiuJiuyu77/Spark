@@ -60,13 +60,10 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
 #pragma mark - 布局
 
 - (void)setupTable {
-    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    self.table = SPMakeInsetTable(self);
     self.table.backgroundColor = [SPTheme background];
     self.table.dataSource = self;
     self.table.delegate = self;
-    self.table.separatorColor = [SPTheme separator];
-    self.table.rowHeight = UITableViewAutomaticDimension;
-    self.table.estimatedRowHeight = 64;
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.table];
     [NSLayoutConstraint activateConstraints:@[

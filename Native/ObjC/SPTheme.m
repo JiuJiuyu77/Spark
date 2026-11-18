@@ -300,4 +300,22 @@ const CGFloat SPFloatingBarSideInset = 28;
 + (CGFloat)pageMargin { return SPSpaceM; }
 + (CGFloat)sectionGap { return SPSpaceL; }
 + (CGFloat)inlineGap  { return SPSpaceXS; }
+
+#pragma mark - 表格统一封装
+
+UITableView *SPMakeInsetTable(id<UITableViewDataSource, UITableViewDelegate> owner) {
+    UITableView *t = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    t.dataSource = owner;
+    t.delegate = owner;
+    t.backgroundColor = UIColor.clearColor;
+    t.separatorColor = [SPTheme separator];
+    t.rowHeight = UITableViewAutomaticDimension;
+    t.estimatedRowHeight = 56;
+    t.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
+    t.translatesAutoresizingMaskIntoConstraints = NO;
+    if (@available(iOS 15.0, *)) t.sectionHeaderTopPadding = 0;
+    return t;
+}
+
+
 @end

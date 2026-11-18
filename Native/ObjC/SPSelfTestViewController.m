@@ -33,10 +33,9 @@
                             subtitle:@"自动生成最小 tweak 并完整编译一遍"
                                 tint:[SPTheme info]];
 
-    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    self.table = SPMakeInsetTable(self);
     self.table.dataSource = self;
     self.table.delegate = self;
-    self.table.backgroundColor = UIColor.clearColor;
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.table];
     [NSLayoutConstraint activateConstraints:@[

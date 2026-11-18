@@ -5,6 +5,7 @@
 
 #import "SPLogsViewController.h"
 #import "SPTheme.h"
+#import "SPGlassKit.h"
 #import "SPStore.h"
 #import "SPCompat.h"
 #import "SPEditorViewController.h"
@@ -33,13 +34,15 @@
     self.title = @"日志";
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
 
-    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    self.table = SPMakeInsetTable(self);
     self.table.backgroundColor = [SPTheme background];
     self.table.dataSource = self;
     self.table.delegate = self;
-    self.table.separatorColor = [SPTheme separator];
     [self.table registerClass:UITableViewCell.class forCellReuseIdentifier:@"c"];
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
+    // 统一玻璃头部：与其它页面保持一致的顶部观感
+    self.table.tableHeaderView = SPTableHeader(@"doc.text.fill", @"日志", @"保存的构建与运行日志", [SPTheme accent], 320);
+
     [self.view addSubview:self.table];
     [NSLayoutConstraint activateConstraints:@[
         [self.table.topAnchor constraintEqualToAnchor:self.view.topAnchor],

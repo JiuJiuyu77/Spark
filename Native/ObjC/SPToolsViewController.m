@@ -47,11 +47,10 @@
     self.navigationController.navigationBar.prefersLargeTitles = YES;
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
 
-    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    self.table = SPMakeInsetTable(self);
     self.table.backgroundColor = [SPTheme background];
     self.table.dataSource = self;
     self.table.delegate = self;
-    self.table.separatorColor = [SPTheme separator];
     self.table.rowHeight = 64;
     [self.table registerClass:UITableViewCell.class forCellReuseIdentifier:@"t"];
     self.table.translatesAutoresizingMaskIntoConstraints = NO;

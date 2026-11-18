@@ -33,10 +33,9 @@
                             subtitle:@"不依赖 Theos：单文件 .m → 已签名 dylib"
                                 tint:[SPTheme info]];
 
-    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    self.table = SPMakeInsetTable(self);
     self.table.dataSource = self;
     self.table.delegate = self;
-    self.table.backgroundColor = UIColor.clearColor;
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.table];
     [NSLayoutConstraint activateConstraints:@[
