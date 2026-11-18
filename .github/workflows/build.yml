@@ -224,8 +224,13 @@ jobs:
 
           # Theos 本体
           THEOSDIR=""
-          for c in "$TC/theos" "$TC/theos-root/theos" "$TC/theos-full" "$TC/TheosRuntime/theos"; do
-            [ -d "$c" ] && { THEOSDIR="$c"; break; }
+          # 判定条件必须是「有 makefiles 且 sdks 里有真实 SDK」。
+          # theos-root/theos/sdks 里只有 .keep（空目录），
+          # 如果只判目录存在，会选中它，然后报「缺 SDK」。
+          for c in "$TC/theos-full" "$TC/theos" "$TC/TheosRuntime/theos" "$TC/theos-root/theos"; do
+            [ -f "$c/makefiles/common.mk" ] || continue
+            ls "$c"/sdks/iPhoneOS*.sdk >/dev/null 2>&1 || continue
+            THEOSDIR="$c"; break
           done
           [ -n "$THEOSDIR" ] || { echo "::error::包里没有 theos/ 目录"; exit 1; }
           [ -f "$THEOSDIR/bin/logos.pl" ] || { echo "::error::缺 logos.pl"; exit 1; }

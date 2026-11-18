@@ -80,7 +80,25 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
 }
 - (NSString *)theosPath {
     NSFileManager *fm = NSFileManager.defaultManager;
-    for (NSString *rel in @[@"theos", @"theos-root/theos", @"theos-min"]) {
+    // 顺序与判定都很关键：
+    //   · theos-full 优先 —— Rein 对齐包里只有它带真实 SDK
+    //   · theos-root/theos 的 sdks 里可能只有 .keep（空目录），
+    //     只判 common.mk 存在会选中它，然后在编译时报「找不到 SDK」
+    NSArray *cands = @[@"theos-full", @"theos", @"TheosRuntime/theos",
+                       @"theos-root/theos", @"theos-min"];
+    for (NSString *rel in cands) {
+        NSString *p = [self.installRoot stringByAppendingPathComponent:rel];
+        if (![fm fileExistsAtPath:[p stringByAppendingPathComponent:@"makefiles/common.mk"]]) continue;
+        // 还要确认 sdks 里真的有 SDK
+        NSString *sdks = [p stringByAppendingPathComponent:@"sdks"];
+        BOOL hasSDK = NO;
+        for (NSString *name in [fm contentsOfDirectoryAtPath:sdks error:NULL] ?: @[]) {
+            if ([name hasPrefix:@"iPhoneOS"] && [name hasSuffix:@".sdk"]) { hasSDK = YES; break; }
+        }
+        if (hasSDK) return p;
+    }
+    // 都不可用：退回第一个有 makefiles 的（让上层报出具体缺什么）
+    for (NSString *rel in cands) {
         NSString *p = [self.installRoot stringByAppendingPathComponent:rel];
         if ([fm fileExistsAtPath:[p stringByAppendingPathComponent:@"makefiles/common.mk"]]) return p;
     }
