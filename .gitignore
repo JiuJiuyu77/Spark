@@ -29,4 +29,5 @@ wrangler.local.toml
 
 # 内置工具链（约 480MB，绝不进 git；由 CI 从 TOOLCHAIN_SOURCE 拉取）
 Native/Resources/Toolchain/
-*.tar.gz
+!Native/Runtime/*.tar.gz
+

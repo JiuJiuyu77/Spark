@@ -130,7 +130,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: Native/Resources/Toolchain
-          key: theos-runtime-v3-${{ runner.os }}-${{ hashFiles('.github/workflows/build.yml') }}
+          key: theos-runtime-v4-${{ runner.os }}-${{ hashFiles('.github/workflows/build.yml') }}
 
       - name: Prepare bundled toolchain
         id: tc
@@ -138,10 +138,27 @@ jobs:
           set -euo pipefail
           TC="Native/Resources/Toolchain"
 
-          # 缓存命中且内容完整 → 直接用，省掉 259MB 下载（这是超时的主因）
-          if [ -d "$TC/theos-full/sdks" ] && [ -d "$TC/theos-root/usr/bin" ]; then
+          # 缓存命中且内容完整 → 直接用
+          if [ -d "$TC/theos-full/sdks" ] && [ -d "$TC/theos-root/usr/bin" ] && [ -x "$TC/helpers/bash" ]; then
             echo "缓存命中：$(du -sh "$TC" | cut -f1)"
-            ls "$TC/theos-full/sdks"
+            exit 0
+          fi
+
+          # **优先用仓库内的分包**（Native/Runtime/rt*.tar.gz）。
+          # 从 Release 下载 272MB 在 macOS runner 上经常超时（实测 15 分钟被取消），
+          # 分包随 checkout 一起下来，零额外网络开销。
+          if ls Native/Runtime/rt*.tar.gz >/dev/null 2>&1; then
+            echo "==> 从仓库内分包展开运行时"
+            mkdir -p "$TC"
+            for part in Native/Runtime/rt*.tar.gz; do
+              echo "  $part"
+              tar xzf "$part" -C "$TC" || { echo "::error::解包失败：$part"; exit 1; }
+            done
+            # 两份 libLLVM 都是独立实体文件，不做软链替换
+            # （用户明确要求保留，以防某些工具只认其中一份）
+            chmod 755 "$TC/helpers/bash" 2>/dev/null || true
+            echo "  展开完成：$(du -sh "$TC" | cut -f1)"
+            ls "$TC/helpers/bash" "$TC/theos-full/sdks" 2>/dev/null
             exit 0
           fi
 
