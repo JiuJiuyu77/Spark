@@ -35,6 +35,15 @@ NS_ASSUME_NONNULL_BEGIN
 /// 返回是否真的成了 root
 - (BOOL)elevateSelf;
 
+/// 确保当前进程是 root；失败会重试若干次（某些环境下第一次 setuid 会失败）。
+/// 每次被调用都重新尝试，不像启动时那样只试一次。
+- (BOOL)ensureRoot;
+
+/// 子进程身份校验：起一个 `id -u`，确认实际 uid。
+/// 判据是**子进程的** uid，不是父进程的 —— 父进程是 root 不代表
+/// posix_spawn 出来的子进程也是。
+- (void)verifyChildRunsAsRoot:(void (^)(BOOL isRoot, uid_t childUID, NSString *detail))completion;
+
 /// 探活：起一个 `id` 看实际 uid/gid
 - (void)probeWithCompletion:(void (^)(NSString *detail))completion;
 

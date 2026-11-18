@@ -12,6 +12,7 @@
 #import "SPCompat.h"
 #import "SPCrashGuard.h"
 #import "SPGit.h"
+#import "SPPrivileged.h"
 #import "SPEditorViewController.h"
 #import "SPFileBrowserViewController.h"
 #import "SPModels.h"
@@ -311,6 +312,13 @@
 
     if (self.session.isRunning) return;
     [SPMotion hapticLight];
+
+    // 每次构建前都重新确保 root：
+    // 启动时提权可能因瞬时状态失败，不能指望一次成功就永远有效。
+    // 父进程是 root 也不代表子进程是，构建脚本里还会再确认一次。
+    if (![[SPPrivileged shared] ensureRoot]) {
+        SPLog(@"[!] 当前进程不是 root，构建很可能失败");
+    }
 
     // 编译前自动 git 快照（参考 Dylix 的 GitAutomation）
     //

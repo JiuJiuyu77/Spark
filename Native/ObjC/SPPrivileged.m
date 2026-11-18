@@ -56,6 +56,49 @@
     return getuid() == 0;
 }
 
+- (BOOL)ensureRoot {
+    if (getuid() == 0) return YES;
+    // 重试 3 次：setuid(0) 在某些环境下会因瞬时状态失败
+    for (int i = 0; i < 3; i++) {
+        if ([self elevateSelf]) return YES;
+        usleep(120 * 1000);
+    }
+    SPLog(@"[!] ensureRoot 失败：当前 uid=%d，子进程将以非 root 运行", (int)getuid());
+    return NO;
+}
+
+- (void)verifyChildRunsAsRoot:(void (^)(BOOL, uid_t, NSString *))completion {
+    // 用一条最短命令取子进程真实 uid。
+    // 注意：这里不看父进程的 getuid()，父进程是 root 不代表
+    // posix_spawn 出来的子进程也是（继承链路可能被降权）。
+    SPSession *s = [[SPSession alloc] initWithEnvironment:@{} workingDirectory:NSTemporaryDirectory()];
+    s.timeout = 10;
+    __block NSString *out = @"";
+    s.onLine = ^(NSString *line, SPLogLevel lv) {
+        if (line.length) out = [out stringByAppendingFormat:@"%@\n", line];
+    };
+    s.onFinish = ^(SPCommandResult *r) {
+        NSString *text = r.stdoutText ?: out;
+        uid_t uid = (uid_t)-1;
+        for (NSString *line in [text componentsSeparatedByString:@"\n"]) {
+            NSString *t = [line stringByTrimmingCharactersInSet:
+                           NSCharacterSet.whitespaceAndNewlineCharacterSet];
+            if (t.length && [[NSCharacterSet decimalDigitCharacterSet]
+                             isSupersetOfSet:[NSCharacterSet characterSetWithCharactersInString:t]]) {
+                uid = (uid_t)t.intValue;
+            }
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (completion) {
+                completion(uid == 0, uid,
+                    [NSString stringWithFormat:@"子进程 uid=%d（%@）",
+                     (int)uid, uid == 0 ? @"root" : @"非 root，编译会失败"]);
+            }
+        });
+    };
+    [s runShell:@"id -u"];
+}
+
 #pragma mark - 探活
 
 - (void)probeWithCompletion:(void (^)(NSString *))completion {
@@ -74,12 +117,21 @@
          "  p=$(command -v $b 2>/dev/null); echo \"TOOL_$b=${p:-missing}\"; done";
 
     [self runAsRoot:probe completion:^(BOOL ok, BOOL wasRoot, NSString *output) {
-        NSString *detail = [NSString stringWithFormat:@"%@\n\n%@",
-                            wasRoot ? @"✓ 子进程以 root 运行"
-                                    : @"✗ 子进程以普通用户运行 —— 编译会失败\n"
-                                      @"原因通常是：Spark 不是通过 TrollStore 安装，\n"
-                                      @"或安装时缺少 platform-application 权限。",
-                            output ?: @""];
+        // 同时列出父进程与子进程身份：
+        // 「父进程是 root 但子进程不是」这种情况最容易误判，
+        // 必须分开看。
+        NSString *detail = [NSString stringWithFormat:
+            @"父进程 uid = %d（%@）\n"
+             "子进程 uid = %@\n\n"
+             "%@\n\n%@",
+            (int)getuid(),
+            getuid() == 0 ? @"root" : @"非 root",
+            wasRoot ? @"0（root）" : @"非 0",
+            wasRoot ? @"✓ 子进程以 root 运行"
+                    : @"✗ 子进程以普通用户运行 —— 编译会失败\n"
+                      @"原因通常是：Spark 不是通过 TrollStore 安装，\n"
+                      @"或安装时缺少 platform-application 权限。",
+            output ?: @""];
         if (completion) completion(detail);
     }];
 }
