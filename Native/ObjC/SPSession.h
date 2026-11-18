@@ -39,6 +39,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 在 /bin/sh -c 下执行一串命令（会做 PATH 前缀拼接）
 /// 返回的 NSString 是本次任务的 pid 组 id（便于取消）
+/// 当前可用的 shell 路径（优先运行时自带 bash，其次 /var/jb/bin/sh，最后 /bin/sh）。
+/// iOS 沙盒常拒绝执行 /bin/sh，选错会表现为 posix_spawn 失败（退出码 -1）。
++ (NSString *)resolveShell;
+
 - (int)runShell:(NSString *)script;
 /// 直接 exec 一个可执行文件（不经 shell），args 不含 argv[0]
 - (int)runExecutable:(NSString *)exe arguments:(NSArray<NSString *> *)args;
