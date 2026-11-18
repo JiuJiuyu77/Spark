@@ -17,6 +17,7 @@
 #import "SPRemoteViewController.h"
 #import "SPSignatureViewController.h"
 #import "SPCrossBuildViewController.h"
+#import "SPSelfTestViewController.h"
 #import "SPStore.h"
 #import "SPCompat.h"
 
@@ -140,6 +141,13 @@
     audit.tint = [SPTheme success];
     audit.controllerClass = SPSignatureViewController.class;
 
+    SPToolItem *selftest = [SPToolItem new];
+    selftest.title = @"测试构建";
+    selftest.detail = @"自动生成最小 tweak 并编译，逐步报告哪一环不通";
+    selftest.symbol = @"checklist";
+    selftest.tint = [SPTheme success];
+    selftest.controllerClass = SPSelfTestViewController.class;
+
     SPToolItem *cross = [SPToolItem new];
     cross.title = @"快速编译";
     cross.detail = @"不依赖 Theos：单文件直出已签名 dylib";
@@ -162,7 +170,7 @@
     logs.controllerClass = SPLogsViewController.class;
 
     self.groupTitles = @[@"编译", @"分析与注入", @"文件与记录", @"远程与诊断"];
-    self.groups = @[@[tc], @[rev, inj], @[cross, mount, logs], @[remote, crash, audit]];
+    self.groups = @[@[tc], @[selftest, cross], @[rev, inj, mount, logs], @[remote, crash, audit]];
 }
 
 #pragma mark - Table
