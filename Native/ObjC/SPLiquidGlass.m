@@ -9,6 +9,7 @@
 #import "SPLiquidGlass.h"
 #import "SPTheme.h"
 #import "SPCompat.h"
+#import "SPLiquidGlassRenderer.h"
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -111,11 +112,7 @@ static void SPApplyColorMatrix(CALayer *layer, const CGFloat m[20]) {
 #pragma mark - SPLiquidGlassView
 
 @interface SPLiquidGlassView ()
-@property (nonatomic, strong) UIVisualEffectView *blurFallback;
-@property (nonatomic, strong) SPBackdropView *backdrop;
-@property (nonatomic, strong) UIView *tintView;
-@property (nonatomic, strong) CAShapeLayer *rimLayer;
-@property (nonatomic, strong) CAGradientLayer *glareLayer;
+@property (nonatomic, strong) SPLiquidGlassRenderer *metal;
 @end
 
 @implementation SPLiquidGlassView
@@ -140,147 +137,54 @@ static void SPApplyColorMatrix(CALayer *layer, const CGFloat m[20]) {
     return self;
 }
 
+/// 真正干活的是 Metal 渲染器（SPLiquidGlassRenderer）。
+/// 之前这里是我自己拼的「模糊 + 描边 + 渐变」近似实现，
+/// 与 LiquidGlassKit 的 SDF + 折射着色器完全是两回事 —— 已整体替换。
 - (void)commonInit {
     self.backgroundColor = UIColor.clearColor;
     self.clipsToBounds = NO;
 
-    // 0) 系统模糊兜底 —— 一定生效，保证「看得出是玻璃」
-    //    私有 CABackdropLayer 在部分系统版本上会被限制（拿不到背后内容），
-    //    这时如果没有这层，界面就只剩一层几乎看不见的 tint。
-    UIVisualEffectView *fx = [[UIVisualEffectView alloc] initWithEffect:
-        [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial]];
-    fx.translatesAutoresizingMaskIntoConstraints = NO;
-    fx.userInteractionEnabled = NO;
-    fx.clipsToBounds = YES;
-    fx.layer.cornerRadius = _cornerRadius;
-    if (@available(iOS 13.0, *)) fx.layer.cornerCurve = kCACornerCurveContinuous;
-    [self addSubview:fx];
+    _metal = [[SPLiquidGlassRenderer alloc] initWithPreset:
+              (self.lensStyle ? SPGlassPresetThumb : SPGlassPresetLens)];
+    _metal.translatesAutoresizingMaskIntoConstraints = NO;
+    _metal.cornerRadius = _cornerRadius;
+    [self addSubview:_metal];
     [NSLayoutConstraint activateConstraints:@[
-        [fx.topAnchor constraintEqualToAnchor:self.topAnchor],
-        [fx.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
-        [fx.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
-        [fx.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
+        [_metal.topAnchor constraintEqualToAnchor:self.topAnchor],
+        [_metal.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
+        [_metal.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
+        [_metal.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
     ]];
-    _blurFallback = fx;
-
-    // 1) 背景抓取（私有 API，能拿到就有折射）
-    _backdrop = [[SPBackdropView alloc] initWithFrame:self.bounds];
-    _backdrop.alpha = 0.0;   // 默认不显示，只有确认可用才打开
-    _backdrop.translatesAutoresizingMaskIntoConstraints = NO;
-    _backdrop.layer.cornerRadius = _cornerRadius;
-    _backdrop.layer.masksToBounds = YES;
-    if (@available(iOS 13.0, *)) _backdrop.layer.cornerCurve = kCACornerCurveContinuous;
-    [self addSubview:_backdrop];
-    [NSLayoutConstraint activateConstraints:@[
-        [_backdrop.topAnchor constraintEqualToAnchor:self.topAnchor],
-        [_backdrop.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
-        [_backdrop.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
-        [_backdrop.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
-    ]];
-
-    // 2) 色调层（LiquidGlassKit 的默认 tint）
-    _tintView = [[UIView alloc] initWithFrame:self.bounds];
-    _tintView.translatesAutoresizingMaskIntoConstraints = NO;
-    _tintView.userInteractionEnabled = NO;
-    _tintView.layer.cornerRadius = _cornerRadius;
-    if (@available(iOS 13.0, *)) _tintView.layer.cornerCurve = kCACornerCurveContinuous;
-    _tintView.clipsToBounds = YES;
-    [self addSubview:_tintView];
-    [NSLayoutConstraint activateConstraints:@[
-        [_tintView.topAnchor constraintEqualToAnchor:self.topAnchor],
-        [_tintView.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
-        [_tintView.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
-        [_tintView.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
-    ]];
-
-    // 3) 边缘高光（Fresnel）
-    _rimLayer = [CAShapeLayer layer];
-    _rimLayer.fillColor = UIColor.clearColor.CGColor;
-    _rimLayer.lineWidth = 1;
-    [self.layer addSublayer:_rimLayer];
-
-    // 4) 斜向高光条纹（Glare，照搬 glareAngleConvergence = -π/4）
-    _glareLayer = [CAGradientLayer layer];
-    _glareLayer.startPoint = CGPointMake(0.0, 0.0);
-    _glareLayer.endPoint = CGPointMake(1.0, 1.0);
-    _glareLayer.cornerRadius = _cornerRadius;
-    _glareLayer.opacity = 0.5f;
-    [self.layer addSublayer:_glareLayer];
-
-    _backdrop.alpha = [_backdrop isUsable] ? 1.0 : 0.0;
-    if (![_backdrop isUsable]) {
-        NSLog(@"[Spark] CABackdropLayer 不可用，玻璃退回系统模糊");
-    }
-
-    [self refreshColors];
-    [self installRefractionFilter];
 }
 
-/// 用 CAFilter 做「折射」近似：
-/// 真正的折射需要在 Metal 里重采样背景，这里用轻微的模糊 + 色散模拟
-/// （LiquidGlassKit 在低端设备上也是这么降级的）
-- (void)installRefractionFilter {
-    if (self.refraction <= 0) return;
-
-    id blur = SPCAFilter(@"gaussianBlur");
-    if (blur) {
-        SPSetIfPossible(blur, @"inputRadius", @(1.0 + self.refraction * 1.5));
-        SPSetIfPossible(_backdrop.layer, @"filters", @[blur]);
-    }
-}
-
-- (void)refreshColors {
-    BOOL dark = (UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark);
-
-    // 照搬 LiquidGlassKit 的默认 tint：
-    // 深色 rgba(0, 0.05, 0.10, 0.80) / 浅色 rgba(0.90, 0.95, 1, 0.80)
-    UIColor *tint = self.tintColor;
-    if (!tint) {
-        tint = dark ? [UIColor colorWithRed:0.0 green:0.05 blue:0.10 alpha:0.80]
-                    : [UIColor colorWithRed:0.90 green:0.95 blue:1.0 alpha:0.80];
-    }
-    _tintView.backgroundColor = tint;
-
-    _rimLayer.strokeColor = dark
-        ? [UIColor colorWithWhite:1.0 alpha:0.28].CGColor
-        : [UIColor colorWithWhite:1.0 alpha:0.75].CGColor;
-
-    _glareLayer.colors = dark
-        ? @[(id)[UIColor colorWithWhite:1.0 alpha:0.10].CGColor,
-            (id)[UIColor clearColor].CGColor,
-            (id)[UIColor colorWithWhite:1.0 alpha:0.04].CGColor]
-        : @[(id)[UIColor colorWithWhite:1.0 alpha:0.55].CGColor,
-            (id)[UIColor clearColor].CGColor,
-            (id)[UIColor colorWithWhite:1.0 alpha:0.10].CGColor];
-    _glareLayer.hidden = !self.showsGlare;
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    _metal.cornerRadius = _cornerRadius;
+    _metal.shapeRect = self.bounds;
+    _metal.materialTint = self.tintColor;
+    [_metal refreshBackdrop];
 }
 
 - (void)setCornerRadius:(CGFloat)cornerRadius {
     _cornerRadius = cornerRadius;
-    _backdrop.layer.cornerRadius = cornerRadius;
-    _tintView.layer.cornerRadius = cornerRadius;
-    _blurFallback.layer.cornerRadius = cornerRadius;
-    _glareLayer.cornerRadius = cornerRadius;
+    _metal.cornerRadius = cornerRadius;
     [self setNeedsLayout];
 }
 
 - (void)setTintColor:(UIColor *)tintColor {
     _tintColor = tintColor;
-    [self refreshColors];
+    _metal.materialTint = tintColor;
+    [_metal setNeedsDisplay];
 }
 
 - (void)setShowsGlare:(BOOL)showsGlare {
     _showsGlare = showsGlare;
-    _glareLayer.hidden = !showsGlare;
+    [_metal setNeedsDisplay];
 }
 
-- (void)layoutSubviews {
-    [super layoutSubviews];
-    CGRect b = self.bounds;
-    _rimLayer.frame = b;
-    _rimLayer.path = [UIBezierPath bezierPathWithRoundedRect:b
-                                               cornerRadius:_cornerRadius].CGPath;
-    _glareLayer.frame = b;
+- (void)refreshColors {
+    // 颜色全部交给 Metal 端（materialTint + fresnel / glare 参数）
+    [_metal setNeedsDisplay];
 }
 
 - (void)traitCollectionDidChange:(UITraitCollection *)previous {

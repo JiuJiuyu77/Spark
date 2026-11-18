@@ -363,9 +363,21 @@ jobs:
             OBJECTS+=("$out")
           done
 
+          # 液态玻璃着色器：xcrun metal 编成 default.metallib
+          if [ -d Native/Shaders ]; then
+            echo "==> 编译 Metal 着色器"
+            xcrun -sdk iphoneos metal -c Native/Shaders/*.metal \
+              -o "$RUNNER_TEMP/shaders.air" || { echo "::error::metal 编译失败"; exit 1; }
+            xcrun -sdk iphoneos metallib "$RUNNER_TEMP/shaders.air" \
+              -o "$APP/default.metallib" || { echo "::error::metallib 链接失败"; exit 1; }
+            ls -lh "$APP/default.metallib"
+          fi
+
           echo "==> 链接 (${{ matrix.arch }})"
           xcrun clang "${FLAGS[@]}" "${OBJECTS[@]}" \
             -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore \
+            -framework Metal -framework MetalKit -framework MetalPerformanceShaders \
+            -framework CoreVideo -framework CoreImage \
             -o "$APP/$SCHEME"
 
           # ------------------------------------------------------------------
