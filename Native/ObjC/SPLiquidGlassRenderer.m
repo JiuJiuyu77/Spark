@@ -18,6 +18,7 @@
 #import <MetalPerformanceShaders/MetalPerformanceShaders.h>
 #import <CoreVideo/CoreVideo.h>
 #import <simd/simd.h>
+#include <stddef.h>
 
 // ─────────────────────────────────────────────────────────────
 // 预设参数（数值取自 LiquidGlassKit 的 .lens / .thumb）
@@ -86,7 +87,19 @@ static SPGlassParams SPGlassParamsForPreset(SPGlassPreset preset) {
 @property (nonatomic, strong, nullable) id<MTLTexture> backgroundTexture;
 @property (nonatomic, strong, nullable) CIContext *ciContext;
 @property (nonatomic, assign) CGSize lastDrawableSize;
+@property (nonatomic, strong, nullable) id<MTLTexture> renderTarget;
 @end
+
+// 布局断言：Metal 端 ShaderUniforms 的字段顺序与对齐必须和这里一致。
+// 算错任何一个字段偏移，GPU 读到的就是错位数据 —— 表现为「画面一片花」，
+// 而且不会有任何报错，极难排查。
+//
+// Metal 端 struct 的规则：float2 对齐 8，float4 对齐 16，整体对齐 16。
+// 按这个规则算出来是 384 字节（rectangles 在偏移 128）。
+_Static_assert(sizeof(SPGlassUniforms) == 384, "SPGlassUniforms 大小必须与 Metal 端一致（384）");
+_Static_assert(offsetof(SPGlassUniforms, materialTint) == 48, "materialTint 偏移应为 48");
+_Static_assert(offsetof(SPGlassUniforms, rectangleCount) == 112, "rectangleCount 偏移应为 112");
+_Static_assert(offsetof(SPGlassUniforms, rectangles) == 128, "rectangles 偏移应为 128");
 
 @implementation SPLiquidGlassRenderer
 
@@ -280,32 +293,32 @@ static SPGlassParams SPGlassParamsForPreset(SPGlassPreset preset) {
 - (void)drawRect:(CGRect)rect {
     if (!self.pipeline || !self.queue) return;
 
-    // 没有背景纹理时先抓一张
-    if (!self.backgroundTexture) {
-        [self captureBackground];
-    }
-
     CGSize drawable = self.bounds.size;
     if (drawable.width < 1 || drawable.height < 1) return;
     CGFloat scale = self.contentScaleFactor;
     CGSize px = CGSizeMake(drawable.width * scale, drawable.height * scale);
 
-    // 离屏渲染到纹理，再贴回视图层
-    MTLTextureDescriptor *desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
-                                                                                    width:(NSUInteger)px.width
-                                                                                   height:(NSUInteger)px.height
-                                                                                mipmapped:NO];
-    desc.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
-    id<MTLTexture> target = [self.device newTextureWithDescriptor:desc];
-    if (!target) return;
+    // 复用 render target：每次 newTexture 在底栏滑动时会大量重建纹理，
+    // 造成明显掉帧。尺寸不变就复用同一张。
+    if (!self.renderTarget ||
+        self.renderTarget.width != (NSUInteger)px.width ||
+        self.renderTarget.height != (NSUInteger)px.height) {
+        MTLTextureDescriptor *desc =
+            [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                                               width:(NSUInteger)px.width
+                                                              height:(NSUInteger)px.height
+                                                           mipmapped:NO];
+        desc.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+        self.renderTarget = [self.device newTextureWithDescriptor:desc];
+    }
+    if (!self.renderTarget) return;
 
     MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
-    pass.colorAttachments[0].texture = target;
+    pass.colorAttachments[0].texture = self.renderTarget;
     pass.colorAttachments[0].loadAction = MTLLoadActionClear;
     pass.colorAttachments[0].storeAction = MTLStoreActionStore;
     pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0);
 
-    // uniforms
     SPGlassParams params = SPGlassParamsForPreset(self.preset);
     SPGlassUniforms u = params.uniforms;
     u.resolution = (vector_float2){(float)px.width, (float)px.height};
@@ -325,18 +338,21 @@ static SPGlassParams SPGlassParamsForPreset(SPGlassPreset preset) {
     id<MTLCommandBuffer> cb = [self.queue commandBuffer];
     id<MTLRenderCommandEncoder> enc = [cb renderCommandEncoderWithDescriptor:pass];
     [enc setRenderPipelineState:self.pipeline];
-    [enc setVertexBytes:&u length:sizeof(u) atIndex:1];
-    [enc setFragmentBytes:&u length:sizeof(u) atIndex:1];
+    // 索引必须是 0：片元着色器声明的是 [[buffer(0)]]
+    [enc setVertexBytes:&u length:sizeof(u) atIndex:0];
+    [enc setFragmentBytes:&u length:sizeof(u) atIndex:0];
     if (self.backgroundTexture) {
         [enc setFragmentTexture:self.backgroundTexture atIndex:0];
     }
     [enc drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
     [enc endEncoding];
+
+    // 同步等待再转 CGImage 是必要的（CALayer.contents 要 CPU 可见的图），
+    // 但只在纹理重建时做一次转换，避免每帧创建 CGImage。
     [cb commit];
     [cb waitUntilCompleted];
 
-    // 把结果贴到 layer
-    CGImageRef img = [self.ciContext createCGImage:[CIImage imageWithMTLTexture:target options:nil]
+    CGImageRef img = [self.ciContext createCGImage:[CIImage imageWithMTLTexture:self.renderTarget options:nil]
                                           fromRect:CGRectMake(0, 0, px.width, px.height)];
     if (img) {
         self.layer.contents = (__bridge_transfer id)img;
