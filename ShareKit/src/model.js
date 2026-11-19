@@ -449,7 +449,23 @@ export function buildScript(project, options = {}, profile = {}) {
   // .x 预展开：设备上的 perl 缺 libperl.dylib 跑不起来，
   // 所以在 make 之前用 Spark 自带预处理器把 .x 展开成 .m。
   // perl 可用时不干预（保持原生 Logos 行为）。
-  lines.push('', "say 'Logos 预处理'");
+  // Swift 前置检查：设备上没有 swiftc 时直接说明，
+  // 而不是让用户看 make 报 "swiftc: not found" 一头雾水。
+  lines.push('', "say 'Swift 支持检查'");
+  lines.push('SWIFTLIST=$(ls *.swift *.x.swift 2>/dev/null || true)');
+  lines.push('if [ -n "$SWIFTLIST" ]; then');
+  lines.push('  if command -v swiftc >/dev/null 2>&1; then');
+  lines.push('    ok "找到 swiftc：$(command -v swiftc)"');
+  lines.push('  else');
+  lines.push('    warn "工程含 Swift 文件，但设备上没有 swiftc 编译器"');
+  lines.push('    for f in $SWIFTLIST; do warn "  · $f"; done');
+  lines.push('    warn "Swift 需要官方工具链（iOS 上不自带）"');
+  lines.push('    warn "改用「GitHub CI」构建，或在电脑上用 Xcode 编译"');
+  lines.push('    exit 14');
+  lines.push('  fi');
+  lines.push('fi');
+  lines.push('');
+  lines.push("say 'Logos 预处理'");
   lines.push(`LOGOS_TOOL="${'$'}SPARK_TC/tools/spark-logos.py"`);
   lines.push('[ -f "$LOGOS_TOOL" ] || LOGOS_TOOL="/usr/share/spark/spark-logos.py"');
   lines.push('XLIST=$(ls *.x 2>/dev/null || true)');

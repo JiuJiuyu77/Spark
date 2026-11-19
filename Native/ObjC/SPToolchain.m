@@ -68,7 +68,7 @@ static NSString *const kDefaultsReinRoot = @"Spark.reinRoot";
     return self.found[@(c)] ?: @"";
 }
 
-static NSString *const kNames[] = {@"Theos", @"SDK", @"Darwin 工具", @"OLLVM", @"逆向工具", @"Python", @"Node", @"SSH"};
+static NSString *const kNames[] = {@"Theos", @"SDK", @"Darwin 工具", @"OLLVM", @"逆向工具", @"Python", @"Node", @"SSH", @"Swift"};
 static NSString *const kMarks[] = {@"✓", @"✗"};
 
 - (NSString *)summary {
@@ -93,6 +93,14 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     if (![self has:SPToolchainComponentReverse])
         [r addObject:@"逆向工具（radare2/mt-macho）未安装：签名分析、注入 dylib 会不可用。"];
 
+    // Swift：不是「坏了」，而是设备上根本没有 swiftc
+    if (![self has:SPToolchainComponentSwift]) {
+        [r addObject:@"Swift 不可用：设备上找不到 swiftc 编译器。\n"
+                 "  · 含 .swift 的工程无法编译（.m / .x 工程不受影响）\n"
+                 "  · 内置运行时不含 Swift 工具链（官方 iOS 分发本身也不带）\n"
+                 "  · 需要 Swift 时，可用「GitHub CI」在云端用 Xcode 构建"];
+    }
+
     // SSH 单独说明：iOS 系统本身不带 ssh 客户端，
     // 只打一个叉会让人以为功能坏了。
     if (![self has:SPToolchainComponentDevices]) {
@@ -115,6 +123,7 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
 @property (nonatomic, copy, nullable) NSString *resolvedPython;
 @property (nonatomic, copy, nullable) NSString *resolvedNode;
 @property (nonatomic, copy, nullable) NSString *resolvedSSH;
+@property (nonatomic, copy, nullable) NSString *resolvedSwift;
 @end
 
 @implementation SPToolchain
@@ -330,6 +339,15 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
         if (d.length) [sshDirs addObject:d];
     }
     self.resolvedSSH = [SPUtil findExecutable:@[@"ssh"] searchDirs:sshDirs];
+
+    // Swift 编译器：设备上极少见（Rein / Codex / TrollAgent 都没带）。
+    // 没有它，含 .swift 文件的工程无法编译 —— 检测出来是为了
+    // 在界面上给出明确提示，而不是让用户看 make 的一句 "swiftc: not found"。
+    self.resolvedSwift = [SPUtil findExecutable:@[@"swiftc"]
+                                     searchDirs:@[inst.binDir,
+                                                  [inst.installRoot stringByAppendingPathComponent:@"usr/bin"],
+                                                  @"/usr/bin", @"/var/jb/usr/bin"]];
+    [scan setPath:self.resolvedSwift for:SPToolchainComponentSwift];
     [scan setPath:self.resolvedSSH for:SPToolchainComponentDevices];
 
     self.scan = scan;

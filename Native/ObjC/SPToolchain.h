@@ -19,6 +19,7 @@ typedef NS_ENUM(NSInteger, SPToolchainComponent) {
     SPToolchainComponentPython,      // python3
     SPToolchainComponentNode,        // node / pnpm
     SPToolchainComponentDevices,     // ssh/scp（远程编译）
+    SPToolchainComponentSwift,       // swiftc 编译器（iOS 上极罕见）
     SPToolchainComponentCount
 };
 
