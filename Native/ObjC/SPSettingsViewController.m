@@ -17,6 +17,7 @@
 #import "SPJIT.h"
 #import "SPBackground.h"
 #import "SPPrivileged.h"
+#import "SPTrollStoreFix.h"
 #import "SPFileBrowserViewController.h"
 #import "SPMountsViewController.h"
 #import "SPMount.h"
@@ -397,12 +398,13 @@ typedef NS_ENUM(NSInteger, SPSection) {
             break;
         }
         case 6: {
-            // 运行身份：TrollStore 下可 root 跑子进程（自签环境做不到）
+            // 运行身份 + 自修入口：非 root 时给出可操作的修复引导
             cell.textLabel.text = @"运行身份";
-            cell.detailTextLabel.text = [SPPrivileged shared].statusText;
+            cell.detailTextLabel.text = [SPTrollStoreFix statusText];
             cell.detailTextLabel.font = [SPTheme caption];
             cell.detailTextLabel.numberOfLines = 2;
-            cell.detailTextLabel.textColor = [SPPrivileged shared].canElevate ? [SPTheme success] : [SPTheme warn];
+            cell.detailTextLabel.textColor = ([SPTrollStoreFix state] == SPTrollStoreStateOK)
+                ? [SPTheme success] : [SPTheme danger];
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             break;
         }
@@ -630,9 +632,8 @@ typedef NS_ENUM(NSInteger, SPSection) {
             case 4: [[SPToolchain shared] rescan]; [self.table reloadData]; [self toast:@"已重新扫描"]; break;
             case 5: [self showToolchainDetail]; break;
             case 6: {
-                [[SPPrivileged shared] probeWithCompletion:^(NSString *detail) {
-                    [self alert:@"运行身份" message:detail];
-                }];
+                // 自修入口：直接给出诊断与修复方式，不只是显示状态
+                [SPTrollStoreFix presentGuideFrom:self];
                 break;
             }
             default: {

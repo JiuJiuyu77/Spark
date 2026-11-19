@@ -6,6 +6,7 @@
 #import "SPProjectsViewController.h"
 #import "SPTheme.h"
 #import "SPGlassKit.h"
+#import "SPTrollStoreFix.h"
 #import "SPStore.h"
 #import "SPProjectViewController.h"
 #import "SPFileBrowserViewController.h"
@@ -199,10 +200,17 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
     // 身份问题优先提示：它会让编译必然失败，而且从编译日志里
     // 完全看不出原因（只会看到一堆 Permission denied）。
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"Spark.notRoot"]) {
-        return @"⚠️ Spark 没有以 root 身份运行，编译会失败。\n"
-                "请用 TrollStore 安装（需要 platform-application 权限）。\n"
-                "可以在「我的 → 运行环境自检」里确认子进程身份。";
+    SPTrollStoreState st = [SPTrollStoreFix state];
+    if (st != SPTrollStoreStateOK) {
+        // 直接给出修复路径，而不是让用户去猜。
+        return (st == SPTrollStoreStateNotRoot)
+            ? @"⚠️ Spark 正以非 root 运行 —— 编译会失败。\n"
+               "ipa 签名是对的，问题出在安装方式：\n"
+               "TrollStore 覆盖安装时没重新赋予 root 能力。\n\n"
+               "修复：设置 → 工具链 → 运行身份 → 按引导重新安装"
+            : @"⚠️ 签名里缺少 platform-application —— 无法提权。\n"
+               "请用 TrollStore 安装官方 ipa（自签工具会替换签名）。\n\n"
+               "修复：设置 → 工具链 → 运行身份";
     }
 
     SPToolchainScan *scan = [SPToolchain shared].scan;

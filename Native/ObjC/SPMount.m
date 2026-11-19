@@ -587,6 +587,12 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
 
 /// 用信号量把异步 listPath 变成同步，供后台线程调用
 - (nullable NSArray<SPMountEntry *> *)syncListWebDAV:(NSString *)path mount:(SPMount *)mount {
+    // 防呆：这个同步包装会阻塞最多 20 秒。
+    // 注释说「供后台线程调用」，但没人强制 —— 主线程误用会卡死界面。
+    if (NSThread.isMainThread) {
+        SPLog(@"[!] syncListWebDAV 在主线程调用，已拒绝（会卡死界面）");
+        return nil;
+    }
     __block NSArray *result = nil;
     dispatch_semaphore_t sem = dispatch_semaphore_create(0);
     [self listPath:path ofMount:mount completion:^(NSArray<SPMountEntry *> *e, NSError *err) {
@@ -599,6 +605,11 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
 
 /// 同步下载到本地文件
 - (BOOL)syncDownloadWebDAV:(NSString *)path mount:(SPMount *)mount to:(NSString *)localPath {
+    // 同上：最多阻塞 60 秒，绝不能跑在主线程
+    if (NSThread.isMainThread) {
+        SPLog(@"[!] syncDownloadWebDAV 在主线程调用，已拒绝");
+        return NO;
+    }
     __block BOOL ok = NO;
     dispatch_semaphore_t sem = dispatch_semaphore_create(0);
     [self download:path ofMount:mount toLocal:localPath completion:^(BOOL success, NSError *err) {
