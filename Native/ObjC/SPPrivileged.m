@@ -10,6 +10,11 @@
 #import <errno.h>
 #import <string.h>
 
+@interface SPPrivileged ()
+/// setuid(0) 曾返回 EPERM：确定性失败，不再重试
+@property (nonatomic, assign) BOOL elevationDenied;
+@end
+
 @implementation SPPrivileged
 
 + (instancetype)shared {
@@ -59,8 +64,10 @@
         // EPERM(1) = 系统拒绝：通常是 ipa 没用 platform-application 签名，
         //             或者启动它的进程本身不是 root（TrollStore 的 ldid 签名链断了）
         if (e == EPERM) {
-            SPLog(@"[!] EPERM 说明进程没有提权能力：ipa 的签名里缺 platform-application，"
-                  @"或不是通过 TrollStore 安装。");
+            self.elevationDenied = YES;
+            SPLog(@"[!] EPERM：进程没有提权能力。签名已含 platform-application，"
+                  @"所以更可能是 TrollStore 覆盖安装时没重新赋予 root 能力 —— "
+                  @"卸载后重装可解决。");
         }
         setuid(before);
         return NO;
@@ -71,9 +78,18 @@
 
 - (BOOL)ensureRoot {
     if (getuid() == 0) return YES;
-    // 重试 3 次：setuid(0) 在某些环境下会因瞬时状态失败
+
+    // setuid(0) 返回 EPERM 是**确定性**失败（权限模型不允许），
+    // 重试没有任何意义，只会拖慢构建（每次 3 次 × 120ms）并刷屏日志。
+    // 只在「非 EPERM」的失败（如瞬时错误）时才重试。
+    if (self.elevationDenied) {
+        SPLog(@"提权此前已被拒绝（EPERM），跳过重试");
+        return NO;
+    }
+
     for (int i = 0; i < 3; i++) {
         if ([self elevateSelf]) return YES;
+        if (self.elevationDenied) break;   // EPERM：不重试
         usleep(120 * 1000);
     }
     SPLog(@"[!] ensureRoot 失败：当前 uid=%d，子进程将以非 root 运行", (int)getuid());

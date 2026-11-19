@@ -58,15 +58,19 @@ export const Optimization = {
 };
 
 /** 各优化档位的实际 flag（含 Theos 会读的 OPTFLAG） */
+// 调试符号（-g）会让编译和链接明显变慢，而 tweak 发布时几乎用不到。
+// 之前每个档位都硬带 -g，实测是构建慢的主要原因之一。
+// 现在只在「调试模式」下加，其余情况用 -gline-tables-only
+// （只保留行号，崩溃栈还能定位，体积和耗时小很多）。
 export const OPTIMIZATION_FLAGS = {
   O0: { opt: '-O0', extra: '-g' },
-  Og: { opt: '-Og', extra: '-g' },
-  O1: { opt: '-O1', extra: '-g' },
-  O2: { opt: '-O2', extra: '-g' },
-  O3: { opt: '-O3', extra: '-g' },
-  Os: { opt: '-Os', extra: '-g' },
+  Og: { opt: '-Og', extra: '-gline-tables-only' },
+  O1: { opt: '-O1', extra: '-gline-tables-only' },
+  O2: { opt: '-O2', extra: '-gline-tables-only' },
+  O3: { opt: '-O3', extra: '-gline-tables-only' },
+  Os: { opt: '-Os', extra: '-gline-tables-only' },
   Oz: { opt: '-Oz', extra: '' },
-  Ofast: { opt: '-Ofast', extra: '-g' },
+  Ofast: { opt: '-Ofast', extra: '-gline-tables-only' },
 };
 
 /** 混淆强度 */
@@ -110,17 +114,19 @@ export function defaultOptions() {
   return {
     arch: Arch.ARM64,
     format: PackageFormat.ROOTLESS,
-    debug: true,
+    // 默认走「发布」配置：调试模式会强制 -O0 + THEOS_DEBUG=1，
+    // 实测编译速度慢一倍以上，而 tweak 日常也不需要调试符号。
+    debug: false,
     clean: false,
     finalize: true,
     ldid: true,
-    strip: false,
+    strip: false,   // 需要排查符号时再开；开着会让链接多一步
     ollvm: false,
     obfuscation: Obfuscation.NONE,
     optimization: Optimization.O2,
     passes: [],
     parallel: true,
-    jobs: 4,
+    jobs: 0,   // 0 = 自动按 CPU 核数（见 makeArguments）
     extraArgs: '',
     extraEnv: '',
     version: '',
@@ -304,7 +310,16 @@ export function makeArguments(options = {}) {
   if (o.clean) args.push('clean');
   if (o.finalize && o.format !== PackageFormat.APP) args.push('package');
   else args.push('all');
-  if (o.parallel) args.push(`-j${Math.max(1, o.jobs || 4)}`);
+  if (o.parallel) {
+    // 并行数：用户指定优先，否则按 CPU 核数。
+    // 手机通常是 6 核（2 大 + 4 小），固定 -j4 用不满。
+    let jobs = o.jobs || 0;
+    if (!jobs) {
+      const n = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 0;
+      jobs = n > 0 ? Math.min(n, 8) : 4;
+    }
+    args.push(`-j${Math.max(1, jobs)}`);
+  }
   // .app 产物不需要 deb 打包流程，也就没有 FINALPACKAGE
   if (o.finalize && o.format !== PackageFormat.APP) args.push('FINALPACKAGE=1');
   if (o.extraArgs) args.push(...String(o.extraArgs).trim().split(/\s+/).filter(Boolean));

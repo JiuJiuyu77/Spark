@@ -148,7 +148,9 @@ test('passes 预设与 flags 一致', () => {
 test('defaultOptions 稳定', () => {
   const a = defaultOptions();
   assert.equal(a.format, 'rootless');
-  assert.equal(a.debug, true);
+  // 默认走发布配置（debug=false）：调试模式会强制 -O0 + THEOS_DEBUG=1，
+  // 实测编译慢一倍以上
+  assert.equal(a.debug, false);
   assert.ok(Array.isArray(a.passes));
 });
 

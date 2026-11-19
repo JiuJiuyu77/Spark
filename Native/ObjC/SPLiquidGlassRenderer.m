@@ -108,8 +108,20 @@ _Static_assert(offsetof(SPGlassUniforms, rectangles) == 128, "rectangles 偏移�
     self = [super initWithFrame:CGRectZero];
     if (self) {
         _preset = preset;
-        _device = MTLCreateSystemDefaultDevice();
-        if (!_device) { SPLog(@"[!] Metal 不可用"); return self; }
+        // Metal device 复用：每建一个 renderer 就 MTLCreateSystemDefaultDevice()
+        // 既慢（几十毫秒）又会在非 root 环境下反复失败刷日志。
+        static id<MTLDevice> sharedDevice;
+        static dispatch_once_t devOnce;
+        dispatch_once(&devOnce, ^{ sharedDevice = MTLCreateSystemDefaultDevice(); });
+        _device = sharedDevice;
+        if (!_device) {
+            // 只记一次，避免每次创建都刷屏（日志里出现了十几次）
+            static dispatch_once_t warnOnce;
+            dispatch_once(&warnOnce, ^{
+                SPLog(@"[!] Metal 不可用（液态玻璃退化为纯色，不影响编译）");
+            });
+            return self;
+        }
 
         _queue = [_device newCommandQueue];
         _uniformsBuffer = [_device newBufferWithLength:sizeof(SPGlassUniforms)
