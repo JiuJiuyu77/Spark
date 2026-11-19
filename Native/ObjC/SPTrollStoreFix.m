@@ -7,6 +7,16 @@
 #import "SPTheme.h"
 #import <Security/Security.h>
 
+// SecTask 是 Security.framework 的私有 API（TrollStore 生态普遍使用）。
+// 公开 SDK 里没有声明，这里自己声明一下。
+// 用途：读取**当前进程自身**的 entitlements，判断签名里有没有
+// platform-application —— 比对外部工具跑 codesign 快得多，也不需要子进程。
+typedef struct CF_BRIDGED_TYPE(id) __SecTask *SecTaskRef;
+extern SecTaskRef SecTaskCreateFromSelf(CFAllocatorRef allocator);
+extern CFTypeRef SecTaskCopyValueForEntitlement(SecTaskRef task,
+                                                CFStringRef entitlement,
+                                                CFErrorRef *error);
+
 @implementation SPTrollStoreFix
 
 /// 读取自身 entitlements 里的 platform-application。
