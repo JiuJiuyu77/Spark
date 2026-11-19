@@ -130,7 +130,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: Native/Resources/Toolchain
-          key: theos-runtime-v4-${{ runner.os }}-${{ hashFiles('.github/workflows/build.yml') }}
+          # key **不能**包含 build.yml 的哈希：
+          # 每改一次工作流缓存就失效，要重新解包 1GB 运行时 ——
+          # 这正是发版构建 15 分钟超时的原因。
+          # 改成按运行时分包内容的哈希，只有运行时真的变了才刷新。
+          key: theos-runtime-v5-${{ runner.os }}-${{ hashFiles('Native/Runtime/*.tar.gz') }}
 
       - name: Prepare bundled toolchain
         id: tc
@@ -150,24 +154,37 @@ jobs:
           if ls Native/Runtime/rt*.tar.gz >/dev/null 2>&1; then
             echo "==> 从仓库内分包展开运行时"
             mkdir -p "$TC"
+            # 六个分包**并行**解压：合计 1GB，串行要一分多钟
             for part in Native/Runtime/rt*.tar.gz; do
               echo "  $part"
-              tar xzf "$part" -C "$TC" || { echo "::error::解包失败：$part"; exit 1; }
             done
+            PIDS=""
+            for part in Native/Runtime/rt*.tar.gz; do
+              tar xzf "$part" -C "$TC" &
+              PIDS="$PIDS $!"
+            done
+            FAIL=0
+            for pid in $PIDS; do
+              wait "$pid" || FAIL=1
+            done
+            if [ "$FAIL" != "0" ]; then echo "::error::解包失败"; exit 1; fi
             # 两份 libLLVM 都是独立实体文件，不做软链替换
             # （用户明确要求保留，以防某些工具只认其中一份）
             #
             # 分包是用 tar 打的，文件权限是 444（只读）。
             # **必须恢复执行位**，否则 clang/ld64/make/bash 全都跑不起来 ——
             # 表现是 posix_spawn 失败、退出码 -1，而且看不出是权限问题。
+            # 权限恢复：用 find + 批量 chmod，比逐个文件调用快得多
+            # （10000+ 个文件逐个 chmod 要十几秒）
+            echo "  恢复权限…"
             chmod -R u+w "$TC" 2>/dev/null || true
             for d in helpers theos-root/usr/bin theos-root/bin theos-root/theos/bin \
-                     theos-root/usr/lib/llvm-16/bin; do
-              [ -d "$TC/$d" ] && chmod 755 "$TC/$d"/* 2>/dev/null || true
+                     theos-root/usr/lib/llvm-16/bin theos-root/usr/sbin theos-root/sbin; do
+              [ -d "$TC/$d" ] && find "$TC/$d" -maxdepth 1 -type f -exec chmod 755 {} + 2>/dev/null || true
             done
-            # .dylib 要可读，不要执行位（避免误判成可执行文件）
-            chmod 644 "$TC"/theos-root/usr/lib/*.dylib 2>/dev/null || true
-            chmod 644 "$TC"/theos-root/usr/lib/llvm-16/lib/*.dylib 2>/dev/null || true
+            # .dylib 只读即可（不给执行位，避免被误判成可执行文件）
+            find "$TC/theos-root/usr/lib" -maxdepth 2 -name "*.dylib" -exec chmod 644 {} + 2>/dev/null || true
+            find "$TC/theos-root/usr/lib/llvm-16/lib" -maxdepth 1 -name "*.dylib" -exec chmod 644 {} + 2>/dev/null || true
             echo "  权限已恢复"
             echo "  展开完成：$(du -sh "$TC" | cut -f1)"
             ls "$TC/helpers/bash" "$TC/theos-full/sdks" 2>/dev/null
