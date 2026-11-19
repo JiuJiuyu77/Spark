@@ -74,6 +74,11 @@ jobs:
     needs: test
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
+    # 同一分支的构建串行执行：两个 job 同时解包 1GB 运行时
+    # 会互相抢 CPU/磁盘，实测导致其中一个 15 分钟超时。
+    concurrency:
+      group: build-${{ github.ref }}-${{ matrix.arch }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
