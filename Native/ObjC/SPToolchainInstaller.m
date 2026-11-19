@@ -321,18 +321,55 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
     // 写标记前先验收：关键文件不全就不要说装好了。
     // 否则用户看到「已就绪」，编译时才发现缺 clang/ld64/logos.pl。
     NSMutableArray<NSString *> *missing = [NSMutableArray array];
-    NSArray<NSString *> *required = @[
-        @"theos/makefiles/common.mk",
-        @"theos/bin/logos.pl",
-    ];
-    for (NSString *r in required) {
-        if (![fm fileExistsAtPath:[dst stringByAppendingPathComponent:r]]) {
-            [missing addObject:r];
+
+    // 按实际探到的路径校验，不要写死 theos/ 前缀 ——
+    // Rein 对齐包的 theos 本体在 theos-root/theos，
+    // 写死会导致「装好了但判定为缺失」。
+    NSString *theosDir = self.theosPath;
+    for (NSString *rel in @[@"makefiles/common.mk", @"bin/logos.pl"]) {
+        if (![fm fileExistsAtPath:[theosDir stringByAppendingPathComponent:rel]]) {
+            [missing addObject:[NSString stringWithFormat:@"theos/%@", rel]];
         }
     }
-    BOOL hasLinker = [fm isExecutableFileAtPath:[self.binDir stringByAppendingPathComponent:@"ld64"]];
-    BOOL hasClang  = [fm isExecutableFileAtPath:[self.binDir stringByAppendingPathComponent:@"clang-16"]];
-    if (!hasLinker && !hasClang) [missing addObject:@"bin/ld64 或 bin/clang-16"];
+
+    // 编译链逐个确认「存在且可执行」。
+    // 只判存在不够：分包解压出来是 444（只读），没有执行位照样跑不起来，
+    // 而且报错是 posix_spawn 失败（退出码 -1），完全看不出是权限问题。
+    for (NSString *tool in @[@"clang-16", @"ld64", @"ldid", @"make", @"dpkg-deb", @"perl"]) {
+        NSString *p = [self.binDir stringByAppendingPathComponent:tool];
+        if (![fm isExecutableFileAtPath:p]) {
+            p = [self.baseBinDir stringByAppendingPathComponent:tool];
+        }
+        if (![fm isExecutableFileAtPath:p]) {
+            [missing addObject:[NSString stringWithFormat:@"%@（缺失或不可执行）", tool]];
+        }
+    }
+
+    // shell 单独确认：它在 helpers/ 下，是子进程能否启动的关键
+    {
+        BOOL anyShell = NO;
+        for (NSString *sh in @[@"bash", @"sh"]) {
+            NSString *p = [dst stringByAppendingPathComponent:
+                           [@"helpers" stringByAppendingPathComponent:sh]];
+            if ([fm isExecutableFileAtPath:p]) { anyShell = YES; break; }
+        }
+        if (!anyShell) [missing addObject:@"helpers/bash（shell 不可执行）"];
+    }
+
+    // SDK：至少一个带 SDKSettings.json 的
+    {
+        BOOL anySDK = NO;
+        for (NSString *rel in @[@"sdks", @"theos/sdks", @"theos-root/theos/sdks"]) {
+            NSString *dir = [dst stringByAppendingPathComponent:rel];
+            for (NSString *name in [fm contentsOfDirectoryAtPath:dir error:NULL] ?: @[]) {
+                if (![name hasPrefix:@"iPhoneOS"] || ![name hasSuffix:@".sdk"]) continue;
+                if ([fm fileExistsAtPath:[[dir stringByAppendingPathComponent:name]
+                        stringByAppendingPathComponent:@"SDKSettings.json"]]) { anySDK = YES; break; }
+            }
+            if (anySDK) break;
+        }
+        if (!anySDK) [missing addObject:@"iPhoneOS*.sdk"];
+    }
 
     if (missing.count) {
         // 清掉半成品，避免 isInstalled 误判

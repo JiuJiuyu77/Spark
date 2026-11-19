@@ -156,7 +156,19 @@ jobs:
             done
             # 两份 libLLVM 都是独立实体文件，不做软链替换
             # （用户明确要求保留，以防某些工具只认其中一份）
-            chmod 755 "$TC/helpers/bash" 2>/dev/null || true
+            #
+            # 分包是用 tar 打的，文件权限是 444（只读）。
+            # **必须恢复执行位**，否则 clang/ld64/make/bash 全都跑不起来 ——
+            # 表现是 posix_spawn 失败、退出码 -1，而且看不出是权限问题。
+            chmod -R u+w "$TC" 2>/dev/null || true
+            for d in helpers theos-root/usr/bin theos-root/bin theos-root/theos/bin \
+                     theos-root/usr/lib/llvm-16/bin; do
+              [ -d "$TC/$d" ] && chmod 755 "$TC/$d"/* 2>/dev/null || true
+            done
+            # .dylib 要可读，不要执行位（避免误判成可执行文件）
+            chmod 644 "$TC"/theos-root/usr/lib/*.dylib 2>/dev/null || true
+            chmod 644 "$TC"/theos-root/usr/lib/llvm-16/lib/*.dylib 2>/dev/null || true
+            echo "  权限已恢复"
             echo "  展开完成：$(du -sh "$TC" | cut -f1)"
             ls "$TC/helpers/bash" "$TC/theos-full/sdks" 2>/dev/null
             exit 0
