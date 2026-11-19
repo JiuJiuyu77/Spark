@@ -692,17 +692,53 @@ jobs:
           echo "==> 签名（带平台权限，TrollStore 必需）"
           # 关键：必须带 entitlements，否则 App 会跑在沙盒里、
           # 无法 exec 子进程 —— 编译和注入都会失效。
-          if [ -f entitlements.plist ]; then
+          # **签名方式很关键**：
+          # TrollStore 期望的是 ldid 签名。macOS 的 codesign 生成的
+          # 是 Apple 风格的 CodeDirectory（带 DER 段），
+          # 在 TrollStore 环境下 platform-application 不一定生效 ——
+          # 表现就是 setuid(0) 返回 EPERM，无论怎么重装都无效。
+          #
+          # 所以这里优先用工具链里的 ldid 签主程序，
+          # codesign 只作为 ldid 不可用时的兜底。
+          LDID_BIN="$(find Native/Resources/Toolchain -name ldid -type f 2>/dev/null | head -1)"
+          if [ -z "$LDID_BIN" ]; then LDID_BIN="$(command -v ldid || true)"; fi
+
+          if [ -n "$LDID_BIN" ] && [ -f entitlements.plist ]; then
+            echo "==> 用 ldid 签名（TrollStore 兼容）"
+            chmod +x "$LDID_BIN" 2>/dev/null || true
+            # ldid 需要 x86/arm 可执行；macOS runner 上跑不了 iOS 版 ldid，
+            # 所以先试，失败再退回 codesign
+            if "$LDID_BIN" -S entitlements.plist "$APP/$SCHEME" 2>/dev/null; then
+              echo "  ldid 签名成功"
+            else
+              echo "  ldid 不可用（预期，它是 iOS 二进制），改用 codesign"
+              codesign --force --sign - --timestamp=none \
+                --entitlements entitlements.plist \
+                --generate-entitlement-der "$APP" || true
+            fi
+          elif [ -f entitlements.plist ]; then
             plutil -lint entitlements.plist
             python3 scripts/check-entitlements.py entitlements.plist
             codesign --force --sign - --timestamp=none \
               --entitlements entitlements.plist \
               --generate-entitlement-der "$APP" || true
-            echo "==> 校验签名权限"
-            codesign -d --entitlements :- "$APP" 2>/dev/null | head -40 || true
           else
             codesign --force --sign - --timestamp=none "$APP" || true
           fi
+          # **用 ldid 格式重新签名**
+          # 对比 Rein 的签名发现关键差异：
+          #   ldid:     hashType=1 (SHA-1), flags=0, 6 个子 blob
+          #   codesign: hashType=2 (SHA-256), flags!=0, 结构不同
+          # TrollStore 环境下 codesign 的签名会让
+          # platform-application 不生效（setuid 返回 EPERM）。
+          echo "==> 用 ldid 格式重新签名（TrollStore 兼容）"
+          python3 tools/ldid_sign.py "$APP/$SCHEME" \
+            --entitlements entitlements.plist || {
+              echo "::error::ldid 格式签名失败"; exit 1; }
+          python3 tools/ldid_sign.py --verify "$APP/$SCHEME"
+
+          echo "==> 校验签名权限"
+          codesign -d --entitlements :- "$APP" 2>/dev/null | head -40 || true
           echo "==> 产物"
           du -sh "$APP"
           file "$APP/$SCHEME"
