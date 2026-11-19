@@ -621,7 +621,7 @@ jobs:
           echo "==> 编译 spark-logos"
           xcrun clang "${FLAGS[@]}" -c Native/ObjC/SPLogosPreprocessor.m \
             -o "$RUNNER_TEMP/SPLogosPreprocessor.o"
-          xcrun clang "${FLAGS[@]}" Native/CLI/spark-logos.m \
+          xcrun clang "${FLAGS[@]}" -INative/ObjC Native/CLI/spark-logos.m \
             "$RUNNER_TEMP/SPLogosPreprocessor.o" \
             -framework Foundation \
             -o "$APP/bin/spark-logos"
