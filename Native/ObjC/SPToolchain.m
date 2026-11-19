@@ -177,14 +177,9 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
         //   ② /var/containers/Bundle/Application/<UUID>/DSH.app
         //      —— TrollStore 安装的 App 本体（实际最常见）
         // 之前只认 ①，所以装了 Rein App 也探测不到工具链。
-        NSString *saved = [d stringForKey:kDefaultsReinRoot];
-        // 变量名不能用 auto —— 它在 C++ 里是关键字，
-        // 这个文件被当 ObjC++ 编译时会直接报 expected identifier。
-        NSString *discovered = [SPToolchain discoverReinRoot];
-        // 找不到就留空，不要再写死成 /var/mobile/Documents/Rein ——
-        // 那个路径在只装 App 的环境里根本不存在，
-        // 会让后续探测全在错误路径上打转。
-        t.reinRoot = saved.length ? saved : (discovered ?: @"");
+        // Spark 运行时已完整内嵌，不再自动探测外部 Rein/DSH 目录
+        // （之前会指向别人的安装，让人误以为检测错了）
+        t.reinRoot = [d stringForKey:kDefaultsReinRoot] ?: @"";
         t.homeRoot = [d stringForKey:kDefaultsHomeRoot];
         [t rescan];
     });
@@ -216,13 +211,16 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
         [roots addObject:inst.installRoot];
     }
 
-    // 2) 用户指定的安装目录
-    if (self.homeRoot.length) [roots addObject:self.homeRoot];
-    // 3) 设备上的 Rein
-    if (self.reinRoot.length) [roots addObject:self.reinRoot];
-    // App 包内（Rein 把 theos-root 一起打进了 DSH.app）
+    // 2) **App 包内自带的运行时优先**
+    //    Spark 已完整内嵌（288 工具 + 3 SDK），不该再依赖任何外部目录。
+    //    之前外部 Rein 目录排在前，导致工具链指向别人的安装，
+    //    用户看到「检测到的目录并非 Spark」。
     NSString *bundle = [NSBundle mainBundle].bundlePath;
     [roots addObject:bundle];
+
+    // 3) 用户手动指定 / 外部目录（仅作为补充，排在内置之后）
+    if (self.homeRoot.length) [roots addObject:self.homeRoot];
+    if (self.reinRoot.length) [roots addObject:self.reinRoot];
     return roots;
 }
 

@@ -483,8 +483,17 @@ export function buildScript(project, options = {}, profile = {}) {
   lines.push('');
   lines.push("say '开始编译'");
   lines.push(`echo "+ make ${args.join(' ')}"`);
-  lines.push('make ' + args.map(q).join(' '));
-  lines.push('rc=$?');
+  // 加心跳 + 硬超时：之前遇到过编译到 90% 卡住（签名/打包阶段），
+  // 没有任何输出也永不返回，用户只能干等。
+  lines.push('( while :; do sleep 20; echo "[..] 仍在编译（已 $(($(date +%s)-begin)) 秒）"; done ) &');
+  lines.push('HB=$!');
+  lines.push('if command -v timeout >/dev/null 2>&1; then');
+  lines.push('  timeout 1800 make ' + args.map(q).join(' ') + '; rc=$?');
+  lines.push('else');
+  lines.push('  make ' + args.map(q).join(' ') + '; rc=$?');
+  lines.push('fi');
+  lines.push('kill $HB 2>/dev/null || true');
+  lines.push('if [ $rc -eq 124 ]; then echo "[!] 编译超时（30 分钟），已中止"; fi');
   lines.push('end=$(date +%s)');
   lines.push('if [ $rc -ne 0 ]; then echo "[!] 编译失败，退出码 $rc"; exit $rc; fi');
   lines.push('ok "用时 $((end - begin)) 秒"');
