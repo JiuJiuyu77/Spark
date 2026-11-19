@@ -50,6 +50,8 @@
         [lines addObject:[NSString stringWithFormat:@"export SPARK_TC=%@", [SPUtil shellQuote:root]]];
         // PATH：usr/bin 优先（clang-16 / ld64 / ldid / make / dpkg-deb / perl 都在这）
         [lines addObject:@"[ -d \"$SPARK_TC/usr/bin\" ] && export PATH=\"$SPARK_TC/usr/bin:$SPARK_TC/bin:$PATH\""];
+        // App 自带的命令行工具（spark-logos 等）也要能直接调用
+        [lines addObject:@"[ -d \"$SPARK_BIN\" ] && export PATH=\"$SPARK_BIN:$PATH\""];
         [lines addObject:@"[ -d \"$SPARK_TC/bin\" ] && export PATH=\"$SPARK_TC/bin:$PATH\""];
         // 动态库：clang-16 是薄壳，真正的代码在 usr/lib/llvm-16/lib/libLLVM-16.dylib
         [lines addObject:@"TC_LIBS=\"$SPARK_TC/usr/lib:$SPARK_TC/usr/lib/llvm-16/lib\""];
@@ -81,6 +83,11 @@
                       "done; fi"];
         [lines addObject:@"[ -n \"${THEOS:-}\" ] || warn '没找到带 SDK 的 theos 目录'"];
     }
+
+    // App 自带的命令行工具目录（spark-logos 等）
+    [lines addObject:[NSString stringWithFormat:@"export SPARK_BIN=%@",
+                      [SPUtil shellQuote:[[[NSBundle mainBundle] bundlePath]
+                                          stringByAppendingPathComponent:@"bin"]]]];
 
     NSString *pathPrefix = [[SPToolchain shared] pathPrefixForProfile:profile];
     if (pathPrefix.length) {

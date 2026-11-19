@@ -431,6 +431,41 @@ export function buildScript(project, options = {}, profile = {}) {
 }`);
   lines.push(`trap 'write_report $?' EXIT`);
   lines.push('');
+  // .x 预展开：设备上的 perl 缺 libperl.dylib 跑不起来，
+  // 所以在 make 之前用 Spark 自带预处理器把 .x 展开成 .m。
+  // perl 可用时不干预（保持原生 Logos 行为）。
+  lines.push('', "say 'Logos 预处理'");
+  lines.push(`LOGOS_TOOL="${'$'}SPARK_TC/tools/spark-logos.py"`);
+  lines.push('[ -f "$LOGOS_TOOL" ] || LOGOS_TOOL="/usr/share/spark/spark-logos.py"');
+  lines.push('XLIST=$(ls *.x 2>/dev/null || true)');
+  lines.push('if [ -n "$XLIST" ]; then');
+  lines.push('  if perl -e "use Digest::MD5" 2>/dev/null; then');
+  lines.push('    ok "perl 可用，使用原生 logos.pl"');
+  lines.push('  elif command -v spark-logos >/dev/null 2>&1; then');
+  lines.push('    for x in $XLIST; do');
+  lines.push('      m="${x%.x}.m"');
+  lines.push('      if spark-logos "$x" "$m"; then');
+  lines.push('        ok "展开 $x → $m（内置预处理器）"');
+  lines.push('        mv "$x" "$x.sparkbak" 2>/dev/null || true');
+  lines.push('      else');
+  lines.push('        warn "展开失败：$x"; exit 12');
+  lines.push('      fi');
+  lines.push('    done');
+  lines.push('  elif [ -f "$LOGOS_TOOL" ] && command -v python3 >/dev/null 2>&1; then');
+  lines.push('    for x in $XLIST; do');
+  lines.push('      m="${x%.x}.m"');
+  lines.push('      if python3 "$LOGOS_TOOL" "$x" "$m"; then');
+  lines.push('        ok "展开 $x → $m（内置预处理器）"');
+  lines.push('        mv "$x" "$x.sparkbak" 2>/dev/null || true');
+  lines.push('      else');
+  lines.push('        warn "展开失败：$x"; exit 12');
+  lines.push('      fi');
+  lines.push('    done');
+  lines.push('  else');
+  lines.push('    warn "perl 不可用，且找不到内置预处理器"; exit 13');
+  lines.push('  fi');
+  lines.push('fi');
+  lines.push('');
   lines.push("say '开始编译'");
   lines.push(`echo "+ make ${args.join(' ')}"`);
   lines.push('make ' + args.map(q).join(' '));
@@ -508,6 +543,16 @@ export function diagnose(logText = '') {
 
     [/code signature|invalid signature/i,
      '签名失败：确认 ldid 可执行且 entitlements 合法。', 'sign'],
+
+    // libperl 缺失：Rein 移植链的隐藏断点 —— 它带了 perl 薄壳和 104 个
+    // .so 扩展，却没带 libperl.dylib。表现是 logos.pl 一行都跑不起来，
+    // 报错通常是 "dyld: Library not loaded" 或 "Can't locate ..."。
+    // 用 new RegExp 而不是字面量：模式里有单引号（Can't locate），
+    // 直接用 // 字面量会和周围的引号打架，导致解析错位。
+    [new RegExp("dyld: Library not loaded:.*libperl|Can.t locate (Digest\\/MD5|strict\\\\.pm)|libperl\\\\.dylib", "i"),
+     '找不到 libperl.dylib：perl 无法运行，logos.pl 起不来，.x 工程编不了。' +
+     '这是运行时打包缺文件（Rein 原包也缺）。' +
+     '临时办法：把 %hook 改成纯 .m 写法（用 MSHookMessageEx）。', 'toolchain'],
 
     [/permission denied/i,
      '权限不足：项目目录要在 /var/mobile 下且可写。', 'permission'],

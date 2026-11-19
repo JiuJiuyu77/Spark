@@ -587,7 +587,7 @@ jobs:
           # App 侧本来就用 `sh <脚本>` 调用，不需要执行位。
           if [ -d tools ]; then
             mkdir -p "$APP/tools"
-            cp tools/spark-cross-build.sh tools/macho_sign.py "$APP/tools/" 2>/dev/null || true
+            cp tools/spark-cross-build.sh tools/macho_sign.py tools/spark-logos.py "$APP/tools/" 2>/dev/null || true
             chmod 644 "$APP/tools/"* 2>/dev/null || true
             echo "  已打包 tools/（不带执行位，避免 ldid 报错）"
           fi
@@ -616,6 +616,17 @@ jobs:
             -o "$APP/bin/spark-jitd" Native/JIT/spark-jitd.c
           chmod 755 "$APP/bin/spark-jitd"
           file "$APP/bin/spark-jitd"
+
+          # spark-logos：构建脚本用的 Logos 预处理器（原生，不依赖 perl/python）
+          echo "==> 编译 spark-logos"
+          xcrun clang "${FLAGS[@]}" -c Native/ObjC/SPLogosPreprocessor.m \
+            -o "$RUNNER_TEMP/SPLogosPreprocessor.o"
+          xcrun clang "${FLAGS[@]}" Native/CLI/spark-logos.m \
+            "$RUNNER_TEMP/SPLogosPreprocessor.o" \
+            -framework Foundation \
+            -o "$APP/bin/spark-logos"
+          chmod 755 "$APP/bin/spark-logos"
+          file "$APP/bin/spark-logos"
 
           # ------------------------------------------------------------------
           # Helper 必须单独签名！
