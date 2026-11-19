@@ -216,6 +216,36 @@ def check_file(path: str):
                     f'{name}:{i}: 日志缓冲被多处写入但没加锁，'
                     f'跨线程回调时会读到半写状态。加 @synchronized。')
 
+    # 3f. 同一函数内不能重复使用同一个 dispatch_once_t
+    #
+    # 典型错误：一个函数里写了两次 dispatch_once(&once, ...)，
+    # 第二次直接跳过 → 静态变量保持 NULL →
+    # dispatch_async(NULL, ...) 触发 SIGSEGV。
+    # 启动阶段触发时表现为「一开就闪退」。
+    #
+    # 判定方式：按「函数边界」分组。函数起点是行首的函数定义
+    # （- (xxx) / + (xxx) / 返回类型 函数名(...) { ）
+    func_start = 0
+    tokens_in_func = {}
+    for i, line in enumerate(lines, 1):
+        code = line.split('//')[0]
+        # 函数定义行
+        if re.match(r'^\s*[-+]\s*\(', code) or \
+           re.match(r'^[A-Za-z_][\w\s\*]+\([^;]*\)\s*\{\s*$', line) or \
+           re.match(r'^static\s+[\w\s\*]+\w+\s*\(', line):
+            func_start = i
+            tokens_in_func = {}
+        m = re.search(r'dispatch_once\(&(\w+)', code)
+        if m:
+            nm2 = m.group(1)
+            if nm2 in tokens_in_func:
+                problems.append(
+                    f'{name}:{i}: dispatch_once(&{nm2}) 与第 {tokens_in_func[nm2]} 行'
+                    f'重复使用同一 token —— 第二次会被跳过，'
+                    f'静态变量为 NULL 可致 SIGSEGV。改用独立变量。')
+            else:
+                tokens_in_func[nm2] = i
+
     # 4. 统计
     n_null = text.count('error:NULL')
     if n_null:

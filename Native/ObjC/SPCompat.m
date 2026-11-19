@@ -38,8 +38,8 @@ void SPAppendLog(NSString *message) {
     if (!message.length) return;
 
     static NSDateFormatter *fmt;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
+    static dispatch_once_t fmtOnce;
+    dispatch_once(&fmtOnce, ^{
         fmt = [NSDateFormatter new];
         fmt.dateFormat = @"HH:mm:ss.SSS";
     });
@@ -53,8 +53,13 @@ void SPAppendLog(NSString *message) {
     }
 
     // 落盘：用低层 API 追加，比每次读写整个文件快得多
+    // 必须用**独立的** dispatch_once_t：
+    // 之前两处共用同一个 once 变量，第一次已执行完，
+    // 第二次直接跳过 → ioq 永远是 NULL → dispatch_async(NULL) → SIGSEGV。
+    // 这个崩溃发生在启动阶段（elevateSelf 打日志时），表现为一启动就闪退。
     static dispatch_queue_t ioq;
-    dispatch_once(&once, ^{ ioq = dispatch_queue_create("spark.log.io", DISPATCH_QUEUE_SERIAL); });
+    static dispatch_once_t ioOnce;
+    dispatch_once(&ioOnce, ^{ ioq = dispatch_queue_create("spark.log.io", DISPATCH_QUEUE_SERIAL); });
     dispatch_async(ioq, ^{
         FILE *f = fopen(SPLogFilePath().fileSystemRepresentation, "a");
         if (!f) return;
