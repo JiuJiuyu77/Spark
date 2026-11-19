@@ -210,17 +210,20 @@ def parse(source):
                 continue
 
             # 块内其它代码
-            im = re.match(r'^%(?:init|ctor|dtor)\s*\(?(.*?)\)?\s*[;{]?$', t)
-            if im and im.group(1).strip():
-                cur_group.inits.append(im.group(1).strip())
+            im = re.match(r'^%(init|ctor|dtor)\s*\(?(.*?)\)?\s*[;{]?$', t)
+            if im and im.group(2).strip():
+                # %init 保留标记，生成时才展开为组注册调用
+                tag = '%init(' + im.group(2).strip() + ')' if im.group(1) == 'init' else im.group(2).strip()
+                cur_group.inits.append(tag)
                 continue
             cur_class.prologue.append(line)
             continue
 
         # 全局 %ctor / %init
-        im = re.match(r'^%(?:ctor|init|dtor)\s*\(?(.*?)\)?\s*[;{]?$', t)
-        if im and im.group(1).strip():
-            cur_group.inits.append(im.group(1).strip())
+        im = re.match(r'^%(init|ctor|dtor)\s*\(?(.*?)\)?\s*[;{]?$', t)
+        if im and im.group(2).strip():
+            tag = '%init(' + im.group(2).strip() + ')' if im.group(1) == 'init' else im.group(2).strip()
+            cur_group.inits.append(tag)
             continue
 
         if t.startswith('%config'):
@@ -250,7 +253,7 @@ def emit(groups):
             # 原函数指针 + 新函数
             for m in c.methods:
                 if not m.is_new:
-                    out.append('static %s (*_logos_orig$%s$%s)(%s, SEL%s);' % (
+                    out.append('static %s (*_logos_orig_%s_%s)(%s, SEL%s);' % (
                         m.ret, safe, re.sub(r'\W', '_', m.name), c.name,
                         (', ' + m.arg_types) if m.arg_types else ''))
 
@@ -262,9 +265,9 @@ def emit(groups):
                                              nm[i] if i < len(nm) else 'arg%d' % i)
                                   for i in range(max(len(ty), len(nm))))
                 out.append('')
-                out.append('static %s _logos_method$%s$%s(%, SEL _cmd%s) {' % (
+                out.append('static %s _logos_method_%s_%s(%, SEL _cmd%s) {' % (
                     '', 0, 0, '', '') if False else
-                           ('static %s _logos_method$%s$%s(%s self, SEL _cmd%s) {' % (
+                           ('static %s _logos_method_%s_%s(%s self, SEL _cmd%s) {' % (
                                m.ret, safe, re.sub(r'\W', '_', m.name), c.name,
                                ((', ' + decls) if decls else ''))))
                 for ln in m.body:
@@ -283,25 +286,41 @@ def emit(groups):
                     sel = sel + ':' * nargs
                 if m.is_new:
                     out.append('    class_addMethod(_cls, sel_registerName("%s"), '
-                               '(IMP)_logos_method$%s$%s, "%s%s");' % (
+                               '(IMP)_logos_method_%s_%s, "%s%s");' % (
                                    sel, safe, re.sub(r'\W', '_', m.name), m.ret,
                                    ('(' + m.arg_types + ')') if m.arg_types else ''))
                 else:
                     out.append('    {')
                     out.append('        Method _m = class_getInstanceMethod(_cls, sel_registerName("%s"));' % sel)
                     out.append('        if (_m) {')
-                    out.append('            _logos_orig$%s$%s = (%s (*)(%s, SEL%s))method_getImplementation(_m);' % (
+                    out.append('            _logos_orig_%s_%s = (%s (*)(%s, SEL%s))method_getImplementation(_m);' % (
                         safe, re.sub(r'\W', '_', m.name), m.ret, c.name, (', ' + m.arg_types) if m.arg_types else ''))
-                    out.append('            method_setImplementation(_m, (IMP)_logos_method$%s$%s);' % (safe, re.sub(r'\W', '_', m.name)))
+                    out.append('            method_setImplementation(_m, (IMP)_logos_method_%s_%s);' % (safe, re.sub(r'\W', '_', m.name)))
                     out.append('        }')
                     out.append('    }')
+            out.append('}')
+            out.append('')
+
+        # 该组如果被 %init 引用，需要有一个可调用的入口
+        if g.classes:
+            out.append('static void _logos_register_%s(void) {' % re.sub(r'\W', '_', g.name))
+            for c in g.classes:
+                out.append('    _logos_register_%s();' % re.sub(r'\W', '_', c.name))
             out.append('}')
             out.append('')
 
         if g.inits:
             out.append('__attribute__((constructor)) static void _logos_ctor_%s(void) {' % re.sub(r'\W', '_', g.name))
             for ln in g.inits:
-                out.append('    %s;' % ln)
+                # 可能整段是 "{ %init(G); }"，也可能就是 "%init(G)"。
+                # 把所有 %init(X) 抽出来变成注册调用，其余代码保留。
+                body = ln.strip().strip('{}').strip()
+                calls = re.findall(r'%init\s*\(\s*(\w+)\s*\)', body)
+                rest = re.sub(r'%init\s*\(\s*\w+\s*\)\s*;?', '', body).strip(' ;')
+                for cg in calls:
+                    out.append('    _logos_register_%s();' % re.sub(r'\W', '_', cg))
+                if rest:
+                    out.append('    %s;' % rest)
             out.append('}')
             out.append('')
 

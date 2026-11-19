@@ -487,12 +487,17 @@ export function buildScript(project, options = {}, profile = {}) {
   // 没有任何输出也永不返回，用户只能干等。
   lines.push('( while :; do sleep 20; echo "[..] 仍在编译（已 $(($(date +%s)-begin)) 秒）"; done ) &');
   lines.push('HB=$!');
+  // --kill-after：timeout 默认只给主进程发 TERM，
+  // make 启动的 clang/ld64 会变成孤儿进程继续吃 CPU。
+  // 加 -k 5 让它在 5 秒后强制 KILL 整个进程组。
   lines.push('if command -v timeout >/dev/null 2>&1; then');
-  lines.push('  timeout 1800 make ' + args.map(q).join(' ') + '; rc=$?');
+  lines.push('  ( timeout -k 5 1800 make ' + args.map(q).join(' ') + ' ) ; rc=$?');
   lines.push('else');
   lines.push('  make ' + args.map(q).join(' ') + '; rc=$?');
   lines.push('fi');
   lines.push('kill $HB 2>/dev/null || true');
+  // 兜底：无论成功失败，清掉可能残留的编译子进程
+  lines.push('pkill -P $$ make 2>/dev/null || true');
   lines.push('if [ $rc -eq 124 ]; then echo "[!] 编译超时（30 分钟），已中止"; fi');
   lines.push('end=$(date +%s)');
   lines.push('if [ $rc -ne 0 ]; then echo "[!] 编译失败，退出码 $rc"; exit $rc; fi');
