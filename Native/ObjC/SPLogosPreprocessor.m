@@ -51,14 +51,14 @@
 @interface SPLLGroup : NSObject
 @property (nonatomic, copy) NSString *name;
 @property (nonatomic, strong) NSMutableArray<SPLLClass *> *classes;
-@property (nonatomic, strong) NSMutableArray<NSString *> *initLines;  // %init 里的代码
+@property (nonatomic, strong) NSMutableArray<NSString *> *ctorLines;  // %init 里的代码
 @end
 
 @implementation SPLLGroup
 - (instancetype)init {
     if ((self = [super init])) {
         _classes = [NSMutableArray array];
-        _initLines = [NSMutableArray array];
+        _ctorLines = [NSMutableArray array];
     }
     return self;
 }
@@ -293,7 +293,7 @@ static void SPLLParseSignature(NSString *sig, SPLLMethod *m) {
                               stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
             code = [code stringByTrimmingCharactersInSet:
                     [NSCharacterSet characterSetWithCharactersInString:@"(){}"]];
-            if (code.length) [curGroup.initLines addObject:code];
+            if (code.length) [curGroup.ctorLines addObject:code];
             continue;
         }
         if ([trimmed hasPrefix:@"%dtor"]) {
@@ -301,7 +301,7 @@ static void SPLLParseSignature(NSString *sig, SPLLMethod *m) {
                               stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
             code = [code stringByTrimmingCharactersInSet:
                     [NSCharacterSet characterSetWithCharactersInString:@"(){}"]];
-            if (code.length) [curGroup.initLines addObject:code];
+            if (code.length) [curGroup.ctorLines addObject:code];
             continue;
         }
         if ([trimmed hasPrefix:@"%init"]) {
@@ -309,7 +309,7 @@ static void SPLLParseSignature(NSString *sig, SPLLMethod *m) {
                               stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
             code = [code stringByTrimmingCharactersInSet:
                     [NSCharacterSet characterSetWithCharactersInString:@"(){}"]];
-            if (code.length) [curGroup.initLines addObject:code];
+            if (code.length) [curGroup.ctorLines addObject:code];
             continue;
         }
         if ([trimmed hasPrefix:@"%config"]) {
@@ -376,7 +376,7 @@ static void SPLLParseSignature(NSString *sig, SPLLMethod *m) {
             }
 
             // 注册（%ctor 里做）
-            [g.initLines addObject:[NSString stringWithFormat:@"_logos_register_%@()", safe]];
+            [g.ctorLines addObject:[NSString stringWithFormat:@"_logos_register_%@()", safe]];
             [gen appendFormat:@"static void _logos_register_%@(void) {\n", safe];
             [gen appendFormat:@"    Class _cls = objc_getClass(\"%@\");\n", cls];
             [gen appendString:@"    if (!_cls) return;\n"];
@@ -409,9 +409,9 @@ static void SPLLParseSignature(NSString *sig, SPLLMethod *m) {
         }
 
         // 该组的 ctor
-        if (g.initLines.count) {
+        if (g.ctorLines.count) {
             [gen appendFormat:@"__attribute__((constructor)) static void _logos_ctor_%@(void) {\n", g.name];
-            for (NSString *l in g.initLines) {
+            for (NSString *l in g.ctorLines) {
                 [gen appendFormat:@"    %@;\n", l];
             }
             [gen appendString:@"}\n\n"];
