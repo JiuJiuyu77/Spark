@@ -679,6 +679,7 @@ jobs:
                   chmod 755 "$h"
                   echo "  签名 $(basename "$h")"
                   codesign --force --sign - --timestamp=none \
+                    --digest-algorithm sha1 --digest-algorithm sha256 \
                     --entitlements "$HELPER_ENT" \
                     --generate-entitlement-der "$h" || {
                       echo "::error::Helper 签名失败：$h"; exit 1; }
@@ -695,9 +696,16 @@ jobs:
           if [ -f entitlements.plist ]; then
             plutil -lint entitlements.plist
             python3 scripts/check-entitlements.py entitlements.plist
+            # 签名算法对齐 Rein（ldid 默认用 SHA-1，flags=0）。
+            # codesign 在 macOS 11+ 默认只写 SHA-256，
+            # 而 iOS 14-17 对 SHA-1 的 platform-application 校验更宽松，
+            # 这可能是「权限写了却拿不到 root」的原因。
             codesign --force --sign - --timestamp=none \
+              --digest-algorithm sha1 --digest-algorithm sha256 \
               --entitlements entitlements.plist \
               --generate-entitlement-der "$APP" || true
+            echo "==> 校验签名"
+            codesign -dvvv "$APP" 2>&1 | grep -iE "CandidateCDHash|Hash|flags" | head -4 || true
             echo "==> 校验签名权限"
             codesign -d --entitlements :- "$APP" 2>/dev/null | head -40 || true
           else
