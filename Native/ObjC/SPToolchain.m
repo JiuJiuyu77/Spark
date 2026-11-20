@@ -323,6 +323,21 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     }
     [scan setPath:sdk for:SPToolchainComponentSDK];
 
+    // 诊断：把探测结果写进日志，便于定位「明明有却找不到」
+    if (sdk) {
+        SPLog(@"SDK 已找到：%@", sdk);
+    } else {
+        NSMutableString *dbg = [NSMutableString string];
+        [dbg appendString:@"SDK 未找到。已探测的候选目录："];
+        NSUInteger n = 0;
+        for (NSString *d in sdkDirs) {
+            if (n++ > 12) break;
+            [dbg appendFormat:@"\n  %@ %@", [fm fileExistsAtPath:d] ? @"✓" : @"✗", d];
+        }
+        SPLog(@"%@", dbg);
+        SPLog(@"roots（%lu 个）：%@", (unsigned long)roots.count, [roots componentsJoinedByString:@", "]);
+    }
+
     // 3) Darwin bin：theos-root/usr/bin / helpers（真机可执行）
     //    平铺布局下是 Spark.app/theos-root/usr/bin
     NSString *darwin = [self firstExistingDirectory:@[@"theos-root/usr/bin",
@@ -348,18 +363,46 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     [scan setPath:ollvm for:SPToolchainComponentOLLVM];
 
     // 5) 逆向工具
-    NSString *rev = [self firstExistingDirectory:@[@"Spark/Toolchain/reverse/bin", @"Toolchain/reverse/bin",
+    NSString *rev = [self firstExistingDirectory:@[@"reverse/bin",
+                                                    @"Spark/Toolchain/reverse/bin", @"Toolchain/reverse/bin",
                                                     @"tools/reverse/bin"] fromRoots:roots];
-    if (rev && ![fm fileExistsAtPath:[rev stringByAppendingPathComponent:@"rabin2"]] &&
-        ![fm fileExistsAtPath:[rev stringByAppendingPathComponent:@"mt-macho"]]) rev = nil;
+    // 判定：只要 mt-macho / rabin2 / r2 任一存在即可
+    // （Rein 的 reverse/bin 里没有 rabin2，早先过严会导致整个组件被判为未安装）
+    if (rev) {
+        BOOL ok = [fm fileExistsAtPath:[rev stringByAppendingPathComponent:@"mt-macho"]] ||
+                  [fm fileExistsAtPath:[rev stringByAppendingPathComponent:@"rabin2"]] ||
+                  [fm fileExistsAtPath:[rev stringByAppendingPathComponent:@"r2"]];
+        if (!ok) rev = nil;
+    }
     self.resolvedReverse = rev;
     [scan setPath:rev for:SPToolchainComponentReverse];
 
     // 6) python / node / ssh
-    self.resolvedPython = [self firstExistingFile:@[@"tools/python/python3", @"tools/python/python", @"bin/python3"] fromRoots:roots];
+    // python-runtime 里的可执行名不固定（有 python3 / python / python3.13 等），
+    // 也可能只有 Python.framework（真正解释器在 framework 内）。
+    self.resolvedPython = [self firstExistingFile:@[@"python-runtime/python3",
+                                                     @"python-runtime/python3.13",
+                                                     @"python-runtime/python",
+                                                     @"tools/python/python3",
+                                                     @"tools/python/python",
+                                                     @"bin/python3", @"usr/bin/python3"] fromRoots:roots];
+    if (!self.resolvedPython) {
+        // 退回：只要 python-runtime/Python.framework 在，就认为装了（解释器在 framework 里）
+        NSString *prd = [self firstExistingDirectory:@[@"python-runtime/Python.framework",
+                                                        @"Python.framework"] fromRoots:roots];
+        if (prd) self.resolvedPython = prd;
+    }
     [scan setPath:self.resolvedPython for:SPToolchainComponentPython];
 
-    self.resolvedNode = [self firstExistingFile:@[@"bin/node22", @"bin/node", @"helpers/node"] fromRoots:roots];
+    // node22 可能是「单个可执行文件」（Rein 就是这样），也可能是目录
+    NSString *node = [self firstExistingFile:@[@"node22/node", @"node22/bin/node",
+                                               @"bin/node22", @"bin/node",
+                                               @"helpers/node"] fromRoots:roots];
+    if (!node) {
+        NSString *nodeFile = [self firstExistingFile:@[@"node22"] fromRoots:roots];
+        if (nodeFile) node = nodeFile;   // 直接就是可执行文件
+    }
+    self.resolvedNode = node;
     [scan setPath:self.resolvedNode for:SPToolchainComponentNode];
 
     // SSH 不在搜索常见系统路径里通常是因为根本没装 ——
