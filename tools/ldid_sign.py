@@ -96,32 +96,38 @@ def build_der_entitlements(plist_bytes):
     return be32(CSMAGIC_EMBEDDED_DER_ENTITLEMENTS) + be32(8 + len(body)) + body
 
 
-def build_codedirectory(code, ident, n_special, special_hashes):
-    """CodeDirectory：version 0x20500，SHA-1，flags 0（与 ldid 一致）"""
+def build_codedirectory(code, ident, n_special, special_hashes,
+                        version=0x20500, hash_type=1):
+    """CodeDirectory。
+    主 CD：version 0x20500 + SHA-1（ldid 默认）
+    备用 CD：version 0x20400 + SHA-256（与 Rein 的 slot 4096 一致）
+    """
+    hash_size = 20 if hash_type == 1 else 32
+    algo = hashlib.sha1 if hash_type == 1 else hashlib.sha256
     n_code = (len(code) + PAGE_SIZE - 1) // PAGE_SIZE
     hashes = b""
     for i in range(n_code):
         chunk = code[i * PAGE_SIZE:(i + 1) * PAGE_SIZE]
-        hashes += hashlib.sha1(chunk).digest()
+        hashes += algo(chunk).digest()
 
     # version 0x20500 的固定头长度 = 88 字节
     # version 0x20500 的固定头 = 64 字节（16 个 4 字节字段）
     header_len = 64
     ident_off = header_len
-    hash_off = ident_off + len(ident) + 1 + n_special * HASH_SIZE
+    hash_off = ident_off + len(ident) + 1 + n_special * hash_size
 
     hdr = b"".join([
         be32(CSMAGIC_CODEDIRECTORY),
         be32(0),              # length（回填）
-        be32(0x20500),        # version
+        be32(version),
         be32(0),              # flags = 0（与 ldid 一致）
         be32(hash_off),
         be32(ident_off),
         be32(n_special),
         be32(n_code),
         be32(len(code)),      # codeLimit
-        bytes([HASH_SIZE]),
-        bytes([HASH_TYPE]),
+        bytes([hash_size]),
+        bytes([hash_type]),
         bytes([0]),           # platform
         bytes([12]),          # pageSize = 2^12
         be32(0),              # spare2
@@ -170,18 +176,27 @@ def sign_file(path, entitlements_bytes=b""):
         special = []
 
     req = build_requirements()
-    cd = build_codedirectory(code, ident, len(special), special)
+    cd = build_codedirectory(code, ident, len(special), special,
+                             version=0x20500, hash_type=1)
+    # 备用 CD（slot 4096）：SHA-256。Rein 的签名里有这一块，
+    # 对齐它可以避免某些校验路径只认 SHA-256 的情况。
+    special256 = []
+    if entitlements_bytes:
+        special256 = [hashlib.sha256(der).digest(), hashlib.sha256(ent).digest()]
+    cd256 = build_codedirectory(code, ident, len(special256), special256,
+                                version=0x20400, hash_type=2)
 
-    count = 2 + len(special)          # CD + Requirements (+ Ent + DER)
+    count = 3 + len(special)          # CD + Req + AltCD (+ Ent + DER)
     idx = 12 + count * 8
     parts = [be32(CSMAGIC_EMBEDDED_SIGNATURE), be32(0), be32(count)]
     parts.append(be32(0) + be32(idx)); idx += len(cd)
     parts.append(be32(2) + be32(idx)); idx += len(req)
+    parts.append(be32(4096) + be32(idx)); idx += len(cd256)
     if ent:
         parts.append(be32(5) + be32(idx)); idx += len(ent)
         parts.append(be32(7) + be32(idx)); idx += len(der)
 
-    blob = b"".join(parts) + cd + req + ent + der
+    blob = b"".join(parts) + cd + req + cd256 + ent + der
     blob = be32(CSMAGIC_EMBEDDED_SIGNATURE) + be32(len(blob)) + blob[8:]
 
     data_off = len(data)
