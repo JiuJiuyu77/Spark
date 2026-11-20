@@ -57,7 +57,7 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
     NSString *p = [[NSBundle mainBundle] pathForResource:@"Toolchain" ofType:nil];
     if (p) return p;
     p = [bundle stringByAppendingPathComponent:@"Toolchain"];
-    return [[NSFileManager defaultManager fileExistsAtPath:p] ? p : nil];
+    return [[NSFileManager defaultManager] fileExistsAtPath:p] ? p : nil;
 }
 
 - (BOOL)hasBundledToolchain { return self.bundledRoot != nil; }
