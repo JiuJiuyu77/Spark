@@ -63,7 +63,12 @@
         [lines addObject:@"export LD_LIBRARY_PATH=\"$TC_LIBS:${LD_LIBRARY_PATH:-}\""];
         [lines addObject:@"export DYLD_LIBRARY_PATH=\"$TC_LIBS:${DYLD_LIBRARY_PATH:-}\""];
         // perl 模块：logos.pl 预处理 .x 必需
-        [lines addObject:@"[ -d \"$SPARK_TC/usr/lib/perl5\" ] && export PERL5LIB=\"$SPARK_TC/usr/lib/perl5:${PERL5LIB:-}\""];
+        // PERL5LIB：perl5 在 $SPARK_ROOT/usr/lib/perl5（平铺后 SPARK_ROOT=theos-root）。
+        // 以前写死 $SPARK_TC/usr/lib/perl5，平铺布局下永远匹配不到，
+        // 导致 logos.pl 找不到模块、.x 预处理失败。
+        [lines addObject:@"for pd in \"$SPARK_ROOT/usr/lib/perl5\" \"$SPARK_TC/usr/lib/perl5\" "
+                      "\"$SPARK_TC/theos-root/usr/lib/perl5\"; do "
+                      "[ -d \"$pd\" ] && { export PERL5LIB=\"$pd:${PERL5LIB:-}\"; break; }; done"];
         // THEOS 位置随运行时结构不同，判定条件是
         // 「有 makefiles 且 sdks 里有真实 SDK」。
         //
@@ -80,11 +85,18 @@
                       "ls \"$SPARK_TC\"/sdks/iPhoneOS*.sdk >/dev/null 2>&1; } || continue; "
                       "export THEOS=\"$t\"; break; done"];
         // SDK 在顶层时，把它软链进 $THEOS/sdks，让 make 找得到
+        // SDK 注入：**不用软链**。
+        // TrollStore 的 ldid -s 遇到符号链接会整体失败（实测踩过），
+        // 而且包内软链在重签名后可能失效。
+        // 做法：只有当 $THEOS/sdks 里没有真 SDK 时，才把顶层 sdks 复制进去；
+        // 复制前先看目标位置是否已有完整 SDK，避免每次构建都重复拷几百 MB。
         [lines addObject:@"if [ -d \"$SPARK_TC/sdks\" ] && [ -n \"${THEOS:-}\" ]; then "
-                      "mkdir -p \"$THEOS/sdks\"; "
+                      "mkdir -p \"$THEOS/sdks\" 2>/dev/null || true; "
                       "for s in \"$SPARK_TC\"/sdks/iPhoneOS*.sdk; do "
                       "[ -d \"$s\" ] || continue; "
-                      "ln -sfn \"$s\" \"$THEOS/sdks/$(basename \"$s\")\" 2>/dev/null || true; "
+                      "n=$(basename \"$s\"); "
+                      "[ -f \"$THEOS/sdks/$n/SDKSettings.json\" ] && continue; "
+                      "cp -R \"$s\" \"$THEOS/sdks/\" 2>/dev/null || true; "
                       "done; fi"];
         [lines addObject:@"[ -n \"${THEOS:-}\" ] || warn '没找到带 SDK 的 theos 目录'"];
     }
@@ -196,7 +208,14 @@
                                            options:(SPBuildOptions *)options {
     NSMutableArray *out = [NSMutableArray array];
     NSFileManager *fm = NSFileManager.defaultManager;
-    NSArray *dirs = @[@"packages", @".theos", @".theos/_"];
+    // 只收 packages/*.deb —— 这是最终产物。
+    //
+    // 以前把 .theos/ 和 .theos/_/ 也算进来，但那是编译中间目录：
+    //   .theos/         完整 obj 树 + 拷贝的源码，动辄上千个文件
+    //   .theos/_/       staging 根目录树（含 usr/lib/… 整个层级）
+    // 把它们当「产物」列出来，界面会拉几百上千行，内存和滚动都很糟，
+    // 而且用户根本不需要这些中间文件。
+    NSArray *dirs = @[@"packages"];
     NSTimeInterval cutoff = [since timeIntervalSince1970] - 2.0; // 容忍时钟差
 
     for (NSString *rel in dirs) {
