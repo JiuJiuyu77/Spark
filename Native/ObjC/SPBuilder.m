@@ -48,15 +48,20 @@
     if (inst.isInstalled) {
         NSString *root = inst.installRoot;
         [lines addObject:[NSString stringWithFormat:@"export SPARK_TC=%@", [SPUtil shellQuote:root]]];
-        // PATH：usr/bin 优先（clang-16 / ld64 / ldid / make / dpkg-deb / perl 都在这）
-        [lines addObject:@"[ -d \"$SPARK_TC/usr/bin\" ] && export PATH=\"$SPARK_TC/usr/bin:$SPARK_TC/bin:$PATH\""];
-        // App 自带的命令行工具（spark-logos 等）也要能直接调用
+        // 运行时可能是两种布局：
+        //   平铺（与 Rein 一致）: Spark.app/theos-root/usr/bin
+        //   旧布局:              Spark.app/Toolchain/usr/bin 或 Spark.app/usr/bin
+        // 自动定位真正的 bin 目录，避免 PATH 指向不存在的位置。
+        [lines addObject:@"for c in \"$SPARK_TC/theos-root\" \"$SPARK_TC/Toolchain\" \"$SPARK_TC\"; do "
+                      "[ -x \"$c/usr/bin/clang-16\" ] && { export SPARK_ROOT=\"$c\"; break; }; done"];
+        [lines addObject:@"[ -n \"${SPARK_ROOT:-}\" ] || export SPARK_ROOT=\"$SPARK_TC\""];
+        [lines addObject:@"export PATH=\"$SPARK_ROOT/usr/bin:$SPARK_ROOT/bin:$SPARK_ROOT/helpers:$PATH\""];
+        // App 自带的命令行工具（spark-logos 等）
         [lines addObject:@"[ -d \"$SPARK_BIN\" ] && export PATH=\"$SPARK_BIN:$PATH\""];
-        [lines addObject:@"[ -d \"$SPARK_TC/bin\" ] && export PATH=\"$SPARK_TC/bin:$PATH\""];
         // 动态库：clang-16 是薄壳，真正的代码在 usr/lib/llvm-16/lib/libLLVM-16.dylib
-        [lines addObject:@"TC_LIBS=\"$SPARK_TC/usr/lib:$SPARK_TC/usr/lib/llvm-16/lib\""];
-        [lines addObject:@"[ -d \"$SPARK_TC/usr/lib\" ] && export LD_LIBRARY_PATH=\"$TC_LIBS:${LD_LIBRARY_PATH:-}\""];
-        [lines addObject:@"[ -d \"$SPARK_TC/usr/lib\" ] && export DYLD_LIBRARY_PATH=\"$TC_LIBS:${DYLD_LIBRARY_PATH:-}\""];
+        [lines addObject:@"TC_LIBS=\"$SPARK_ROOT/usr/lib:$SPARK_ROOT/usr/lib/llvm-16/lib\""];
+        [lines addObject:@"export LD_LIBRARY_PATH=\"$TC_LIBS:${LD_LIBRARY_PATH:-}\""];
+        [lines addObject:@"export DYLD_LIBRARY_PATH=\"$TC_LIBS:${DYLD_LIBRARY_PATH:-}\""];
         // perl 模块：logos.pl 预处理 .x 必需
         [lines addObject:@"[ -d \"$SPARK_TC/usr/lib/perl5\" ] && export PERL5LIB=\"$SPARK_TC/usr/lib/perl5:${PERL5LIB:-}\""];
         // THEOS 位置随运行时结构不同，判定条件是

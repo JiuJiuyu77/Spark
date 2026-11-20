@@ -96,6 +96,7 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
     // 两处都要看，否则会误判「没有可用 SDK」。
     NSArray *sdkDirs = @[
         @"sdks",
+        @"theos-full/sdks",
         @"theos/sdks",
         @"theos-root/theos/sdks",
     ];
@@ -112,9 +113,22 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
         return NO;
     };
 
+    // 判定顺序：先看**这个候选自己**带不带 SDK，再看整体。
+    // 之前只判 hasSDKIn(installRoot)，而 theos-full 的 SDK 在
+    // theos-full/sdks 下，不在 installRoot 的任何一个 sdkDirs 里，
+    // 于是 theos-full 也被跳过 → 最终报「找不到 SDK」。
     for (NSString *rel in cands) {
         NSString *p = [self.installRoot stringByAppendingPathComponent:rel];
         if (![fm fileExistsAtPath:[p stringByAppendingPathComponent:@"makefiles/common.mk"]]) continue;
+
+        // ① 该 THEOS 自带 sdks/
+        NSString *own = [p stringByAppendingPathComponent:@"sdks"];
+        for (NSString *name in [fm contentsOfDirectoryAtPath:own error:NULL] ?: @[]) {
+            if (![name hasPrefix:@"iPhoneOS"] || ![name hasSuffix:@".sdk"]) continue;
+            if ([fm fileExistsAtPath:[[own stringByAppendingPathComponent:name]
+                    stringByAppendingPathComponent:@"SDKSettings.json"]]) return p;
+        }
+        // ② 全局位置（顶层 sdks / theos-full/sdks 等）
         if (hasSDKIn(self.installRoot)) return p;
     }
     // 都不可用：退回第一个有 makefiles 的（让上层报出具体缺什么）

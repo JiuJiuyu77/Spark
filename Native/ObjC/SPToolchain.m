@@ -293,20 +293,42 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     [scan setPath:theos for:SPToolchainComponentTheos];
 
     // 2) SDK
+    //
+    // 判定条件必须是「目录里有 SDKSettings.json」，不能只看目录名 ——
+    // theos-root/theos/sdks 里只有一个 .keep 占位，会把探测带偏。
+    // 搜索位置（按优先级）：
+    //   theos-full/sdks        ← 我们的运行时把真实 SDK 放这
+    //   <THEOS>/sdks           ← Theos 标准位置
+    //   顶层 sdks/             ← Rein 布局
     NSString *sdk = nil;
-    if (theos) {
-        NSString *sdks = [theos stringByAppendingPathComponent:@"sdks"];
-        sdk = [self firstExistingDirectory:[self sdkNamesInDirectory:sdks] fromRoots:@[sdks]];
+    NSMutableArray<NSString *> *sdkDirs = [NSMutableArray array];
+    if (theos) [sdkDirs addObject:[theos stringByAppendingPathComponent:@"sdks"]];
+    for (NSString *rel in @[@"theos-full/sdks", @"sdks", @"theos-root/theos/sdks",
+                            @"Spark/SDKs", @"SDKs", @"sdks-store"]) {
+        for (NSString *root in roots) {
+            [sdkDirs addObject:[root stringByAppendingPathComponent:rel]];
+        }
     }
-    if (!sdk) {
-        NSString *store = [self firstExistingDirectory:@[@"Spark/SDKs", @"SDKs", @"sdks-store"] fromRoots:roots];
-        if (store) sdk = [self firstExistingDirectory:[self sdkNamesInDirectory:store] fromRoots:@[store]];
+    for (NSString *dir in sdkDirs) {
+        if (![fm fileExistsAtPath:dir]) continue;
+        for (NSString *name in [fm contentsOfDirectoryAtPath:dir error:NULL] ?: @[]) {
+            if (![name hasPrefix:@"iPhoneOS"] || ![name hasSuffix:@".sdk"]) continue;
+            NSString *cand = [dir stringByAppendingPathComponent:name];
+            if ([fm fileExistsAtPath:[cand stringByAppendingPathComponent:@"SDKSettings.json"]]) {
+                sdk = cand;
+                break;
+            }
+        }
+        if (sdk) break;
     }
     [scan setPath:sdk for:SPToolchainComponentSDK];
 
     // 3) Darwin bin：theos-root/usr/bin / helpers（真机可执行）
-    NSString *darwin = [self firstExistingDirectory:@[@"Spark/Toolchain/bin", @"Toolchain/bin",
-                                                       @"tools/theos-root/usr/bin"] fromRoots:roots];
+    //    平铺布局下是 Spark.app/theos-root/usr/bin
+    NSString *darwin = [self firstExistingDirectory:@[@"theos-root/usr/bin",
+                                                       @"Spark/Toolchain/bin", @"Toolchain/bin",
+                                                       @"usr/bin", @"tools/theos-root/usr/bin"]
+                                          fromRoots:roots];
     if (!darwin) darwin = [self firstExistingDirectory:@[@"helpers"] fromRoots:[@[[NSBundle mainBundle].bundlePath] arrayByAddingObjectsFromArray:roots]];
     // 至少要真有 clang/ld64 才算
     if (darwin && ![[darwin stringByAppendingPathComponent:@"ld64"] isKindOfClass:NSNull.class]
