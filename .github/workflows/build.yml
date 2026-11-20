@@ -148,7 +148,7 @@ jobs:
           TC="Native/Resources/Toolchain"
 
           # 缓存命中且内容完整 → 直接用
-          if [ -d "$TC/theos-full/sdks" ] && [ -d "$TC/theos-root/usr/bin" ] && [ -x "$TC/helpers/bash" ]; then
+          if [ -d "$TC/sdks" ] && [ -d "$TC/theos-root/usr/bin" ] && [ -e "$TC/helpers/bash" ]; then
             echo "缓存命中：$(du -sh "$TC" | cut -f1)"
             exit 0
           fi
@@ -176,8 +176,8 @@ jobs:
             # 解包后立刻自检关键文件 —— helpers/bash 曾出现「包里明明有，
             # 但 $TC/helpers 是空目录」，一路带到设备上才发现。
             echo "  解包后核对:"
-            for must in helpers/bash theos-full/sdks/iPhoneOS16.5.sdk/SDKSettings.json \
-                        theos-root/usr/bin/clang-16; do
+            for must in helpers/bash sdks/iPhoneOS16.5.sdk/SDKSettings.json \
+                        theos-root/usr/bin/clang-16 ollvm/bin/clang reverse/bin/mt-macho; do
               if [ -e "$TC/$must" ]; then
                 echo "    ✓ $must"
               else
@@ -204,7 +204,7 @@ jobs:
             find "$TC/theos-root/usr/lib/llvm-16/lib" -maxdepth 1 -name "*.dylib" -exec chmod 644 {} + 2>/dev/null || true
             echo "  权限已恢复"
             echo "  展开完成：$(du -sh "$TC" | cut -f1)"
-            ls "$TC/helpers/bash" "$TC/theos-full/sdks" 2>/dev/null
+            ls "$TC/helpers/bash" "$TC/ollvm/bin/clang" "$TC/sdks" 2>/dev/null
             exit 0
           fi
 
@@ -219,7 +219,7 @@ jobs:
             TC_SHA="5e26dbe33a23165131be37ac9c77ea4cf0bcbbcb1411ca054bc255a7d6fd1c7c"
           fi
 
-          if [ -d "$TC/theos/bin" ] || [ -d "$TC/theos-root/theos/bin" ] || [ -d "$TC/theos-full/bin" ]; then
+          if [ -d "$TC/theos-root/theos/bin" ] || [ -d "$TC/theos/bin" ]; then
             echo "仓库内已有工具链"
           else
             echo "下载：$SRC"
@@ -307,7 +307,7 @@ jobs:
           # 判定条件必须是「有 makefiles 且 sdks 里有真实 SDK」。
           # theos-root/theos/sdks 里只有 .keep（空目录），
           # 如果只判目录存在，会选中它，然后报「缺 SDK」。
-          for c in "$TC/theos-full" "$TC/theos" "$TC/TheosRuntime/theos" "$TC/theos-root/theos"; do
+          for c in "$TC/theos-root/theos" "$TC/theos" "$TC/TheosRuntime/theos"; do
             [ -f "$c/makefiles/common.mk" ] || continue
             ls "$c"/sdks/iPhoneOS*.sdk >/dev/null 2>&1 || continue
             THEOSDIR="$c"; break
@@ -379,9 +379,26 @@ jobs:
               cp -R Native/Resources/Toolchain/. "$APP/"
             fi
             echo "  顶层内容:"; ls "$APP" | head -14
+            # Theos 只认 $(THEOS)/sdks。SDK 按 DSH 布局放在顶层 sdks/，
+            # 这里复制一份进 theos-root/theos/sdks ——
+            # 不能用软链，TrollStore 的 ldid -s 遇到符号链接会整体失败。
+            echo "==> 同步 SDK 到 theos/sdks"
+            if [ -d "$APP/sdks" ] && [ -d "$APP/theos-root/theos" ]; then
+              mkdir -p "$APP/theos-root/theos/sdks"
+              for s in "$APP/sdks"/iPhoneOS*.sdk; do
+                [ -d "$s" ] || continue
+                name=$(basename "$s")
+                [ -d "$APP/theos-root/theos/sdks/$name" ] && continue
+                cp -R "$s" "$APP/theos-root/theos/sdks/"
+                echo "  $name"
+              done
+              echo "  theos/sdks: $(ls "$APP/theos-root/theos/sdks" | wc -l | tr -d ' ') 个"
+            fi
+
             # 自检：关键文件必须在，否则直接失败（不要等设备上才发现）
             MISSING=""
-            for must in helpers/bash theos-full/sdks theos-root/usr/bin/clang-16; do
+            for must in helpers/bash theos-root/usr/bin/clang-16 \
+                        theos-root/theos/sdks ollvm/bin/clang reverse/bin/mt-macho; do
               [ -e "$APP/$must" ] || MISSING="$MISSING $must"
             done
             if [ -n "$MISSING" ]; then

@@ -70,11 +70,11 @@
         // 只判 common.mk 会踩坑：Rein 对齐包里
         // theos-root/theos/sdks 只有一个 .keep 占位，
         // 选中它之后 make 会报「找不到 SDK」。
-        // theos-full 才带真 SDK，所以排在最前。
+        // （已删除 theos-full，SDK 现按 DSH 布局放在顶层 sdks/）
         // SDK 可能在 $THEOS/sdks，也可能独立在 $SPARK_TC/sdks（Rein 布局）。
         // 判定条件要同时接受两种，否则会跳过真正能用的 theos。
-        [lines addObject:@"for t in \"$SPARK_TC/theos\" \"$SPARK_TC/theos-root/theos\" "
-                      "\"$SPARK_TC/theos-full\" \"$SPARK_TC/TheosRuntime/theos\"; do "
+        [lines addObject:@"for t in \"$SPARK_TC/theos-root/theos\" \"$SPARK_TC/theos\" "
+                      "\"$SPARK_TC/TheosRuntime/theos\"; do "
                       "[ -f \"$t/makefiles/common.mk\" ] || continue; "
                       "{ ls \"$t\"/sdks/iPhoneOS*.sdk >/dev/null 2>&1 || "
                       "ls \"$SPARK_TC\"/sdks/iPhoneOS*.sdk >/dev/null 2>&1; } || continue; "

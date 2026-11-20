@@ -282,7 +282,7 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     // 1) Theos：tools/theos-local、tools/theos-full、theos-root/theos、…/theos
     NSString *theos = [self firstExistingDirectory:@[@"Spark/Toolchain/theos", @"Toolchain/theos",
                                                      @"theos",
-                                                     @"tools/theos-full", @"tools/theos-local",
+                                                     @"tools/theos-local",
                                                      @"theos-root/theos", @"tools/theos-root/theos",
                                                      @"Theos"] fromRoots:roots];
     if (!theos) {
