@@ -465,6 +465,19 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
                       environment:(NSDictionary<NSString *, NSString *> *)env
                               cwd:(NSString *)cwd
                           timeout:(NSTimeInterval)timeout {
+    // **主线程防护**
+    // 这个方法会同步等待子进程结束（超时最长 180 秒）。
+    // 从主线程调用会直接把界面卡死 —— 表现为「点了没反应 / 像崩溃」。
+    // 与挂载模块的 sync* 系列保持同一策略：主线程调用直接拒绝，
+    // 而不是让 App 假死。
+    if ([NSThread isMainThread]) {
+        SPLog(@"[!] runSyncShell 在主线程调用，已拒绝（会卡死界面）：%.60@", script);
+        SPCommandResult *r = [SPCommandResult new];
+        r.exitCode = -1;
+        r.stderrText = @"内部错误：同步 Shell 不能在主线程调用";
+        return r;
+    }
+
     dispatch_semaphore_t sem = dispatch_semaphore_create(0);
     __block SPCommandResult *res = nil;
     SPSession *s = [[SPSession alloc] initWithEnvironment:env workingDirectory:cwd];

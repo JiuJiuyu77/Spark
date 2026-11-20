@@ -168,29 +168,41 @@
     SPSelfTest *t = [SPSelfTest new];
     __weak typeof(self) weakSelf = self;
 
+    // **必须放到后台队列**
+    // runWithLog 内部有 dispatch_semaphore_wait(..., 320 秒)（等编译）
+    // 和 20 秒的 shell 启动等待。以前这里直接在主线程调用，
+    // 点「测试构建」后界面会卡死最长 5 分钟，看起来像崩溃/无响应。
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
     [t runWithLog:^(NSString *line) {
-        __strong typeof(weakSelf) self = weakSelf;
-        if (!self) return;
-        [self.logLines addObject:line];
-        if (self.showLog) [self.table reloadData];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            [self.logLines addObject:line];
+            if (self.showLog) [self.table reloadData];
+        });
     } stepUpdate:^(SPSelfTestStep *step) {
-        __strong typeof(weakSelf) self = weakSelf;
-        if (!self) return;
-        [self.steps addObject:step];
-        [self.table reloadData];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            [self.steps addObject:step];
+            [self.table reloadData];
+        });
     } completion:^(BOOL ok, NSArray<SPSelfTestStep *> *steps, NSString *summary) {
-        __strong typeof(weakSelf) self = weakSelf;
-        if (!self) return;
-        self.running = NO;
-        [self.table reloadData];
-        if (ok) [SPMotion hapticSuccess]; else [SPMotion hapticError];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            self.running = NO;
+            [self.table reloadData];
+            if (ok) [SPMotion hapticSuccess]; else [SPMotion hapticError];
 
-        UIAlertController *a = [UIAlertController alertControllerWithTitle:
-            ok ? @"测试通过" : @"测试未通过"
-            message:summary preferredStyle:UIAlertControllerStyleAlert];
-        [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
-        [self presentViewController:a animated:YES completion:nil];
+            UIAlertController *a = [UIAlertController alertControllerWithTitle:
+                ok ? @"测试通过" : @"测试未通过"
+                message:summary preferredStyle:UIAlertControllerStyleAlert];
+            [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+            [self presentViewController:a animated:YES completion:nil];
+        });
     }];
+    });   // ← dispatch_async 的闭合
 }
 
 @end
