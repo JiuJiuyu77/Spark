@@ -13,6 +13,10 @@
 @property (nonatomic, strong) SPGlassHeaderView *header;
 @property (nonatomic, strong) NSMutableArray<SPSelfTestStep *> *steps;
 @property (nonatomic, strong) NSMutableArray<NSString *> *logLines;
+/// 保护 logLines 的串行队列。
+/// 后台线程往数组里 addObject，主线程同时读它重绘表格 ——
+/// 并发访问 NSMutableArray 会偶发越界崩溃。
+@property (nonatomic, strong) dispatch_queue_t logQueue;
 @property (nonatomic, assign) BOOL running;
 @property (nonatomic, assign) BOOL showLog;
 @end
@@ -26,6 +30,7 @@
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
     self.steps = [NSMutableArray array];
     self.logLines = [NSMutableArray array];
+    self.logQueue = dispatch_queue_create("spark.selftest.log", DISPATCH_QUEUE_SERIAL);
 
     self.header = [[SPGlassHeaderView alloc] initWithFrame:CGRectMake(0, 0, 320, 96)];
     [self.header configureWithSymbol:@"checklist"
@@ -78,7 +83,9 @@
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     if (s == 0) return (NSInteger)self.steps.count;
     if (s == 1) return 2;   // 开始测试 + 查看日志
-    return (NSInteger)self.logLines.count;
+    __block NSInteger n = 0;
+    if (self.logQueue) dispatch_sync(self.logQueue, ^{ n = (NSInteger)self.logLines.count; });
+    return n;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
@@ -119,7 +126,11 @@
         return cell;
     }
 
-    cell.textLabel.text = self.logLines[ip.row];
+    __block NSString *ln = @"";
+        if (self.logQueue) dispatch_sync(self.logQueue, ^{
+            if (ip.row < (NSInteger)self.logLines.count) ln = self.logLines[ip.row];
+        });
+        cell.textLabel.text = ln;
     cell.textLabel.font = [SPTheme mono:11];
     cell.textLabel.numberOfLines = 0;
     cell.detailTextLabel.text = nil;
@@ -162,7 +173,8 @@
 
     self.running = YES;
     [self.steps removeAllObjects];
-    [self.logLines removeAllObjects];
+    if (self.logQueue) dispatch_sync(self.logQueue, ^{ [self.logLines removeAllObjects]; });
+    else [self.logLines removeAllObjects];
     [self.table reloadData];
 
     SPSelfTest *t = [SPSelfTest new];
