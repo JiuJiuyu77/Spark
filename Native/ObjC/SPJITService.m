@@ -5,6 +5,7 @@
 #import "SPJITService.h"
 #import "SPToolchainInstaller.h"
 #import "SPCompat.h"
+#import "SPSession.h"
 #import <sys/socket.h>
 #import <sys/un.h>
 #import <unistd.h>
@@ -94,7 +95,12 @@ extern char **environ;
     self.socketPath = sock;
 
     // 起子进程：把 socket 路径作为参数传进去
-    NSString *sh = @"/bin/sh";
+    //
+    // **不能用 /bin/sh**：iOS 沙盒里它不存在，
+    // posix_spawn 会返回 ENOENT（errno=2），看起来像「文件找不到」，
+    // 实际是解释器不在。用运行时自带的 bash（helpers/bash）。
+    NSString *sh = [SPSession resolveShell];
+    if (!sh.length) sh = @"/bin/sh";
     NSString *cmd = [NSString stringWithFormat:@"%@ '%@'", helper, sock];
 
     pid_t child = -1;
@@ -108,7 +114,8 @@ extern char **environ;
 
     if (rc != 0) {
         self.state = SPJITServiceStateFailed;
-        SPLog(@"JIT 子进程：posix_spawn 失败 errno=%d", errno);
+        SPLog(@"JIT 子进程：posix_spawn 失败 errno=%d (%s) shell=%@ helper=%@",
+              errno, strerror(errno), sh, helper);
         return;
     }
     self.helperPid = child;

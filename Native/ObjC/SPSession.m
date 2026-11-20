@@ -395,10 +395,16 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
         NSFileManager *fm = NSFileManager.defaultManager;
         NSMutableArray<NSString *> *cands = [NSMutableArray array];
 
-        // App 包内的 helpers（Rein 对齐包里就在这里）
+        // App 包内的 helpers。
+        // **平铺布局优先**（与 Rein 一致）：Spark.app/helpers/bash。
+        // 旧布局是 Spark.app/Toolchain/helpers/bash，一并保留兼容。
         NSString *bundle = [[NSBundle mainBundle] bundlePath];
+        [cands addObject:[bundle stringByAppendingPathComponent:@"helpers/bash"]];
+        [cands addObject:[bundle stringByAppendingPathComponent:@"helpers/sh"]];
         [cands addObject:[bundle stringByAppendingPathComponent:@"Toolchain/helpers/bash"]];
         [cands addObject:[bundle stringByAppendingPathComponent:@"Toolchain/helpers/sh"]];
+        // 也看 theos-root 下的 bin（有些包把 sh 放这里）
+        [cands addObject:[bundle stringByAppendingPathComponent:@"theos-root/usr/bin/bash"]];
 
         // 工具链安装目录
         SPToolchainInstaller *inst = [SPToolchainInstaller shared];

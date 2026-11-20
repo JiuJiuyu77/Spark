@@ -173,6 +173,18 @@ jobs:
               wait "$pid" || FAIL=1
             done
             if [ "$FAIL" != "0" ]; then echo "::error::解包失败"; exit 1; fi
+            # 解包后立刻自检关键文件 —— helpers/bash 曾出现「包里明明有，
+            # 但 $TC/helpers 是空目录」，一路带到设备上才发现。
+            echo "  解包后核对:"
+            for must in helpers/bash theos-full/sdks/iPhoneOS16.5.sdk/SDKSettings.json \
+                        theos-root/usr/bin/clang-16; do
+              if [ -e "$TC/$must" ]; then
+                echo "    ✓ $must"
+              else
+                echo "::error::解包后缺少 $must"
+                exit 1
+              fi
+            done
             # 两份 libLLVM 都是独立实体文件，不做软链替换
             # （用户明确要求保留，以防某些工具只认其中一份）
             #
@@ -358,9 +370,25 @@ jobs:
           # 也导致工具链探测走了更多弯路。
           if [ -d Native/Resources/Toolchain ]; then
             echo "==> 拷入内置运行时（平铺）"
-            ( cd Native/Resources/Toolchain && find . -maxdepth 1 -mindepth 1 \
-                -exec cp -R {} "$APP/" \; )
-            echo "  顶层内容:"; ls "$APP" | head -12
+            # 用 ditto 而不是 cp -R：ditto 保留资源分支/扩展属性/符号链接/权限，
+            # 而 cp -R 可能把目录处理成空壳 ——
+            # 这正是设备上 Spark.app/helpers/ 为空、bash 找不到的原因。
+            if command -v ditto >/dev/null 2>&1; then
+              ditto Native/Resources/Toolchain/ "$APP/"
+            else
+              cp -R Native/Resources/Toolchain/. "$APP/"
+            fi
+            echo "  顶层内容:"; ls "$APP" | head -14
+            # 自检：关键文件必须在，否则直接失败（不要等设备上才发现）
+            MISSING=""
+            for must in helpers/bash theos-full/sdks theos-root/usr/bin/clang-16; do
+              [ -e "$APP/$must" ] || MISSING="$MISSING $must"
+            done
+            if [ -n "$MISSING" ]; then
+              echo "::error::打包缺少:$MISSING —— 运行时复制不完整"
+              exit 1
+            fi
+            echo "  运行时自检通过"
           else
             echo "::warning::产物不含内置运行时"
           fi
