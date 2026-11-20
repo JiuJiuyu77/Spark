@@ -171,11 +171,19 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
         if (![fm fileExistsAtPath:stamp]) return NO;
     }
 
-    // 至少要有 ld64 或 clang，且 Theos makefiles 在
+    // 至少要有 ld64 或 clang，且 Theos makefiles 在。
+    //
+    // **不用 isExecutableFileAtPath**：它内部是 access(X_OK)，
+    // 对 App 包内文件的判定在不同 iOS 版本 / 安装方式下不一致，
+    // 实测出现过「文件明明在（010755）却返回 NO」，
+    // 导致 isInstalled 为假 → 整个工具链被判定为未安装 → 报「找不到 SDK」。
+    // 这里只判「存在且是常规文件」，是否可执行交给实际运行时报错。
     BOOL hasCompiler = NO;
     for (NSString *d in @[self.binDir, self.baseBinDir]) {
         for (NSString *b in @[@"ld64", @"clang-16", @"clang"]) {
-            if ([fm isExecutableFileAtPath:[d stringByAppendingPathComponent:b]]) { hasCompiler = YES; break; }
+            NSString *p = [d stringByAppendingPathComponent:b];
+            BOOL isDir = NO;
+            if ([fm fileExistsAtPath:p isDirectory:&isDir] && !isDir) { hasCompiler = YES; break; }
         }
         if (hasCompiler) break;
     }
@@ -360,8 +368,9 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
         if (![fm isExecutableFileAtPath:p]) {
             p = [self.baseBinDir stringByAppendingPathComponent:tool];
         }
-        if (![fm isExecutableFileAtPath:p]) {
-            [missing addObject:[NSString stringWithFormat:@"%@（缺失或不可执行）", tool]];
+        BOOL isDir = NO;
+        if (![fm fileExistsAtPath:p isDirectory:&isDir] || isDir) {
+            [missing addObject:[NSString stringWithFormat:@"%@（缺失）", tool]];
         }
     }
 
@@ -371,7 +380,8 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
         for (NSString *sh in @[@"bash", @"sh"]) {
             NSString *p = [dst stringByAppendingPathComponent:
                            [@"helpers" stringByAppendingPathComponent:sh]];
-            if ([fm isExecutableFileAtPath:p]) { anyShell = YES; break; }
+            BOOL isDir = NO;
+            if ([fm fileExistsAtPath:p isDirectory:&isDir] && !isDir) { anyShell = YES; break; }
         }
         if (!anyShell) [missing addObject:@"helpers/bash（shell 不可执行）"];
     }
