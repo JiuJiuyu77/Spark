@@ -46,15 +46,13 @@
             [self article:@"安装 SDK" summary:@"编译需要 iPhoneOS SDK"
                    symbol:@"shippingbox" category:@"入门" body:
 @"## SDK 从哪来\n\n"
- "Spark 不内置 SDK（Apple 的授权限制）。三种拿法：\n\n"
- "**方法一：从其他工具拷**\n\n"
- "如果你装过 Rein 或 CodexApp，它们的目录里就有：\n"
- "`/var/mobile/Documents/Rein/tools/theos-full/sdks/`\n\n"
- "**方法二：自己打包**\n\n"
- "从 Xcode 的 `iPhoneOS.platform/Developer/SDKs/` 取出 `.sdk` 目录，\n"
- "压成 zip，传到手机。\n\n"
- "**方法三：在线下载**\n\n"
- "一些开源项目提供整理好的 SDK 压缩包。\n\n"
+ "**Spark 已内置 SDK**：iPhoneOS 16.5 / 17.0 / 26.5 三个，\n"
+ "随 App 一起装好，不需要任何额外准备，也不依赖其它 App。\n\n"
+ "如果内置的缺失或不完整，可以自己补：\n\n"
+ "**方法一：从 Xcode 拷**\n\n"
+ "在 `iPhoneOS.platform/Developer/SDKs/` 里取出 `.sdk` 目录，\n"
+ "压成 zip 传到手机。\n\n"
+ "**方法二：导入**\n\n"
  "拿到后：设置 → 工具链 → 导入 SDK 压缩包。"],
 
             [self article:@"导入已有工程" summary:@"从文件 App 或收件箱导入"

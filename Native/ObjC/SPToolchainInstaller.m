@@ -47,11 +47,17 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
 }
 
 - (NSString *)bundledRoot {
-    // Resources/Toolchain 会被当成 folder reference 拷进 .app
+    // 新版：运行时**平铺在 .app 根目录**（与 Rein 一致）
+    //   Spark.app/theos-root/  helpers/  sdks/
+    NSString *bundle = [NSBundle mainBundle].bundlePath;
+    NSString *flatMarker = [bundle stringByAppendingPathComponent:@"theos-root/usr/bin/clang-16"];
+    if ([NSFileManager.defaultManager fileExistsAtPath:flatMarker]) return bundle;
+
+    // 兼容旧版：Resources/Toolchain 作为 folder reference 拷进 .app
     NSString *p = [[NSBundle mainBundle] pathForResource:@"Toolchain" ofType:nil];
     if (p) return p;
-    p = [[[NSBundle mainBundle] bundlePath] stringByAppendingPathComponent:@"Toolchain"];
-    return [[NSFileManager defaultManager] fileExistsAtPath:p] ? p : nil;
+    p = [bundle stringByAppendingPathComponent:@"Toolchain"];
+    return [[NSFileManager defaultManager fileExistsAtPath:p] ? p : nil];
 }
 
 - (BOOL)hasBundledToolchain { return self.bundledRoot != nil; }

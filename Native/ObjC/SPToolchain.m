@@ -188,7 +188,16 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
         // 之前只认 ①，所以装了 Rein App 也探测不到工具链。
         // Spark 运行时已完整内嵌，不再自动探测外部 Rein/DSH 目录
         // （之前会指向别人的安装，让人误以为检测错了）
-        t.reinRoot = [d stringForKey:kDefaultsReinRoot] ?: @"";
+        // 清掉历史版本自动探测时存下的外部 Rein 路径 ——
+        // 用户从没手动指定过，留着它会让工具链继续指向 Rein。
+        // 只有用户主动设置过（kDefaultsHomeRoot）才沿用。
+        NSString *savedRein = [d stringForKey:kDefaultsReinRoot];
+        if (savedRein.length && [savedRein containsString:@"Documents/Rein"]) {
+            [d removeObjectForKey:kDefaultsReinRoot];
+            savedRein = nil;
+            SPLog(@"已清除历史遗留在的 Rein 路径配置");
+        }
+        t.reinRoot = savedRein ?: @"";
         t.homeRoot = [d stringForKey:kDefaultsHomeRoot];
         [t rescan];
     });
@@ -227,9 +236,15 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     NSString *bundle = [NSBundle mainBundle].bundlePath;
     [roots addObject:bundle];
 
-    // 3) 用户手动指定 / 外部目录（仅作为补充，排在内置之后）
+    // 3) 用户手动指定的目录（可选）
+    //
+    // **不再把 reinRoot 放进来**：
+    // Spark 的运行时完整内嵌在 App 包里，混入别人的安装目录只会出错 ——
+    // 实测生成的构建脚本会变成
+    //   PATH=/var/mobile/Documents/Rein/tools/theos-root/usr/bin:...
+    //   CA_TOOL_OLLVM_CLANG=/var/mobile/Documents/Rein/tools/ollvm/bin/clang
+    // 等于用 Rein 的工具链编译 Spark 的工程，路径、版本都不匹配。
     if (self.homeRoot.length) [roots addObject:self.homeRoot];
-    if (self.reinRoot.length) [roots addObject:self.reinRoot];
     return roots;
 }
 

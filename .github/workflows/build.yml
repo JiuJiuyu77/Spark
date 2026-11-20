@@ -352,13 +352,17 @@ jobs:
             rm -rf "$APP/Assets.xcassets.tmp"
           fi
 
-          # 内置工具链：整目录拷进 .app/Toolchain
+          # 内置运行时：**平铺到 .app 根目录**（与 Rein 的布局一致）
+          #   Spark.app/theos-root/  helpers/  sdks/  ...
+          # 之前放在 Spark.app/Toolchain/ 子目录，与 Rein 不一致，
+          # 也导致工具链探测走了更多弯路。
           if [ -d Native/Resources/Toolchain ]; then
-            echo "==> 拷入内置工具链"
-            cp -R Native/Resources/Toolchain "$APP/Toolchain"
-            du -sh "$APP/Toolchain"
+            echo "==> 拷入内置运行时（平铺）"
+            ( cd Native/Resources/Toolchain && find . -maxdepth 1 -mindepth 1 \
+                -exec cp -R {} "$APP/" \; )
+            echo "  顶层内容:"; ls "$APP" | head -12
           else
-            echo "::warning::产物不含内置工具链"
+            echo "::warning::产物不含内置运行时"
           fi
 
           # 局域网工作台的网页（不打进 Assets.car，直接当资源文件）

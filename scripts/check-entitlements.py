@@ -29,17 +29,27 @@ import plistlib
 import sys
 
 # 必须是 true 的项
+# 必需项只保留「提权 + 脱沙盒」的最小集合。
+# 依据：对照 Rein（DSH.app）实际写入二进制的 13 项，
+# MobileContainerManager.allowed / amfi.developer-mode-control /
+# task_for_pid-allow 这三项它都没有，却依然能拿到 root ——
+# 说明它们不是提权必要条件，写多了反而可能引起降权。
 REQUIRED_TRUE = [
-    # —— Helper 必需 ——
     'com.apple.private.security.storage-exempt.heritable',
     'com.apple.private.persona-mgmt',
     'com.apple.private.security.storage.AppBundles',
-    'com.apple.private.MobileContainerManager.allowed',
-    'com.apple.private.amfi.developer-mode-control',
-    # —— 平台身份 / 脱离沙盒 ——
     'platform-application',
     'com.apple.private.security.no-sandbox',
+]
+
+# 可选（有则更好，没有不影响提权）——仅提示，不报错
+OPTIONAL_TRUE = [
+    'com.apple.private.MobileContainerManager.allowed',
+    'com.apple.private.amfi.developer-mode-control',
     'task_for_pid-allow',
+    'com.apple.private.security.storage.AppDataContainers',
+    'proc_info-allow',
+    'com.apple.developer.kernel.extended-virtual-addressing',
 ]
 
 # 必须是 false 的项
@@ -48,9 +58,9 @@ REQUIRED_FALSE = [
 ]
 
 # 必须存在且非空（数组）
-REQUIRED_NONEMPTY_LIST = [
-    'com.apple.security.exception.files.absolute-path.read-write',
-]
+# 有 no-sandbox 时本项非必需（Rein 就没有这一项）。
+# 保留为空列表也没问题，仅在需要访问沙盒外特定路径时才用。
+REQUIRED_NONEMPTY_LIST = []
 
 # 绝对不要出现（A12+/iOS 15+ 会崩）
 PROHIBITED = [
