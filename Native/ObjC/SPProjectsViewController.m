@@ -318,12 +318,21 @@ forRowAtIndexPath:(NSIndexPath *)ip {
     NSString *path = [d[@"path"] stringByReplacingOccurrencesOfString:NSHomeDirectory() withString:@"~"];
 
     cell.textLabel.text = d[@"name"] ?: @"";
-    cell.textLabel.font = [SPTheme scaled:UIFontTextStyleBody weight:UIFontWeightMedium];
-    cell.detailTextLabel.text = kind.length
-        ? [NSString stringWithFormat:@"%@ · %@", kind, path]
-        : path;
-    cell.detailTextLabel.numberOfLines = 1;
-    cell.detailTextLabel.lineBreakMode = NSLineBreakByTruncatingMiddle;
+    cell.textLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
+    // 与 dylix 一致：「类型 · N 个文件 · 最后保存 X」
+    // 之前只显示「类型 · 路径」，路径又长又被截断，信息密度反而低。
+    NSString *typeLabel = kind.length ? kind
+        : ([d[@"name"] length] ? @"工程" : @"工程");
+    NSUInteger files = [self fileCountForProjectAtPath:d[@"path"] ?: @""];
+    NSString *savedText = [self savedLabelForPath:d[@"path"] ?: @""];
+    if (files > 0) {
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %lu 个文件 · %@",
+                                     typeLabel, (unsigned long)files, savedText];
+    } else {
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", typeLabel, savedText];
+    }
+    cell.detailTextLabel.numberOfLines = 2;
+    cell.detailTextLabel.font = [UIFont systemFontOfSize:11];
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
 
     // HIG：用 SF Symbols 表达类型，扫一眼就知道是什么工程
@@ -333,12 +342,42 @@ forRowAtIndexPath:(NSIndexPath *)ip {
     iconView.contentMode = UIViewContentModeScaleAspectFit;
     iconView.frame = CGRectMake(0, 0, 28, 28);
     cell.imageView.image = icon;
-    cell.imageView.tintColor = [SPTheme accent];
+    // dylix 用金色作图标强调色
+    cell.imageView.tintColor = [SPTheme gold];
     (void)iconView;
 
     // 长按菜单（HIG 推荐 Context Menu，而不是长按弹 ActionSheet）
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
+}
+
+- (NSUInteger)fileCountForProjectAtPath:(NSString *)path {
+    if (!path.length) return 0;
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSSet *exts = [NSSet setWithArray:@[@"m", @"mm", @"x", @"xm", @"c", @"cc", @"cpp",
+                                        @"h", @"hpp", @"swift", @"plist", @"mk"]];
+    NSUInteger n = 0;
+    for (NSString *rel in [fm enumeratorAtPath:path]) {
+        if ([rel hasPrefix:@".theos"] || [rel hasPrefix:@"packages"] ||
+            [rel hasPrefix:@"_build"] || [rel hasPrefix:@".git"] ||
+            [rel hasPrefix:@"layout"] || [rel hasPrefix:@"obj"]) continue;
+        if ([exts containsObject:rel.pathExtension.lowercaseString]) n++;
+        if (n > 999) break;
+    }
+    return n;
+}
+
+- (NSString *)savedLabelForPath:(NSString *)path {
+    NSDictionary *att = [NSFileManager.defaultManager attributesOfItemAtPath:path error:NULL];
+    NSDate *date = att[NSFileModificationDate];
+    if (!date) return @"尚未保存";
+    NSTimeInterval ago = -[date timeIntervalSinceNow];
+    if (ago < 60) return @"最后保存 刚刚";
+    if (ago < 3600) return [NSString stringWithFormat:@"最后保存 %ld 分钟前", (long)(ago / 60)];
+    if (ago < 86400) return [NSString stringWithFormat:@"最后保存 %ld 小时前", (long)(ago / 3600)];
+    NSDateFormatter *f = [[NSDateFormatter alloc] init];
+    f.dateFormat = @"MM-dd HH:mm";
+    return [NSString stringWithFormat:@"最后保存 %@", [f stringFromDate:date]];
 }
 
 - (NSString *)symbolForKind:(NSString *)kind {
@@ -416,11 +455,12 @@ forRowAtIndexPath:(NSIndexPath *)ip {
 - (void)installGlassHeader {
     SPGlassHeaderView *header = [[SPGlassHeaderView alloc] initWithFrame:CGRectMake(0, 0, 320, 96)];
     NSUInteger n = self.items.count;
+    // 对齐 dylix StudioHome 的表头：金色品牌行 + 大标题 + 一行副标题 + 两个操作按钮
     [header configureWithSymbol:@"folder.fill.badge.gearshape"
                           title:@"项目"
-                       subtitle:(n ? [NSString stringWithFormat:@"%lu 个工程", (unsigned long)n]
-                                   : @"还没有工程，点右上角 ＋ 新建")
-                           tint:[SPTheme accent]];
+                       subtitle:(n ? [NSString stringWithFormat:@"%lu 个工程 · 代码、工具链都在手边", (unsigned long)n]
+                                   : @"还没有工程 · 点「新建」开始")
+                           tint:[SPTheme gold]];
     CGSize sz = [header systemLayoutSizeFittingSize:CGSizeMake(320, UIViewNoIntrinsicMetric)
                             withHorizontalFittingPriority:UILayoutPriorityRequired
                                   verticalFittingPriority:UILayoutPriorityFittingSizeLevel];

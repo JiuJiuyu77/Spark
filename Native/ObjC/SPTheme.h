@@ -104,6 +104,8 @@ FOUNDATION_EXPORT const CGFloat SPFloatingBarSideInset; // 28
 + (UIColor *)text;            // labelColor
 + (UIColor *)textDim;         // secondaryLabelColor
 + (UIColor *)accent;          // systemBlue
+/// 金色强调色（对齐 dylix 的 Gold）：深色下 #EDC484，浅色下 #6E4F21
++ (UIColor *)gold;
 + (UIColor *)success;         // systemGreen
 + (UIColor *)warn;            // systemOrange
 + (UIColor *)danger;          // systemRed

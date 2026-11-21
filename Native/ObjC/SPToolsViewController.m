@@ -100,7 +100,7 @@
     tc.title = @"工具链";
     tc.detail = [scan summary];
     tc.symbol = @"hammer.fill";
-    tc.tint = [SPTheme accent];
+    tc.tint = [SPTheme gold];
     tc.controllerClass = SPToolchainViewController.class;
 
     // 组 2：逆向 + 注入
@@ -108,7 +108,7 @@
     rev.title = @"逆向分析";
     rev.detail = [scan has:SPToolchainComponentReverse] ? @"radare2 / mt-macho / ldid" : @"逆向工具未安装";
     rev.symbol = @"binoculars.fill";
-    rev.tint = [SPTheme info];
+    rev.tint = [SPTheme gold];
     rev.controllerClass = SPReverseViewController.class;
 
     SPToolItem *inj = [SPToolItem new];
@@ -144,14 +144,14 @@
     selftest.title = @"测试构建";
     selftest.detail = @"自动生成最小 tweak 并编译，逐步报告哪一环不通";
     selftest.symbol = @"checklist";
-    selftest.tint = [SPTheme success];
+    selftest.tint = [SPTheme gold];
     selftest.controllerClass = SPSelfTestViewController.class;
 
     SPToolItem *cross = [SPToolItem new];
     cross.title = @"快速编译";
     cross.detail = @"不依赖 Theos：单文件直出已签名 dylib";
     cross.symbol = @"bolt.horizontal.circle.fill";
-    cross.tint = [SPTheme info];
+    cross.tint = [SPTheme gold];
     cross.controllerClass = SPCrossBuildViewController.class;
 
     SPToolItem *remote = [SPToolItem new];
@@ -165,7 +165,7 @@
     logs.title = @"日志";
     logs.detail = @"构建 / 注入 / 自检记录";
     logs.symbol = @"doc.text.magnifyingglass";
-    logs.tint = [SPTheme textDim];
+    logs.tint = [SPTheme gold];
     logs.controllerClass = SPLogsViewController.class;
 
     self.groupTitles = @[@"编译", @"分析与注入", @"文件与记录", @"远程与诊断"];

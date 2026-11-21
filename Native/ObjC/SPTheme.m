@@ -106,6 +106,13 @@
 + (UIColor *)text           { return [UIColor labelColor]; }
 + (UIColor *)textDim        { return [UIColor secondaryLabelColor]; }
 + (UIColor *)accent         { return [UIColor systemBlueColor]; }
++ (UIColor *)gold {
+    return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *t) {
+        return t.userInterfaceStyle == UIUserInterfaceStyleDark
+            ? [UIColor colorWithRed:0.93 green:0.77 blue:0.52 alpha:1.0]
+            : [UIColor colorWithRed:0.43 green:0.31 blue:0.13 alpha:1.0];
+    }];
+}
 + (UIColor *)success        { return [UIColor systemGreenColor]; }
 + (UIColor *)warn           { return [UIColor systemOrangeColor]; }
 + (UIColor *)danger         { return [UIColor systemRedColor]; }
