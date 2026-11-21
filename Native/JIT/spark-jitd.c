@@ -24,6 +24,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <signal.h>
+#include <stdint.h>
 #include <sys/stat.h>
 
 #define MAX_TRACKED 32
@@ -67,9 +68,19 @@ static void handle(char *line, char *out, size_t outlen) {
             snprintf(out, outlen, "err jit-unavailable errno=%d\n", errno);
             return;
         }
-        /* 真的写一条 ret 指令再执行，确认可执行 */
-        unsigned char *code = (unsigned char *)p;
-        code[0] = 0xC0;  /* ret (arm64) */
+        /* 真的写一条 ret 指令并执行，确认内存既能写也能执行。
+         *
+         * 之前这里只写了 1 个字节（code[0] = 0xC0），既不是完整指令、
+         * 也没有真的调用 —— 注释说「再执行」但代码里没有。
+         * arm64 的 ret 是 4 字节小端 0xd65f03c0，必须整体写入，
+         * 并且用函数指针调用一次才能确认 PROT_EXEC 真的生效。
+         */
+        uint32_t *code = (uint32_t *)p;
+        code[0] = 0xd65f03c0u;              /* ret */
+        __builtin___clear_cache((char *)p, (char *)p + sizeof(uint32_t));
+        int (*fn)(void) = (int (*)(void))p;
+        volatile int r = fn();              /* 真的跳进去执行 */
+        (void)r;
         munmap(p, sz);
         snprintf(out, outlen, "ok %p %zu\n", p, sz);
         return;

@@ -138,7 +138,10 @@ typedef NS_ENUM(NSInteger, SPSection) {
         case SPSectionFiles:         return 5;
         case SPSectionMCP:           return 4;
         case SPSectionTarget:        return 4;
-        case SPSectionDisplay:       return 7;
+        // 显示区只有 4 项（触感/常亮/日志行数/字号）。
+        // 之前这里写 7，而 cellForRow 的数组只有 4 项 —— 多出的
+        // 第 5~7 行一渲染就抛 NSRangeException 崩溃。
+        case SPSectionDisplay:       return 4;
         default:                     return 3;
     }
 }
@@ -224,7 +227,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
 
         case SPSectionTarget: {
             NSArray *titles = @[@"默认构建目标", @"远程主机", @"GitHub 仓库", @"GitHub 分支"];
-            cell.textLabel.text = titles[ip.row];
+            cell.textLabel.text = SPAtIndex(titles, ip.row, @"");
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             SPSettings *s = SPSettings.shared;
             switch (ip.row) {
@@ -239,7 +242,11 @@ typedef NS_ENUM(NSInteger, SPSection) {
 
         case SPSectionDisplay: {
             NSArray *titles = @[@"操作触感反馈", @"编译时屏幕常亮", @"日志最多行数", @"日志字号"];
-            cell.textLabel.text = titles[ip.row];
+            // 用 SPAtIndex：numberOfRowsInSection 声明了 7 行，
+            // 而这里只有 4 项 —— ip.row 到 4/5/6 时 titles[ip.row]
+            // 会抛 NSRangeException 并 abort。
+            // 你的崩溃栈正是 cellForRowAtIndexPath → NSConstantArray → 异常退出。
+            cell.textLabel.text = SPAtIndex(titles, ip.row, @"");
             NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
             switch (ip.row) {
                 case 0: [self addSwitch:cell on:[d boolForKey:@"Spark.haptics"] tag:6001]; break;
@@ -294,7 +301,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
 
         default: {
             NSArray *titles = @[@"版本与构建信息", @"运行环境自检", @"打开数据目录"];
-            cell.textLabel.text = titles[ip.row];
+            cell.textLabel.text = SPAtIndex(titles, ip.row, @"");
             cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             if (ip.row == 0) cell.detailTextLabel.text = SPVersion.shared.semver;
             break;

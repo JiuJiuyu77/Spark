@@ -34,6 +34,25 @@ static void SPWriteCrashFile(const char *name, const char *text) {
     fclose(f);
 }
 
+/// 顺带把崩溃内容追加到主日志 spark.log。
+///
+/// 为什么单独写一个函数而不直接用 SPLog：
+/// 这段代码运行在**信号处理器**里，只能用 async-signal-safe 的调用。
+/// SPLog 内部有 NSDateFormatter / NSMutableArray / dispatch_async，
+/// 在信号上下文里调用可能死锁或二次崩溃，所以这里只用
+/// fopen/fputs/fclose（都是 POSIX 异步信号安全的）。
+static void SPAppendToMainLog(const char *text) {
+    const char *home = getenv("HOME");
+    if (!home) return;
+    char path[1024];
+    snprintf(path, sizeof(path), "%s/Documents/Spark/logs/spark.log", home);
+    FILE *lf = fopen(path, "a");
+    if (!lf) return;
+    fputs(text, lf);
+    fputs("\n", lf);
+    fclose(lf);
+}
+
 @implementation SPCrashGuard
 
 + (instancetype)shared {
@@ -134,10 +153,19 @@ static void SPHandleUncaughtException(NSException *exception) {
         SPDumpBacktrace(bt, sizeof(bt));
         [report appendFormat:@"backtrace:\n%s\n", bt];
 
+        // 崩溃内容**并入主日志**，不再单独留一个文件。
+        // 以前崩溃写在 Documents/Spark/crashes/exception-*.log，
+        // 而普通日志在 Documents/Spark/logs/spark.log —— 排查时要来回翻两个地方，
+        // 时间线也对不上。现在直接写进 spark.log，时间戳天然连续。
+        for (NSString *line in [report componentsSeparatedByString:@"\n"]) {
+            if (line.length) SPLog(@"[崩溃] %@", line);
+        }
+        SPLog(@"[崩溃] === 未捕获异常结束 ===");
+
+        // 仍然落一份独立文件，供「崩溃分析」页读取历史记录
         NSString *name = [NSString stringWithFormat:@"exception-%@.log", [SPUtil timestampSlug]];
         [report writeToFile:[SPCrashDirectory() stringByAppendingPathComponent:name]
                  atomically:YES encoding:NSUTF8StringEncoding error:NULL];
-        SPLog(@"已保存崩溃报告 %@", name);
     }
 }
 
@@ -154,6 +182,8 @@ static void SPHandleSignal(int sig) {
     localtime_r(&now, &tmv);
     strftime(name, sizeof(name), "signal-%Y%m%d-%H%M%S.log", &tmv);
     SPWriteCrashFile(name, text);
+    // 同时并入主日志（信号上下文内，只用 POSIX API）
+    SPAppendToMainLog(text);
     signal(sig, SIG_DFL);
     raise(sig);
 }

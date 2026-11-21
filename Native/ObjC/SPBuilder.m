@@ -99,6 +99,12 @@
                       "cp -R \"$s\" \"$THEOS/sdks/\" 2>/dev/null || true; "
                       "done; fi"];
         [lines addObject:@"[ -n \"${THEOS:-}\" ] || warn '没找到带 SDK 的 theos 目录'"];
+        // SYSROOT 也要显式给：Theos 会拿它去校验 SDK 是否存在，
+        // 不设置时在某些版本上会报「chosen SYSROOT does not exist」。
+        [lines addObject:@"if [ -z \"${SYSROOT:-}\" ] && [ -n \"${THEOS:-}\" ]; then "
+                      "sdk=$(ls -d \"$THEOS\"/sdks/iPhoneOS*.sdk 2>/dev/null | sort -V | tail -1); "
+                      "[ -n \"$sdk\" ] && export SYSROOT=\"$sdk\" && export THEOS_SDK=\"$sdk\"; fi"];
+        [lines addObject:@"[ -n \"${SYSROOT:-}\" ] && ok \"SDK: $SYSROOT\" || warn '未设置 SYSROOT'"];
     }
 
     // App 自带的命令行工具目录（spark-logos 等）

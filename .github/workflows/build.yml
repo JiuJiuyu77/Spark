@@ -379,6 +379,22 @@ jobs:
               cp -R Native/Resources/Toolchain/. "$APP/"
             fi
             echo "  顶层内容:"; ls "$APP" | head -14
+            # Theos 的 master/rules.mk 里有一道硬检查：
+            #   ifneq ($(exists $(THEOS)/vendor/include/.git)$(exists $(THEOS)/vendor/lib/.git), TRUE)
+            #       $(error vendor/include and/or vendor/lib directories are missing)
+            # 它不检查目录里有没有内容，只检查 **.git 在不在**。
+            # 我们打包时把 .git 当冗余删了，于是 make 一上来就报
+            # 「Theos vendor 目录缺失」。这里补回标记文件。
+            echo "==> 补 Theos vendor 标记"
+            for vdir in "$APP/theos-root/theos/vendor/include" "$APP/theos-root/theos/vendor/lib"; do
+              [ -d "$vdir" ] || continue
+              if [ ! -e "$vdir/.git" ]; then
+                mkdir -p "$vdir/.git" 2>/dev/null || true
+                printf 'packed by Spark\n' > "$vdir/.git/HEAD" 2>/dev/null || true
+                echo "  + $(basename $(dirname $vdir))/$(basename $vdir)/.git"
+              fi
+            done
+
             # Theos 只认 $(THEOS)/sdks。SDK 按 DSH 布局放在顶层 sdks/，
             # 这里复制一份进 theos-root/theos/sdks ——
             # 不能用软链，TrollStore 的 ldid -s 遇到符号链接会整体失败。

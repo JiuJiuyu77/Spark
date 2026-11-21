@@ -102,6 +102,56 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
 
 #pragma mark - 数据
 
+#pragma mark - 删除
+
+/// 允许左滑删除。
+/// 之前列表完全没有删除入口 —— 导入的项目只能去「文件」App 里手动删，
+/// 而且删完 Spark 这边的 recent 记录还在，列表里会留一条打不开的空项。
+- (BOOL)tableView:(UITableView *)tv canEditRowAtIndexPath:(NSIndexPath *)ip {
+    return ip.row < (NSInteger)self.items.count;
+}
+
+- (void)tableView:(UITableView *)tv
+commitEditingStyle:(UITableViewCellEditingStyle)style
+forRowAtIndexPath:(NSIndexPath *)ip {
+    if (style != UITableViewCellEditingStyleDelete) return;
+    if (ip.row >= (NSInteger)self.items.count) return;
+
+    NSDictionary *d = self.items[ip.row];
+    NSString *path = d[@"path"] ?: @"";
+    NSString *name = d[@"name"] ?: path.lastPathComponent;
+    if (!path.length) return;
+
+    UIAlertController *a = [UIAlertController
+        alertControllerWithTitle:[NSString stringWithFormat:@"删除「%@」？", name]
+        message:@"会同时删除磁盘上的工程目录，不可撤销。"
+        preferredStyle:UIAlertControllerStyleActionSheet];
+
+    [a addAction:[UIAlertAction actionWithTitle:@"删除工程目录" style:UIAlertActionStyleDestructive
+                                        handler:^(UIAlertAction *x) {
+        NSError *err = nil;
+        [[NSFileManager defaultManager] removeItemAtPath:path error:&err];
+        // 不管文件删没删成功，recent 记录都要清掉 ——
+        // 否则列表里会留一条指向已删除路径的死项。
+        [[SPStore shared] removeRecentProjectAtPath:path];
+        if (err) SPLog(@"[!] 删除工程目录失败：%@", err.localizedDescription);
+        [self reloadAll];
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"仅从列表移除" style:UIAlertActionStyleDefault
+                                        handler:^(UIAlertAction *x) {
+        [[SPStore shared] removeRecentProjectAtPath:path];
+        [self reloadAll];
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+
+    if (a.popoverPresentationController) {
+        UITableViewCell *c = [tv cellForRowAtIndexPath:ip];
+        a.popoverPresentationController.sourceView = c ?: tv;
+        a.popoverPresentationController.sourceRect = (c ?: tv).bounds;
+    }
+    [self presentViewController:a animated:YES completion:nil];
+}
+
 - (void)reloadAll {
     NSMutableArray *all = [NSMutableArray arrayWithArray:[[SPStore shared] recentProjects]];
 
