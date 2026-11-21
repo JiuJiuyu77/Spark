@@ -802,7 +802,7 @@ forRowAtIndexPath:(NSIndexPath *)ip {
             UIActivityViewController *av = [[UIActivityViewController alloc]
                 initWithActivityItems:@[[NSURL fileURLWithPath:zip]] applicationActivities:nil];
             if (av.popoverPresentationController) {
-                UITableViewCell *c = [weakSelf.tableView cellForRowAtIndexPath:ip];
+                UITableViewCell *c = [weakSelf.table cellForRowAtIndexPath:ip];
                 av.popoverPresentationController.sourceView = c ?: weakSelf.view;
                 av.popoverPresentationController.sourceRect = (c ?: weakSelf.view).bounds;
             }
