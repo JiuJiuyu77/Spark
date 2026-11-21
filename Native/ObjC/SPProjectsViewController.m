@@ -26,6 +26,9 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
 
 @interface SPProjectsViewController () <UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate>
 @property (nonatomic, strong) UITableView *table;
+/// 多选批量操作（对齐 dylix 的 selectionMode）
+@property (nonatomic) BOOL selecting;
+@property (nonatomic, strong) NSMutableSet<NSString *> *selectedPaths;
 @property (nonatomic, strong) NSArray<NSDictionary *> *items;
 @property (nonatomic, strong) UISearchController *search;
 @property (nonatomic, copy) NSString *filter;
@@ -76,6 +79,8 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
     self.table.backgroundColor = [SPTheme background];
     self.table.dataSource = self;
     self.table.delegate = self;
+    // 与 dylix 一致：76pt 行高，给「类型·文件数·最后保存」两行留出空间
+    self.table.rowHeight = 76;
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.table];
     [NSLayoutConstraint activateConstraints:@[
@@ -115,6 +120,15 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
                                                              target:self action:@selector(showTrash)];
     trash.accessibilityLabel = @"项目回收站";
     self.navigationItem.leftBarButtonItems = @[scan, trash];
+
+    // 多选（对齐 dylix 的 selectionMode）：编辑态下可批量移入回收站
+    self.navigationItem.rightBarButtonItems = @[
+        add,
+        [[UIBarButtonItem alloc] initWithTitle:@"选择"
+                                         style:UIBarButtonItemStylePlain
+                                        target:self
+                                        action:@selector(toggleSelecting)],
+    ];
 }
 
 #pragma mark - 数据
@@ -125,7 +139,16 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
 /// 之前列表完全没有删除入口 —— 导入的项目只能去「文件」App 里手动删，
 /// 而且删完 Spark 这边的 recent 记录还在，列表里会留一条打不开的空项。
 - (BOOL)tableView:(UITableView *)tv canEditRowAtIndexPath:(NSIndexPath *)ip {
+    // 编辑态交给多选，不在编辑态下一次删一个
+    if (self.selecting) return NO;
     return ip.row < (NSInteger)self.items.count;
+}
+
+/// 编辑态用「勾选」样式，而不是删除按钮
+- (UITableViewCellEditingStyle)tableView:(UITableView *)tv
+           editingStyleForRowAtIndexPath:(NSIndexPath *)ip {
+    return self.selecting ? UITableViewCellEditingStyleNone
+                          : UITableViewCellEditingStyleDelete;
 }
 
 - (void)tableView:(UITableView *)tv
@@ -391,6 +414,15 @@ forRowAtIndexPath:(NSIndexPath *)ip {
 }
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
+    // 编辑态：只记录选中，不打开工程
+    if (self.selecting) {
+        if (ip.row < (NSInteger)self.items.count) {
+            NSString *path = self.items[ip.row][@"path"];
+            if (path.length) [self.selectedPaths addObject:path];
+        }
+        [SPMotion hapticLight];
+        return;
+    }
     [tv deselectRowAtIndexPath:ip animated:YES];
     [SPMotion hapticLight];
     UITableViewCell *cell = [tv cellForRowAtIndexPath:ip];
@@ -399,6 +431,14 @@ forRowAtIndexPath:(NSIndexPath *)ip {
         [SPAnimationKit rippleIn:cell.contentView at:p color:nil];
     }
     [self openProjectAtIndexPath:ip];
+}
+
+- (void)tableView:(UITableView *)tv didDeselectRowAtIndexPath:(NSIndexPath *)ip {
+    if (!self.selecting) return;
+    if (ip.row < (NSInteger)self.items.count) {
+        NSString *path = self.items[ip.row][@"path"];
+        if (path.length) [self.selectedPaths removeObject:path];
+    }
 }
 
 - (void)openProjectAtIndexPath:(NSIndexPath *)ip {
@@ -453,22 +493,175 @@ forRowAtIndexPath:(NSIndexPath *)ip {
 }
 
 - (void)installGlassHeader {
-    SPGlassHeaderView *header = [[SPGlassHeaderView alloc] initWithFrame:CGRectMake(0, 0, 320, 96)];
+    // 按 dylix StudioHome 的表头结构重做：
+    //   ① 金色品牌行（等宽字体）
+    //   ② 大标题（两行）
+    //   ③ 一行副标题
+    //   ④ 两个大按钮：创建项目 / 导入项目
+    // 之前只有「图标 + 标题 + 副标题」的玻璃卡片，缺少直接入口。
+    UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 300)];
+    header.backgroundColor = [SPTheme background];
+
+    UIStackView *stack = [[UIStackView alloc] init];
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.spacing = SPSpaceS;
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    [header addSubview:stack];
+    [NSLayoutConstraint activateConstraints:@[
+        [stack.leadingAnchor constraintEqualToAnchor:header.leadingAnchor constant:SPSpaceL],
+        [stack.trailingAnchor constraintEqualToAnchor:header.trailingAnchor constant:-SPSpaceL],
+        [stack.topAnchor constraintEqualToAnchor:header.topAnchor constant:SPSpaceXS],
+        [stack.bottomAnchor constraintLessThanOrEqualToAnchor:header.bottomAnchor constant:-SPSpaceXS],
+    ]];
+
+    UILabel *brand = [[UILabel alloc] init];
+    brand.text = @"· LOCAL STUDIO";
+    brand.font = [UIFont monospacedSystemFontOfSize:13 weight:UIFontWeightSemibold];
+    brand.textColor = [SPTheme gold];
+    [stack addArrangedSubview:brand];
+
+    UILabel *bigTitle = [[UILabel alloc] init];
     NSUInteger n = self.items.count;
-    // 对齐 dylix StudioHome 的表头：金色品牌行 + 大标题 + 一行副标题 + 两个操作按钮
-    [header configureWithSymbol:@"folder.fill.badge.gearshape"
-                          title:@"项目"
-                       subtitle:(n ? [NSString stringWithFormat:@"%lu 个工程 · 代码、工具链都在手边", (unsigned long)n]
-                                   : @"还没有工程 · 点「新建」开始")
-                           tint:[SPTheme gold]];
+    bigTitle.text = n ? @"项目都在这里。" : @"下一个想法，\n从这里开始。";
+    bigTitle.numberOfLines = 0;
+    bigTitle.font = [UIFont systemFontOfSize:27 weight:UIFontWeightBold];
+    bigTitle.textColor = [SPTheme text];
+    [stack addArrangedSubview:bigTitle];
+
+    UILabel *subLabel = [[UILabel alloc] init];
+    subLabel.text = n ? [NSString stringWithFormat:@"%lu 个工程 · 代码、工具链都在手边",
+                    (unsigned long)n]
+                 : @"代码、工具链和你的项目，都在手边。";
+    subLabel.numberOfLines = 0;
+    subLabel.font = [UIFont systemFontOfSize:12];
+    subLabel.textColor = [SPTheme textDim];
+    [stack addArrangedSubview:subLabel];
+
+    [stack setCustomSpacing:SPSpaceM afterView:subLabel];
+
+    // 两个大按钮
+    UIButton *create = [self headerButtonWithTitle:@"创建项目"
+                                           symbol:@"plus"
+                                         prominent:YES
+                                            action:@selector(presentNewProjectForm)];
+    UIButton *import = [self headerButtonWithTitle:@"导入项目"
+                                           symbol:@"folder"
+                                         prominent:NO
+                                            action:@selector(addTapped)];
+    UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[create, import]];
+    row.axis = UILayoutConstraintAxisHorizontal;
+    row.spacing = SPSpaceS;
+    row.distribution = UIStackViewDistributionFillEqually;
+    [stack addArrangedSubview:row];
+
     CGSize sz = [header systemLayoutSizeFittingSize:CGSizeMake(320, UIViewNoIntrinsicMetric)
                             withHorizontalFittingPriority:UILayoutPriorityRequired
                                   verticalFittingPriority:UILayoutPriorityFittingSizeLevel];
-    header.frame = CGRectMake(0, 0, 320, MAX(96, sz.height));
+    header.frame = CGRectMake(0, 0, 320, MAX(240, sz.height));
     self.table.tableHeaderView = header;
 }
 
+/// 表头的大按钮（对齐 dylix 的 Button 辅助函数）
+- (UIButton *)headerButtonWithTitle:(NSString *)title
+                             symbol:(NSString *)symbol
+                          prominent:(BOOL)prominent
+                             action:(SEL)action {
+    UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem];
+
+    UIButtonConfiguration *c = nil;
+    if (@available(iOS 26.0, *)) {
+        if (!UIAccessibilityIsReduceTransparencyEnabled()) {
+            SEL factory = NSSelectorFromString(prominent ? @"prominentGlassButtonConfiguration"
+                                                         : @"glassButtonConfiguration");
+            if ([UIButtonConfiguration respondsToSelector:factory]) {
+                IMP imp = [UIButtonConfiguration methodForSelector:factory];
+                id (*fn)(id, SEL) = (void *)imp;
+                c = fn(UIButtonConfiguration.class, factory);
+            }
+        }
+    }
+    if (!c) {
+        c = prominent ? UIButtonConfiguration.filledButtonConfiguration
+                      : UIButtonConfiguration.tintedButtonConfiguration;
+    }
+    c.title = title;
+    c.image = [UIImage systemImageNamed:symbol];
+    c.imagePadding = 10;
+    c.cornerStyle = UIButtonConfigurationCornerStyleLarge;
+    c.contentInsets = NSDirectionalEdgeInsetsMake(15, 16, 15, 16);
+    c.baseForegroundColor = prominent ? [UIColor colorWithWhite:0.1 alpha:1.0]
+                                      : [SPTheme gold];
+    c.baseBackgroundColor = prominent ? [SPTheme gold]
+                                      : [[SPTheme gold] colorWithAlphaComponent:0.14];
+    b.configuration = c;
+    [b addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+    b.accessibilityLabel = title;
+    return b;
+}
+
 #pragma mark - 新建 / 导入
+
+#pragma mark - 多选
+
+- (void)toggleSelecting {
+    self.selecting = !self.selecting;
+    if (self.selecting) {
+        if (!self.selectedPaths) self.selectedPaths = [NSMutableSet set];
+        self.table.allowsMultipleSelectionDuringEditing = YES;
+        [self.table setEditing:YES animated:YES];
+        self.navigationItem.rightBarButtonItems = @[
+            [[UIBarButtonItem alloc] initWithTitle:@"完成"
+                                             style:UIBarButtonItemStyleDone
+                                            target:self
+                                            action:@selector(toggleSelecting)],
+            [[UIBarButtonItem alloc] initWithTitle:@"删除"
+                                             style:UIBarButtonItemStylePlain
+                                            target:self
+                                            action:@selector(deleteSelectedProjects)],
+        ];
+    } else {
+        [self.selectedPaths removeAllObjects];
+        [self.table setEditing:NO animated:YES];
+        self.table.allowsMultipleSelectionDuringEditing = NO;
+        [self setupNavItems];
+    }
+    [self.table reloadData];
+    [SPMotion hapticLight];
+}
+
+- (void)deleteSelectedProjects {
+    NSUInteger n = self.selectedPaths.count;
+    if (!n) {
+        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"没有选中项目"
+                                                                  message:@"点左侧圆圈选择要删除的工程。"
+                                                           preferredStyle:UIAlertControllerStyleAlert];
+        [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:a animated:YES completion:nil];
+        return;
+    }
+
+    UIAlertController *a = [UIAlertController
+        alertControllerWithTitle:[NSString stringWithFormat:@"删除 %lu 个工程？", (unsigned long)n]
+        message:@"会移入回收站，7 天内可恢复。"
+        preferredStyle:UIAlertControllerStyleActionSheet];
+    [a addAction:[UIAlertAction actionWithTitle:@"移入回收站" style:UIAlertActionStyleDestructive
+                                        handler:^(UIAlertAction *x) {
+        NSArray *paths = self.selectedPaths.allObjects;
+        NSUInteger ok = 0;
+        for (NSString *path in paths) {
+            if ([self moveProjectToTrashAtPath:path error:NULL]) ok++;
+            [[SPStore shared] removeRecentProjectAtPath:path];
+        }
+        SPLog(@"[回收站] 批量移入 %lu/%lu 个工程", (unsigned long)ok, (unsigned long)paths.count);
+        [self toggleSelecting];
+        [self reloadAll];
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    if (a.popoverPresentationController) {
+        a.popoverPresentationController.barButtonItem = self.navigationItem.rightBarButtonItems.firstObject;
+    }
+    [self presentViewController:a animated:YES completion:nil];
+}
 
 - (void)addTapped {
     [SPMotion hapticLight];
