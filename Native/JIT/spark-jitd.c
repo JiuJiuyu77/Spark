@@ -25,6 +25,17 @@
 #include <sys/un.h>
 #include <signal.h>
 #include <stdint.h>
+#if __has_include(<libkern/OSCacheControl.h>)
+#include <libkern/OSCacheControl.h>
+#else
+/* 部分 SDK 没有这个头；用 inline asm 做同样的 icache 失效 */
+static inline void sys_icache_invalidate(void *start, size_t len) {
+    __asm__ __volatile__("ic ivau, %0" : : "r"(start) : "memory");
+    __asm__ __volatile__("dsb ish" ::: "memory");
+    __asm__ __volatile__("isb" ::: "memory");
+    (void)len;
+}
+#endif
 #include <sys/stat.h>
 
 #define MAX_TRACKED 32
@@ -77,7 +88,10 @@ static void handle(char *line, char *out, size_t outlen) {
          */
         uint32_t *code = (uint32_t *)p;
         code[0] = 0xd65f03c0u;              /* ret */
-        __builtin___clear_cache((char *)p, (char *)p + sizeof(uint32_t));
+        // iOS 上 __builtin___clear_cache 会生成对 ___clear_cache 的引用，
+        // 而它在 libSystem 里没有导出，链接直接失败。
+        // 正确做法是用 <libkern/OSCacheControl.h> 的 sys_icache_invalidate。
+        sys_icache_invalidate(p, sizeof(uint32_t));
         int (*fn)(void) = (int (*)(void))p;
         volatile int r = fn();              /* 真的跳进去执行 */
         (void)r;
