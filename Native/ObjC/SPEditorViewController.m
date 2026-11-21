@@ -17,6 +17,8 @@
 @property (nonatomic, assign) BOOL dirty;
 @property (nonatomic, assign) BOOL editing;
 @property (nonatomic, strong) UIView *findBar;
+/// 替换输入框（与查找栏同处，第二行）
+@property (nonatomic, strong, nullable) UITextField *replaceField;
 @property (nonatomic, strong) UITextField *findField;
 @property (nonatomic, strong) UILabel *findCount;
 @property (nonatomic, strong) NSArray<NSValue *> *findRanges;
@@ -209,6 +211,44 @@
     self.dirty = YES;
     [self rebuildGutter];
     [self updateStatus];
+
+    // 重新着色（节流：连续输入时合并成一次）。
+    // 之前这里只更新 gutter 与状态栏 —— 编辑之后语法高亮就没了，
+    // 输入的文字全变成默认黑色，看起来像高亮失效。
+    [self scheduleHighlight];
+}
+
+/// 节流后的语法高亮。大文件或快速连打时避免每次按键都跑正则。
+- (void)scheduleHighlight {
+    [NSObject cancelPreviousPerformRequestsWithTarget:self
+                                             selector:@selector(applyHighlightNow)
+                                               object:nil];
+    [self performSelector:@selector(applyHighlightNow) withObject:nil afterDelay:0.25];
+}
+
+- (void)applyHighlightNow {
+    NSString *code = self.textView.text ?: @"";
+    if (!code.length) return;
+
+    // 超大文件跳过（正则在高亮 6 类语法时会明显卡顿）
+    if (code.length > 400000) return;
+
+    NSRange sel = self.textView.selectedRange;
+    CGPoint offset = self.textView.contentOffset;
+
+    BOOL dark = (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark);
+    NSMutableAttributedString *hl = [[SPSyntax highlight:code
+                                               language:[SPSyntax languageForFile:self.filePath]
+                                                  color:[SPTheme codeText]
+                                              darkTheme:dark] mutableCopy];
+    if (hl.length) {
+        // 字号与 loadFile 保持一致，否则重着色后字会变大
+        [hl addAttribute:NSFontAttributeName value:[SPTheme mono:12.5] range:NSMakeRange(0, hl.length)];
+        self.textView.attributedText = hl;
+        // 恢复选区与滚动位置，否则会跳回顶部
+        if (NSMaxRange(sel) <= self.textView.text.length) self.textView.selectedRange = sel;
+        self.textView.contentOffset = offset;
+    }
 }
 
 - (void)updateStatus {
@@ -282,28 +322,75 @@
     next.translatesAutoresizingMaskIntoConstraints = NO;
     [bar addSubview:next];
 
+    // ── 第二行：替换 ──
+    self.replaceField = [[UITextField alloc] init];
+    self.replaceField.placeholder = @"替换为";
+    self.replaceField.font = [SPTheme mono:13];
+    self.replaceField.textColor = [SPTheme text];
+    self.replaceField.backgroundColor = [SPTheme background];
+    self.replaceField.layer.cornerRadius = SPRadiusS;
+    self.replaceField.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 8, 1)];
+    self.replaceField.leftViewMode = UITextFieldViewModeAlways;
+    self.replaceField.clearButtonMode = UITextFieldViewModeWhileEditing;
+    self.replaceField.autocorrectionType = UITextAutocorrectionTypeNo;
+    self.replaceField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+    self.replaceField.translatesAutoresizingMaskIntoConstraints = NO;
+    [bar addSubview:self.replaceField];
+
+    UIButton *replaceOne = [UIButton buttonWithType:UIButtonTypeSystem];
+    [replaceOne setTitle:@"替换" forState:UIControlStateNormal];
+    replaceOne.titleLabel.font = [UIFont systemFontOfSize:13];
+    [replaceOne addTarget:self action:@selector(replaceCurrent) forControlEvents:UIControlEventTouchUpInside];
+    replaceOne.translatesAutoresizingMaskIntoConstraints = NO;
+    replaceOne.accessibilityLabel = @"替换当前匹配";
+    [bar addSubview:replaceOne];
+
+    UIButton *replaceAll = [UIButton buttonWithType:UIButtonTypeSystem];
+    [replaceAll setTitle:@"全部" forState:UIControlStateNormal];
+    replaceAll.titleLabel.font = [UIFont systemFontOfSize:13];
+    [replaceAll addTarget:self action:@selector(replaceAll) forControlEvents:UIControlEventTouchUpInside];
+    replaceAll.translatesAutoresizingMaskIntoConstraints = NO;
+    replaceAll.accessibilityLabel = @"替换全部匹配";
+    [bar addSubview:replaceAll];
+
     [NSLayoutConstraint activateConstraints:@[
         [bar.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [bar.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [bar.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
-        [bar.heightAnchor constraintEqualToConstant:44],
+        [bar.heightAnchor constraintEqualToConstant:88],
 
         [self.findField.leadingAnchor constraintEqualToAnchor:bar.leadingAnchor constant:SPSpaceS],
-        [self.findField.centerYAnchor constraintEqualToAnchor:bar.centerYAnchor],
+        [self.findField.topAnchor constraintEqualToAnchor:bar.topAnchor constant:7],
         [self.findField.heightAnchor constraintEqualToConstant:30],
 
         [self.findCount.leadingAnchor constraintEqualToAnchor:self.findField.trailingAnchor constant:SPSpaceXS],
-        [self.findCount.centerYAnchor constraintEqualToAnchor:bar.centerYAnchor],
+        [self.findCount.topAnchor constraintEqualToAnchor:bar.topAnchor constant:15],
         [self.findCount.widthAnchor constraintEqualToConstant:52],
 
         [prev.leadingAnchor constraintEqualToAnchor:self.findCount.trailingAnchor constant:4],
-        [prev.centerYAnchor constraintEqualToAnchor:bar.centerYAnchor],
+        [prev.topAnchor constraintEqualToAnchor:bar.topAnchor constant:7],
         [prev.widthAnchor constraintEqualToConstant:32],
 
         [next.leadingAnchor constraintEqualToAnchor:prev.trailingAnchor constant:2],
-        [next.centerYAnchor constraintEqualToAnchor:bar.centerYAnchor],
+        [next.topAnchor constraintEqualToAnchor:bar.topAnchor constant:7],
         [next.widthAnchor constraintEqualToConstant:32],
         [next.trailingAnchor constraintEqualToAnchor:bar.trailingAnchor constant:-SPSpaceXS],
+
+        // 第二行：替换
+        [self.replaceField.leadingAnchor constraintEqualToAnchor:bar.leadingAnchor constant:SPSpaceS],
+        [self.replaceField.topAnchor constraintEqualToAnchor:self.findField.bottomAnchor constant:6],
+        [self.replaceField.heightAnchor constraintEqualToConstant:30],
+        [self.replaceField.trailingAnchor constraintEqualToAnchor:replaceOne.leadingAnchor constant:-SPSpaceXS],
+
+        [replaceOne.topAnchor constraintEqualToAnchor:self.replaceField.topAnchor],
+        [replaceOne.widthAnchor constraintEqualToConstant:44],
+        [replaceOne.heightAnchor constraintEqualToConstant:30],
+
+        [replaceAll.leadingAnchor constraintEqualToAnchor:replaceOne.trailingAnchor constant:2],
+        [replaceAll.topAnchor constraintEqualToAnchor:self.replaceField.topAnchor],
+        [replaceAll.widthAnchor constraintEqualToConstant:44],
+        [replaceAll.heightAnchor constraintEqualToConstant:30],
+        [replaceAll.trailingAnchor constraintEqualToAnchor:bar.trailingAnchor constant:-SPSpaceXS],
     ]];
 
     // 正文下移：重新绑定 textView 顶部到查找栏底部
@@ -317,6 +404,80 @@
     bar.alpha = 0;
     [SPMotion appear:^{ bar.alpha = 1; }];
     [self.findField becomeFirstResponder];
+}
+
+#pragma mark - 替换
+
+/// 替换当前选中的匹配项。没有选中时先跳到下一个匹配再替换。
+- (void)replaceCurrent {
+    NSString *needle = self.findField.text ?: @"";
+    if (!needle.length) return;
+
+    NSString *replacement = self.replaceField.text ?: @"";
+    NSRange sel = self.textView.selectedRange;
+    NSString *text = self.textView.text ?: @"";
+
+    BOOL onMatch = NO;
+    if (sel.location != NSNotFound && sel.length == needle.length &&
+        NSMaxRange(sel) <= text.length) {
+        NSString *cur = [text substringWithRange:sel];
+        onMatch = [cur isEqualToString:needle];
+    }
+    if (!onMatch) {
+        // 先定位到下一个匹配
+        [self findNext];
+        return;
+    }
+
+    // 用 textStorage 替换，保留撤销栈（比直接改 text 更符合编辑器预期）
+    NSRange target = sel;
+    self.textView.textStorage.mutableString.string = [text stringByReplacingCharactersInRange:target
+                                                                                 withString:replacement];
+    NSRange after = NSMakeRange(target.location + replacement.length, 0);
+    self.textView.selectedRange = after;
+    [self textViewDidChange:self.textView];
+
+    // 重新统计并跳到下一个
+    [self doFind];
+    [self findNext];
+    [SPMotion hapticLight];
+}
+
+/// 替换全部
+- (void)replaceAll {
+    NSString *needle = self.findField.text ?: @"";
+    if (!needle.length) return;
+
+    NSString *replacement = self.replaceField.text ?: @"";
+    NSString *text = self.textView.text ?: @"";
+
+    // 先算出会有多少处，替换后告知用户
+    NSUInteger count = 0;
+    NSRange search = NSMakeRange(0, text.length);
+    while (search.length) {
+        NSRange found = [text rangeOfString:needle options:0 range:search];
+        if (found.location == NSNotFound) break;
+        count++;
+        NSUInteger nextStart = NSMaxRange(found);
+        if (nextStart >= text.length) break;
+        search = NSMakeRange(nextStart, text.length - nextStart);
+        if (count > 100000) break;  // 防御：避免极端情况长时间占用
+    }
+    if (!count) return;
+
+    NSString *replaced = [text stringByReplacingOccurrencesOfString:needle withString:replacement];
+    self.textView.textStorage.mutableString.string = replaced;
+    [self textViewDidChange:self.textView];
+    [self doFind];
+    [SPMotion hapticSuccess];
+
+    SPLog(@"[编辑器] 替换全部：%@ → %@（%lu 处）", needle, replacement, (unsigned long)count);
+    UIAlertController *a = [UIAlertController
+        alertControllerWithTitle:@"已替换全部"
+        message:[NSString stringWithFormat:@"共 %lu 处（记得保存）", (unsigned long)count]
+        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
 }
 
 - (void)doFind {
