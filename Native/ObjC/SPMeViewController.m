@@ -5,6 +5,7 @@
 #import "SPMeViewController.h"
 #import "SPTheme.h"
 #import "SPGlassKit.h"
+#import "SPSelfTestViewController.h"
 #import "SPSettingsViewController.h"
 #import "SPLogsViewController.h"
 #import "SPMountsViewController.h"
@@ -180,6 +181,12 @@
     [SPMotion hapticLight];
     UIViewController *vc = nil;
 
+    // 「运行环境自检」统一到自检页（以前这里是另弹一段文本，
+    // 与工具页的「测试构建」重复，两处信息还不一致）
+    if ([title isEqualToString:@"运行环境自检"]) {
+        [self.navigationController pushViewController:[SPSelfTestViewController new] animated:YES];
+        return;
+    }
     if ([title isEqualToString:@"设置"]) vc = [SPSettingsViewController new];
     else if ([title isEqualToString:@"收件箱"]) vc = [SPInboxViewController new];
     else if ([title isEqualToString:@"存储空间"]) vc = [SPStorageViewController new];

@@ -91,8 +91,13 @@
             if (sh.length) {
                 // 一次跑完所有关键探测，减少子进程启动次数（每次 ~1 秒）
                 NSString *probe =
-                    @"echo uid=$(id -u); "
-                    @"echo gid=$(id -g); "
+                    // 不用 `id` 命令 —— 它不在我们给子进程的 PATH 里
+                    // （PATH 只含 helpers 与 theos 工具目录），
+                    // 之前 echo uid=$(id -u) 取到的是空值，日志里体现为
+                    // 「uid= · 系统路径只读」，看不出真实身份。
+                    // bash 的 $UID/$EUID 是内置变量，不依赖外部命令。
+                    @"echo uid=${EUID:-$UID}; "
+                    @"echo uname=$(whoami 2>/dev/null || echo unknown); "
                     // 能否写系统路径 —— 这才是「有没有特权」的实际判据，
                     // 比只看 uid 更准：有些环境 uid=0 但仍写不了 /usr
                     @"touch /usr/lib/.spark-probe 2>/dev/null && "

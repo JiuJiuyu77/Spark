@@ -4,6 +4,7 @@
 //
 
 #import "SPToolchainViewController.h"
+#import "SPSelfTestViewController.h"
 #import "SPTheme.h"
 #import "SPGlassKit.h"
 #import "SPToolchain.h"
@@ -251,7 +252,12 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
         return;
     }
     if (ip.section == SPToolSectionAbout) {
-        if (ip.row == 0) [self runSelfCheck];
+        // 统一到自检页：以前这里另有一套 runSelfCheck（跑脚本、弹文本），
+        // 与工具页的「测试构建」内容重叠但结论不一致，用户要在两个地方
+        // 看不同的自检结果。现在只用 SPSelfTestViewController 一个入口。
+        if (ip.row == 0) {
+            [self.navigationController pushViewController:[SPSelfTestViewController new] animated:YES];
+        }
         else {
             SPFileBrowserViewController *b = [[SPFileBrowserViewController alloc]
                 initWithRootPath:[[SPToolchain shared] reinRoot] pickMode:NO fileFilters:nil onPick:nil];

@@ -18,6 +18,57 @@
 @property (nonatomic, copy) NSString *kind;
 @end
 @implementation SPLogFile
+
+#pragma mark - 导出
+
+- (void)shareLogs {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSString *logsDir = [[SPStore shared] logsDirectory];
+    NSMutableArray<NSURL *> *items = [NSMutableArray array];
+
+    // 1) 主日志 spark.log —— 构建、注入、自检、崩溃都写在这里
+    NSString *main = [logsDir stringByAppendingPathComponent:@"spark.log"];
+    if ([fm fileExistsAtPath:main]) {
+        // 复制一份带时间戳的，避免分享面板里名字看不出是哪次
+        NSString *tmp = [NSTemporaryDirectory() stringByAppendingPathComponent:
+                         [NSString stringWithFormat:@"spark-%@.log", [SPUtil timestampSlug]]];
+        [fm removeItemAtPath:tmp error:NULL];
+        if ([[NSData dataWithContentsOfFile:main] writeToFile:tmp atomically:YES]) {
+            [items addObject:[NSURL fileURLWithPath:tmp]];
+        }
+    }
+
+    // 2) 如果当前选中的是某个构建记录，把它一起带上
+    NSArray *files = self.logs;
+    NSInteger sel = self.table.indexPathForSelectedRow.row;
+    if (sel >= 0 && sel < (NSInteger)files.count) {
+        NSDictionary *f = files[sel];
+        NSString *path = f[@"path"];
+        if (path.length && [fm fileExistsAtPath:path]) {
+            [items addObject:[NSURL fileURLWithPath:path]];
+        }
+    }
+    // 3) 一个都没有就把整个 logs 目录带上
+    if (!items.count) {
+        if ([fm fileExistsAtPath:logsDir]) [items addObject:[NSURL fileURLWithPath:logsDir]];
+    }
+
+    if (!items.count) {
+        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"暂无日志"
+            message:@"还没有生成过日志文件。" preferredStyle:UIAlertControllerStyleAlert];
+        [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:a animated:YES completion:nil];
+        return;
+    }
+
+    UIActivityViewController *av = [[UIActivityViewController alloc]
+        initWithActivityItems:items applicationActivities:nil];
+    if (av.popoverPresentationController) {
+        av.popoverPresentationController.barButtonItem = self.navigationItem.rightBarButtonItems.firstObject;
+    }
+    [self presentViewController:av animated:YES completion:nil];
+}
+
 @end
 
 @interface SPLogsViewController ()
@@ -54,7 +105,12 @@
     UIBarButtonItem *refresh = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"arrow.clockwise"]
                                                                style:UIBarButtonItemStylePlain
                                                               target:self action:@selector(reload)];
-    self.navigationItem.rightBarButtonItem = refresh;
+    // 分享/导出：把日志打包成文件走系统分享面板。
+    // 排查问题时最需要的功能 —— 之前只能截屏或复制片段。
+    UIBarButtonItem *share = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"square.and.arrow.up"]
+                                                              style:UIBarButtonItemStylePlain
+                                                             target:self action:@selector(shareLogs)];
+    self.navigationItem.rightBarButtonItems = @[refresh, share];
     [self reload];
 }
 
