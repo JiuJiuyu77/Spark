@@ -5,7 +5,6 @@
 #import "SPTrashViewController.h"
 #import "SPStore.h"
 #import "SPTheme.h"
-#import "SPMotion.h"
 #import "SPCompat.h"
 #import "ProjectTrash.h"
 

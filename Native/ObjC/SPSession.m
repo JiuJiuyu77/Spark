@@ -471,7 +471,8 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
     // 与挂载模块的 sync* 系列保持同一策略：主线程调用直接拒绝，
     // 而不是让 App 假死。
     if ([NSThread isMainThread]) {
-        SPLog(@"[!] runSyncShell 在主线程调用，已拒绝（会卡死界面）：%.60@", script);
+        SPLog(@"[!] runSyncShell 在主线程调用，已拒绝（会卡死界面）：%.60s",
+              script.UTF8String ?: "");
         SPCommandResult *r = [SPCommandResult new];
         r.exitCode = -1;
         r.stderrText = @"内部错误：同步 Shell 不能在主线程调用";
