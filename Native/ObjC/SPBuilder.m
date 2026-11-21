@@ -55,7 +55,13 @@
         [lines addObject:@"for c in \"$SPARK_TC/theos-root\" \"$SPARK_TC/Toolchain\" \"$SPARK_TC\"; do "
                       "[ -x \"$c/usr/bin/clang-16\" ] && { export SPARK_ROOT=\"$c\"; break; }; done"];
         [lines addObject:@"[ -n \"${SPARK_ROOT:-}\" ] || export SPARK_ROOT=\"$SPARK_TC\""];
-        [lines addObject:@"export PATH=\"$SPARK_ROOT/usr/bin:$SPARK_ROOT/bin:$SPARK_ROOT/helpers:$PATH\""];
+        // llvm-16/bin 必须进 PATH：Theos 的 targets/_common/darwin_head.mk 里
+        //   _THEOS_TARGET_CC := clang
+        //   _THEOS_TARGET_CXX := clang++
+        // 调的是 clang / clang++，而 usr/bin 里只有 clang-16。
+        // 真正的 clang / clang++ 在 usr/lib/llvm-16/bin/ —— 不放进 PATH 就会
+        // 「command not found」→ make 报 library.mk:37 Error 2。
+        [lines addObject:@"export PATH=\"$SPARK_ROOT/usr/lib/llvm-16/bin:$SPARK_ROOT/usr/bin:$SPARK_ROOT/bin:$SPARK_ROOT/helpers:$PATH\""];
         // App 自带的命令行工具（spark-logos 等）
         [lines addObject:@"[ -d \"$SPARK_BIN\" ] && export PATH=\"$SPARK_BIN:$PATH\""];
         // 动态库：clang-16 是薄壳，真正的代码在 usr/lib/llvm-16/lib/libLLVM-16.dylib

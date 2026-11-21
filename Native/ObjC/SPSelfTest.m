@@ -370,7 +370,11 @@
              //   %@ = theos-root/usr/bin   （clang-16 / ld64 / make）
              //   installRoot/helpers       （bash / dpkg-deb / fakeroot —— 打包必需）
              //   theos/bin                 （logos.pl —— .x 预处理必需）
-             "export PATH=\"%@:%@/helpers:%@/bin:$PATH\"\n"
+             // 关键：llvm-16/bin 必须排在最前。
+             // Theos 的 darwin_head.mk 里 _THEOS_TARGET_CC := clang / clang++，
+             // 而真正的 clang 在 usr/lib/llvm-16/bin/，usr/bin 里只有 clang-16。
+             // 少了这一段，make 一进链接就报 library.mk:37 Error 2。
+             "export PATH=\"%@/usr/lib/llvm-16/bin:%@:%@/helpers:%@/bin:$PATH\"\n"
              "export LD_LIBRARY_PATH=\"%@\"\n"
              "export DYLD_LIBRARY_PATH=\"%@\"\n"
              "export PERL5LIB=\"%@\"\n"
@@ -379,7 +383,10 @@
              "cd %@\n"
              "echo \"==> PWD=$(pwd)\"\n"
              "echo \"==> THEOS=$THEOS\"\n"
-             "echo \"==> clang=$(command -v clang-16 || echo none)\"\n"
+             // 同时打印 clang 与 clang-16 的解析结果 —— Theos 用的是 clang
+             "echo \"==> clang=$(command -v clang || echo none)\"\n"
+             "echo \"==> clang-16=$(command -v clang-16 || echo none)\"\n"
+             "echo \"==> ld=$(command -v ld || echo none)\"\n"
              "echo \"==> uid=$(id -u)\"\n"
              // -d：把实际执行的命令打出来。之前只看到
              // 「lib.mk:52 ... Error 2」，看不到是哪条 ld 命令失败、缺了什么。
@@ -392,6 +399,7 @@
              // 于是外面看到的 exitCode 恒为 0，make 失败也被判成「成功」。
              "exit $MK\n",
             [SPUtil shellQuote:theos],
+            [SPUtil shellQuote:inst.installRoot],
             [SPUtil shellQuote:bin],
             [SPUtil shellQuote:inst.installRoot],
             [SPUtil shellQuote:theos],
