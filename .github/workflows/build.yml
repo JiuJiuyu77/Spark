@@ -484,6 +484,7 @@ jobs:
             -fobjc-arc -fmodules
             -O2 -DNDEBUG
             -INative/ObjC
+            -INative/Vendor
             -Wno-deprecated-declarations
           )
 
@@ -520,6 +521,7 @@ jobs:
             -framework Security \
             -framework Metal -framework MetalKit -framework MetalPerformanceShaders \
             -framework CoreVideo -framework CoreImage \
+            -larchive \
             -o "$APP/$SCHEME"
 
           # ------------------------------------------------------------------
