@@ -218,13 +218,13 @@
 
         // ── 3.2 编译链关键工具逐个点名 ──
         {
-            NSString *ub = inst.binDir;
+            
             NSArray *tools = @[@"clang-16", @"ld64", @"ldid", @"make",
                                @"dpkg-deb", @"perl", @"strip", @"ar"];
             NSMutableArray *missing = [NSMutableArray array];
             NSMutableArray *found = [NSMutableArray array];
             for (NSString *t in tools) {
-                NSString *p1 = [ub stringByAppendingPathComponent:t];
+                NSString *p1 = [inst.binDir stringByAppendingPathComponent:t];
                 NSString *p2 = [inst.installRoot stringByAppendingPathComponent:
                                 [@"helpers" stringByAppendingPathComponent:t]];
                 BOOL isDir = NO;
@@ -248,7 +248,7 @@
         // 和 libtapi.dylib。这两个库少了，链接会以
         // 「library.mk:37 Error 2」这种看不出原因的方式失败。
         {
-            NSString *ld = [ub stringByAppendingPathComponent:@"ld64"];
+            NSString *ld = [inst.binDir stringByAppendingPathComponent:@"ld64"];
             NSString *ldir = inst.libDir;
             NSArray *deps = @[@"libxar.1.dylib", @"libtapi.dylib"];
             NSMutableArray *miss = [NSMutableArray array];
