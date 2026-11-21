@@ -89,26 +89,60 @@
         {
             NSString *sh = [SPSession resolveShell];
             if (sh.length) {
-                SPCommandResult *idr = [SPSession runSyncShell:@"id -u; id -un 2>/dev/null || true"
+                // 一次跑完所有关键探测，减少子进程启动次数（每次 ~1 秒）
+                NSString *probe =
+                    @"echo uid=$(id -u); "
+                    @"echo gid=$(id -g); "
+                    // 能否写系统路径 —— 这才是「有没有特权」的实际判据，
+                    // 比只看 uid 更准：有些环境 uid=0 但仍写不了 /usr
+                    @"touch /usr/lib/.spark-probe 2>/dev/null && "
+                    @"{ echo syswrite=yes; rm -f /usr/lib/.spark-probe; } || echo syswrite=no; "
+                    // SDK 目录是否可读（编译要读 SDK 里的头文件与 tbd）
+                    @"if [ -r /var/mobile/Documents ]; then echo readprobe=ok; "
+                     "else echo readprobe=no; fi; ";
+                SPCommandResult *idr = [SPSession runSyncShell:probe
                                                    environment:@{}
                                                           cwd:NSTemporaryDirectory()
-                                                      timeout:10];
+                                                      timeout:15];
                 NSString *out = [[idr.stdoutText ?: @"" stringByTrimmingCharactersInSet:
                                   [NSCharacterSet whitespaceAndNewlineCharacterSet]] copy];
-                NSString *firstLine = [[out componentsSeparatedByString:@"\n"] firstObject] ?: @"";
-                BOOL childRoot = [firstLine isEqualToString:@"0"];
+
+                // 解析 key=value
+                NSMutableDictionary *kv = [NSMutableDictionary dictionary];
+                for (NSString *ln in [out componentsSeparatedByString:@"\n"]) {
+                    NSArray *parts = [ln componentsSeparatedByString:@"="];
+                    if (parts.count == 2) kv[parts[0]] = parts[1];
+                }
+                NSString *cuid = kv[@"uid"] ?: @"?";
+                BOOL childRoot = [cuid isEqualToString:@"0"];
+                BOOL sysWrite = [kv[@"syswrite"] isEqualToString:@"yes"];
+
+                // 展示：uid + 能否写系统路径
+                NSString *detail = [NSString stringWithFormat:@"uid=%@ · 系统路径%@",
+                                    cuid, sysWrite ? @"可写" : @"只读"];
+
+                NSString *hint = nil;
+                if (childRoot && sysWrite) {
+                    hint = @"子进程是 root 且能写系统路径 —— 编译条件完备";
+                } else if (childRoot) {
+                    hint = @"子进程是 root，但系统路径只读（可能是只读根文件系统），"
+                            "基础编译仍可完成";
+                } else {
+                    // uid 相同但也不一定是问题：编译全部在 App 包内进行，
+                    // 只需要能读包内文件、能在 /var/mobile 下写临时目录
+                    hint = [NSString stringWithFormat:
+                        @"子进程 uid=%@（与主进程相同）。这不必然导致失败 —— "
+                         "编译链路全部在 App 包内（工具/SDK 都在包里），"
+                         "产物写到 /var/mobile/Documents 下，都不需要 root。"
+                         "如果构建仍失败，看「实际编译」那一步的具体报错。", cuid];
+                }
+
                 emit([self step:SPSelfTestStageEnv
                          title:@"子进程身份"
                         passed:YES
-                        detail:[NSString stringWithFormat:@"%@（shell=%@）",
-                                out.length ? [out stringByReplacingOccurrencesOfString:@"\n" withString:@"/"] : @"无输出",
-                                sh.lastPathComponent]
-                          hint:childRoot
-                               ? @"子进程是 root —— 编译会成功"
-                               : [NSString stringWithFormat:
-                                   @"子进程 uid=%@，与主进程相同。Rein 在同样条件下也能编译"
-                                    "（它靠自带运行时，不依赖 root），所以这不一定是问题；"
-                                    "若后续步骤报权限错误，再看这里。", firstLine]]);
+                        detail:detail
+                          hint:hint]);
+                SPLog(@"子进程探测原始输出：%@", out.length ? out : @"(空)");
             } else {
                 emit([self step:SPSelfTestStageEnv title:@"子进程身份" passed:NO
                         detail:@"找不到可用的 shell"
@@ -162,6 +196,97 @@
                  detail:theos
                    hint:(hasMk && hasLogos) ? nil
                         : @"THEOS 目录不完整：缺 makefiles/common.mk 或 bin/logos.pl"]);
+
+        // ── 3.1 Theos vendor 标记 ──
+        // master/rules.mk 会检查 vendor/include/.git 与 vendor/lib/.git，
+        // 缺一个就直接 $(error) 中止 —— 但报错文案说的是
+        // 「vendor 目录缺失」，很容易被理解成目录不存在。
+        {
+            NSString *vi = [theos stringByAppendingPathComponent:@"vendor/include"];
+            NSString *vl = [theos stringByAppendingPathComponent:@"vendor/lib"];
+            BOOL viOK = [fm fileExistsAtPath:[vi stringByAppendingPathComponent:@".git"]];
+            BOOL vlOK = [fm fileExistsAtPath:[vl stringByAppendingPathComponent:@".git"]];
+            emit([self step:SPSelfTestStageTheos
+                     title:@"vendor 标记"
+                    passed:(viOK && vlOK)
+                    detail:[NSString stringWithFormat:@"include:%@ lib:%@",
+                            viOK ? @"✓" : @"✗", vlOK ? @"✓" : @"✗"]
+                      hint:(viOK && vlOK) ? nil
+                           : @"Theos 用 vendor/*/.git 判断 vendor 是否就绪，"
+                             @"缺了会让 make 报「vendor 目录缺失」。重新展开工具链可修复。"]);
+        }
+
+        // ── 3.2 编译链关键工具逐个点名 ──
+        {
+            NSString *ub = inst.binDir;
+            NSArray *tools = @[@"clang-16", @"ld64", @"ldid", @"make",
+                               @"dpkg-deb", @"perl", @"strip", @"ar"];
+            NSMutableArray *missing = [NSMutableArray array];
+            NSMutableArray *found = [NSMutableArray array];
+            for (NSString *t in tools) {
+                NSString *p1 = [ub stringByAppendingPathComponent:t];
+                NSString *p2 = [inst.installRoot stringByAppendingPathComponent:
+                                [@"helpers" stringByAppendingPathComponent:t]];
+                BOOL isDir = NO;
+                if ([fm fileExistsAtPath:p1 isDirectory:&isDir] && !isDir) { [found addObject:t]; continue; }
+                if ([fm fileExistsAtPath:p2 isDirectory:&isDir] && !isDir) { [found addObject:t]; continue; }
+                [missing addObject:t];
+            }
+            emit([self step:SPSelfTestStageToolchain
+                     title:@"编译链工具"
+                    passed:(missing.count == 0)
+                    detail:[NSString stringWithFormat:@"%lu/%lu 就绪",
+                            (unsigned long)found.count, (unsigned long)tools.count]
+                      hint:missing.count ? [NSString stringWithFormat:
+                            @"缺少：%@。这些是 make 各阶段要用的，缺任何一个都会在"
+                             "中途报错（dpkg-deb 缺了就无法产出 .deb）。",
+                            [missing componentsJoinedByString:@"、"]] : nil]);
+        }
+
+        // ── 3.3 ld64 的动态库依赖（libxar / libtapi）──
+        // ld64 是链接阶段的核心，它自己依赖 @rpath/libxar.1.dylib
+        // 和 libtapi.dylib。这两个库少了，链接会以
+        // 「library.mk:37 Error 2」这种看不出原因的方式失败。
+        {
+            NSString *ld = [ub stringByAppendingPathComponent:@"ld64"];
+            NSString *ldir = inst.libDir;
+            NSArray *deps = @[@"libxar.1.dylib", @"libtapi.dylib"];
+            NSMutableArray *miss = [NSMutableArray array];
+            for (NSString *d in deps) {
+                NSString *dp = [ldir stringByAppendingPathComponent:d];
+                BOOL isDir = NO;
+                if (![fm fileExistsAtPath:dp isDirectory:&isDir] || isDir) [miss addObject:d];
+            }
+            BOOL ldOK = [fm fileExistsAtPath:ld isDirectory:NULL];
+            emit([self step:SPSelfTestStageToolchain
+                     title:@"链接器依赖"
+                    passed:(ldOK && miss.count == 0)
+                    detail:miss.count ? [NSString stringWithFormat:@"缺 %@",
+                                         [miss componentsJoinedByString:@"、"]]
+                                      : @"libxar + libtapi 就绪"
+                      hint:(ldOK && miss.count == 0) ? nil
+                           : @"ld64 找不到这两个库时，链接只会给一句 "
+                             @"「Error 2」，看不出是缺库。重新展开工具链可修复。"]);
+        }
+
+        // ── 3.4 内置附加工具（对照 Rein 的运行时清单）──
+        {
+            NSArray *extras = @[@"ollvm", @"reverse", @"python-runtime", @"node22", @"pnpm"];
+            NSMutableArray *have = [NSMutableArray array];
+            NSMutableArray *lack = [NSMutableArray array];
+            NSString *root = inst.installRoot;
+            for (NSString *e in extras) {
+                NSString *pth = [root stringByAppendingPathComponent:e];
+                if ([fm fileExistsAtPath:pth]) [have addObject:e]; else [lack addObject:e];
+            }
+            emit([self step:SPSelfTestStageToolchain
+                     title:@"附加工具链"
+                    passed:YES
+                    detail:have.count ? [have componentsJoinedByString:@"、"] : @"无"
+                      hint:lack.count ? [NSString stringWithFormat:
+                            @"未内置：%@。不影响基础编译，只影响混淆/逆向等附加功能。",
+                            [lack componentsJoinedByString:@"、"]] : nil]);
+        }
 
         // ── 4. SDK ──
         NSString *sdksDir = [theos stringByAppendingPathComponent:@"sdks"];
@@ -251,7 +376,9 @@
              "echo \"==> THEOS=$THEOS\"\n"
              "echo \"==> clang=$(command -v clang-16 || echo none)\"\n"
              "echo \"==> uid=$(id -u)\"\n"
-             "make package FINALPACKAGE=1 2>&1\n"
+             // -d：把实际执行的命令打出来。之前只看到
+             // 「lib.mk:52 ... Error 2」，看不到是哪条 ld 命令失败、缺了什么。
+             "make package FINALPACKAGE=1 -d 2>&1\n"
              "MK=$?\n"
              "echo \"==> make exit=$MK\"\n"
              "ls -l packages/*.deb 2>/dev/null || echo \"==> 没有产物\"\n"
