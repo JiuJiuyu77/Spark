@@ -4,6 +4,8 @@
 //
 
 #import "SPProjectsViewController.h"
+#import "SPNewProjectViewController.h"
+#import "ProjectTrash.h"
 #import "SPTheme.h"
 #import "SPGlassKit.h"
 #import "SPTrollStoreFix.h"
@@ -41,6 +43,14 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
     [self setupTable];
     [self setupSearch];
     [self setupNavItems];
+
+    // 回收站里超过 7 天的工程自动清理（与 dylix 的 ProjectTrash 行为一致）
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSString *trash = [self trashDirectory];
+        if (![NSFileManager.defaultManager fileExistsAtPath:trash]) return;
+        NSUInteger pruned = TMCPruneProjectTrash(trash, [NSDate date]);
+        if (pruned) SPLog(@"[回收站] 启动清理：%lu 个过期工程", (unsigned long)pruned);
+    });
 
     [self reloadAll];
     [self installGlassHeader];
@@ -127,12 +137,26 @@ forRowAtIndexPath:(NSIndexPath *)ip {
         message:@"会同时删除磁盘上的工程目录，不可撤销。"
         preferredStyle:UIAlertControllerStyleActionSheet];
 
-    [a addAction:[UIAlertAction actionWithTitle:@"删除工程目录" style:UIAlertActionStyleDestructive
+    // 与 dylix 一致：删除先移入回收站（可在 7 天内恢复），
+    // 而不是立刻 removeItemAtPath —— 那是不可撤销的。
+    [a addAction:[UIAlertAction actionWithTitle:@"移入回收站" style:UIAlertActionStyleDestructive
+                                        handler:^(UIAlertAction *x) {
+        NSError *err = nil;
+        BOOL ok = [self moveProjectToTrashAtPath:path error:&err];
+        [[SPStore shared] removeRecentProjectAtPath:path];
+        if (!ok) {
+            SPLog(@"[!] 移入回收站失败：%@", err.localizedDescription);
+            [self alert:@"移入回收站失败" message:err.localizedDescription ?: @"请检查磁盘空间与权限"];
+        } else {
+            [SPMotion hapticSuccess];
+            SPLog(@"[回收站] 已移入：%@（保留 7 天）", path.lastPathComponent);
+        }
+        [self reloadAll];
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"彻底删除" style:UIAlertActionStyleDestructive
                                         handler:^(UIAlertAction *x) {
         NSError *err = nil;
         [[NSFileManager defaultManager] removeItemAtPath:path error:&err];
-        // 不管文件删没删成功，recent 记录都要清掉 ——
-        // 否则列表里会留一条指向已删除路径的死项。
         [[SPStore shared] removeRecentProjectAtPath:path];
         if (err) SPLog(@"[!] 删除工程目录失败：%@", err.localizedDescription);
         [self reloadAll];
@@ -395,8 +419,10 @@ forRowAtIndexPath:(NSIndexPath *)ip {
     [SPMotion hapticLight];
     UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"新建或导入" message:nil
                                                                preferredStyle:UIAlertControllerStyleActionSheet];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"新建 Tweak 工程" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-        [self promptNewProjectWithTemplate:@"tweak"];
+    // 新建走独立表单页（对齐 dylix 的 StudioCreate）：
+    // 模板三选一 + 名称/包标识/作者/版本/目标五个字段。
+    [sheet addAction:[UIAlertAction actionWithTitle:@"新建工程…" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        [self presentNewProjectForm];
     }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"新建 App 工程" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
         [self promptNewProjectWithTemplate:@"application"];
@@ -643,6 +669,72 @@ forRowAtIndexPath:(NSIndexPath *)ip {
         [self reloadAll];
     }];
     [self.navigationController pushViewController:b animated:YES];
+}
+
+#pragma mark - 回收站
+
+- (NSString *)trashDirectory {
+    // projectsDirectory 形如 .../Documents/Spark/projects，
+    // 回收站放同级 Spark/trash
+    NSString *projects = [SPStore shared].projectsDirectory;
+    return [[projects stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"trash"];
+}
+
+/// 把工程目录移入回收站并记录删除时间；顺带清理 7 天前的旧条目。
+- (BOOL)moveProjectToTrashAtPath:(NSString *)path error:(NSError **)error {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSString *trash = [self trashDirectory];
+    if (![fm createDirectoryAtPath:trash withIntermediateDirectories:YES attributes:nil error:error])
+        return NO;
+
+    NSString *base = path.lastPathComponent ?: @"Project";
+    NSString *dest = [trash stringByAppendingPathComponent:base];
+    if ([fm fileExistsAtPath:dest]) {
+        dest = [trash stringByAppendingPathComponent:
+                [NSString stringWithFormat:@"%@-%@", base, [SPUtil timestampSlug]]];
+    }
+
+    if (![fm moveItemAtPath:path toPath:dest error:error]) return NO;
+
+    // 与 dylix 的 ProjectTrash 同一约定：<root>/.studio-trash.json 记 deletedAt
+    NSDictionary *meta = @{@"deletedAt": @([NSDate date].timeIntervalSince1970),
+                           @"originalPath": path};
+    NSData *data = [NSJSONSerialization dataWithJSONObject:meta options:0 error:NULL];
+    if (data) {
+        [data writeToFile:[dest stringByAppendingPathComponent:@".studio-trash.json"]
+               atomically:YES];
+    }
+
+    NSUInteger pruned = TMCPruneProjectTrash(trash, [NSDate date]);
+    if (pruned) SPLog(@"[回收站] 清理了 %lu 个过期工程", (unsigned long)pruned);
+    return YES;
+}
+
+- (void)presentNewProjectForm {
+    SPNewProjectViewController *vc = [SPNewProjectViewController new];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    __weak typeof(self) weakSelf = self;
+    vc.onFinish = ^(NSString *createdPath) {
+        if (!createdPath.length) return;
+        [weakSelf openCreatedProjectAtPath:createdPath];
+    };
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+/// 表单创建成功后：套用默认构建选项、入最近列表、直接打开工程页
+- (void)openCreatedProjectAtPath:(NSString *)path {
+    NSError *e = nil;
+    SPProject *p = [SPProject projectAtPath:path error:&e];
+    if (!p) {
+        [self alert:@"创建失败" message:e.localizedDescription ?: @"模板生成异常"];
+        return;
+    }
+    p.options = [[SPStore shared] optionsForProjectPath:@"__defaults__"];
+    [[SPStore shared] saveOptions:p.options forProjectPath:p.path];
+    [[SPStore shared] pushRecentProject:p];
+    [self reloadAll];
+    SPProjectViewController *detail = [[SPProjectViewController alloc] initWithProject:p];
+    [self.navigationController pushViewController:detail animated:YES];
 }
 
 - (void)promptNewProjectWithTemplate:(NSString *)tpl {
