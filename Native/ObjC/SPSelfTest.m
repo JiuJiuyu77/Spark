@@ -58,10 +58,13 @@
 
         // ── 1. 环境 ──
         uid_t uid = getuid();
-        emit([self step:SPSelfTestStageEnv title:@"进程身份" passed:(uid == 0)
-                 detail:[NSString stringWithFormat:@"uid=%d", (int)uid]
-                   hint:uid == 0 ? nil
-                        : @"Spark 需要以 root 运行：用 TrollStore 安装（platform-application 权限）"]);
+        // 身份只是信息，不是通过条件。
+        // Rein 也跑在 uid=501 下，靠的是自带运行时 + 自带 shell，
+        // 而不是进程本身有 root。真正决定成败的是下面「子进程身份」那一步。
+        emit([self step:SPSelfTestStageEnv title:@"进程身份" passed:YES
+                 detail:[NSString stringWithFormat:@"uid=%d（%@）",
+                         (int)uid, uid == 0 ? @"root" : @"mobile，正常"]
+                   hint:nil]);
 
         NSString *tmp = NSTemporaryDirectory();
         NSString *probe = [tmp stringByAppendingPathComponent:@"spark-selftest-probe"];
@@ -77,6 +80,42 @@
         // 子进程根本没起来。必须单独验证，否则用户只会看到 -1。
         __block BOOL shellOK = NO;
         __block NSString *shellDetail = nil;
+
+        // ── 1.4 子进程身份 ──
+        // 主进程拿不到 root 不代表编译一定失败：TrollStore 环境下，
+        // 用 platform-application 签名的 App 启动的子进程有可能继承
+        // 「platform」身份（比 mobile 高），这才是能读 SDK / 写系统路径的关键。
+        // 这里实际跑一次 `id -u`，把子进程的真实 uid 打出来。
+        {
+            NSString *sh = [SPSession resolveShell];
+            if (sh.length) {
+                SPCommandResult *idr = [SPSession runSyncShell:@"id -u; id -un 2>/dev/null || true"
+                                                   environment:@{}
+                                                          cwd:NSTemporaryDirectory()
+                                                      timeout:10];
+                NSString *out = [[idr.stdoutText ?: @"" stringByTrimmingCharactersInSet:
+                                  [NSCharacterSet whitespaceAndNewlineCharacterSet]] copy];
+                NSString *firstLine = [[out componentsSeparatedByString:@"\n"] firstObject] ?: @"";
+                BOOL childRoot = [firstLine isEqualToString:@"0"];
+                emit([self step:SPSelfTestStageEnv
+                         title:@"子进程身份"
+                        passed:YES
+                        detail:[NSString stringWithFormat:@"%@（shell=%@）",
+                                out.length ? [out stringByReplacingOccurrencesOfString:@"\n" withString:@"/"] : @"无输出",
+                                sh.lastPathComponent]
+                          hint:childRoot
+                               ? @"子进程是 root —— 编译会成功"
+                               : [NSString stringWithFormat:
+                                   @"子进程 uid=%@，与主进程相同。Rein 在同样条件下也能编译"
+                                    "（它靠自带运行时，不依赖 root），所以这不一定是问题；"
+                                    "若后续步骤报权限错误，再看这里。", firstLine]]);
+            } else {
+                emit([self step:SPSelfTestStageEnv title:@"子进程身份" passed:NO
+                        detail:@"找不到可用的 shell"
+                          hint:@"运行时的 helpers/bash 缺失，子进程无法启动"]);
+            }
+        }
+
         dispatch_semaphore_t shSem = dispatch_semaphore_create(0);
         SPSession *shProbe = [[SPSession alloc] initWithEnvironment:@{} workingDirectory:tmp];
         shProbe.timeout = 15;

@@ -302,16 +302,23 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     //   顶层 sdks/             ← Rein 布局
     NSString *sdk = nil;
     NSMutableArray<NSString *> *sdkDirs = [NSMutableArray array];
+
+    // 候选目录：把所有可能的位置都列出来
     if (theos) [sdkDirs addObject:[theos stringByAppendingPathComponent:@"sdks"]];
-    for (NSString *rel in @[@"theos-full/sdks", @"sdks", @"theos-root/theos/sdks",
+    for (NSString *rel in @[@"sdks",                       // 顶层（DSH/Rein 布局）
+                            @"theos-root/theos/sdks",      // 平铺后 Theos 自己的 sdks
+                            @"theos-full/sdks",
                             @"Spark/SDKs", @"SDKs", @"sdks-store"]) {
         for (NSString *root in roots) {
             [sdkDirs addObject:[root stringByAppendingPathComponent:rel]];
         }
     }
+
+    // 逐个目录找 iPhoneOS*.sdk，且必须含 SDKSettings.json
     for (NSString *dir in sdkDirs) {
         if (![fm fileExistsAtPath:dir]) continue;
-        for (NSString *name in [fm contentsOfDirectoryAtPath:dir error:NULL] ?: @[]) {
+        NSArray *names = [fm contentsOfDirectoryAtPath:dir error:NULL];
+        for (NSString *name in names ?: @[]) {
             if (![name hasPrefix:@"iPhoneOS"] || ![name hasSuffix:@".sdk"]) continue;
             NSString *cand = [dir stringByAppendingPathComponent:name];
             if ([fm fileExistsAtPath:[cand stringByAppendingPathComponent:@"SDKSettings.json"]]) {
@@ -321,6 +328,43 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
         }
         if (sdk) break;
     }
+
+    // 兜底：上面的固定路径都没命中时，直接在包内浅层扫描
+    // （最多 3 层深，避免遍历整个 500MB SDK）
+    if (!sdk) {
+        NSString *bundle = [NSBundle mainBundle].bundlePath;
+        NSMutableArray<NSString *> *queue = [NSMutableArray arrayWithObject:bundle];
+        NSInteger visited = 0;
+        while (queue.count && visited < 400) {
+            NSString *cur = queue.firstObject;
+            [queue removeObjectAtIndex:0];
+            visited++;
+            NSArray *items = [fm contentsOfDirectoryAtPath:cur error:NULL];
+            for (NSString *it in items ?: @[]) {
+                if (![it hasSuffix:@".sdk"]) continue;
+                NSString *full = [cur stringByAppendingPathComponent:it];
+                if ([fm fileExistsAtPath:[full stringByAppendingPathComponent:@"SDKSettings.json"]]) {
+                    sdk = full;
+                    break;
+                }
+            }
+            if (sdk) break;
+            // 只往下走 2 层
+            if ([cur componentsSeparatedByString:@"/"].count <
+                [bundle componentsSeparatedByString:@"/"].count + 3) {
+                for (NSString *it in items ?: @[]) {
+                    BOOL isDir = NO;
+                    NSString *full = [cur stringByAppendingPathComponent:it];
+                    if ([fm fileExistsAtPath:full isDirectory:&isDir] && isDir) {
+                        // 跳过明显无关的大目录
+                        if ([it isEqualToString:@"Frameworks"] || [it isEqualToString:@"_CodeSignature"]) continue;
+                        [queue addObject:full];
+                    }
+                }
+            }
+        }
+    }
+
     [scan setPath:sdk for:SPToolchainComponentSDK];
 
     // 诊断：把探测结果写进日志，便于定位「明明有却找不到」
