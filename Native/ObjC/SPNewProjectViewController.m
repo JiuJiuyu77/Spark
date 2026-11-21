@@ -4,9 +4,8 @@
 //
 #import "SPNewProjectViewController.h"
 #import "SPStore.h"
-#import "SPProject.h"
+#import "SPModels.h"
 #import "SPTheme.h"
-#import "SPMotion.h"
 #import "SPCompat.h"
 
 typedef NS_ENUM(NSInteger, SPNewProjectKind) {
