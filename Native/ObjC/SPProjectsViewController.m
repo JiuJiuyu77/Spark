@@ -132,8 +132,13 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
     [self.table reloadData];
     [self updateEmptyState];
 
-    // 工具链状态放在 section footer，不占列表空间
-    [[SPToolchain shared] rescan];
+    // 工具链状态放在 section footer，不占列表空间。
+    //
+    // 以前这里无条件 rescan：每次列表刷新（含从项目返回、搜索输入）
+    // 都会把整个包扫一遍，日志里会出现成片的「SDK 已找到：…」，
+    // 大包扫描还会卡住主线程。改成只在「距上次扫描超过 5 秒」时才扫，
+    // 并且 rescan 内部会做同样判断，双重保险。
+    [[SPToolchain shared] rescanIfStale:5.0];
 }
 
 - (void)updateEmptyState {

@@ -274,7 +274,17 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
 
 #pragma mark 扫描
 
+/// 距上次扫描超过 minInterval 秒才真正重扫。
+/// 返回 YES 表示这次真的扫了。
+- (BOOL)rescanIfStale:(NSTimeInterval)minInterval {
+    NSTimeInterval now = [NSDate date].timeIntervalSince1970;
+    if (self.lastScanTime > 0 && (now - self.lastScanTime) < minInterval) return NO;
+    [self rescan];
+    return YES;
+}
+
 - (void)rescan {
+    self.lastScanTime = [NSDate date].timeIntervalSince1970;
     SPToolchainScan *scan = [SPToolchainScan new];
     NSArray *roots = [self candidateRoots];
     NSFileManager *fm = NSFileManager.defaultManager;
@@ -367,9 +377,15 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
 
     [scan setPath:sdk for:SPToolchainComponentSDK];
 
-    // 诊断：把探测结果写进日志，便于定位「明明有却找不到」
+    // 诊断：只在结果**变化**时写日志。
+    // 以前每次 rescan 都打一行「SDK 已找到」，项目页每刷新一次列表就扫一次，
+    // 日志被刷成一片，真正有用的信息反而被淹没。
+    static NSString *sLastSDK = nil;
     if (sdk) {
-        SPLog(@"SDK 已找到：%@", sdk);
+        if (![sdk isEqualToString:sLastSDK ?: @""]) {
+            SPLog(@"SDK 已找到：%@", sdk);
+            sLastSDK = [sdk copy];
+        }
     } else {
         NSMutableString *dbg = [NSMutableString string];
         [dbg appendString:@"SDK 未找到。已探测的候选目录："];
@@ -504,21 +520,48 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
 }
 
 - (nullable NSString *)resolvedSDKPathNamed:(nullable NSString *)sdkName {
-    NSString *name = sdkName.length ? sdkName : nil;
-    NSArray *roots = [self candidateRoots];
-    for (NSString *root in roots) {
-        for (NSString *rel in @[@"tools/theos-full/sdks", @"tools/theos-local/sdks", @"sdks-store", @"theos/sdks"]) {
-            NSString *base = [root stringByAppendingPathComponent:rel];
-            if (name) {
-                NSString *p = [base stringByAppendingPathComponent:name];
-                BOOL isDir = NO;
-                if ([NSFileManager.defaultManager fileExistsAtPath:p isDirectory:&isDir] && isDir) return p;
-            } else {
-                NSString *first = [self sdkNamesInDirectory:base].lastObject; // 取最新版本
-                if (first) return [base stringByAppendingPathComponent:first];
-            }
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSString *want = sdkName.length ? sdkName : nil;
+
+    // 与 rescan 用**同一套候选目录**。
+    //
+    // 以前这里写死 tools/theos-full/sdks、tools/theos-local/sdks、sdks-store
+    // —— 全是 Rein 的旧布局。平铺安装后真实 SDK 在
+    // Spark.app/theos-root/theos/sdks，这里一个都命中不了，
+    // 于是出现「工具链页显示 SDK ✓、项目页却报没找到 SDK」。
+    NSMutableArray<NSString *> *dirs = [NSMutableArray array];
+    NSString *theos = [self.scan pathFor:SPToolchainComponentTheos];
+    if (theos.length) [dirs addObject:[theos stringByAppendingPathComponent:@"sdks"]];
+    for (NSString *root in [self candidateRoots]) {
+        for (NSString *rel in @[@"theos-root/theos/sdks", @"sdks", @"theos-full/sdks",
+                                @"theos-local/sdks", @"tools/theos-full/sdks",
+                                @"tools/theos-local/sdks", @"sdks-store",
+                                @"Spark/SDKs", @"SDKs"]) {
+            [dirs addObject:[root stringByAppendingPathComponent:rel]];
         }
     }
+
+    // 收集所有完整 SDK（必须有 SDKSettings.json，排除 .keep 占位目录）
+    NSMutableDictionary<NSString *, NSString *> *byName = [NSMutableDictionary dictionary];
+    for (NSString *dir in dirs) {
+        for (NSString *n in [self sdkNamesInDirectory:dir]) {
+            if (byName[n]) continue;
+            NSString *cand = [dir stringByAppendingPathComponent:n];
+            if (![fm fileExistsAtPath:[cand stringByAppendingPathComponent:@"SDKSettings.json"]]) continue;
+            byName[n] = cand;
+        }
+    }
+
+    // ① 精确命中用户指定的名字
+    if (want && byName[want]) return byName[want];
+
+    // ② 用户没指定（或指定的版本已不存在）→ 用 rescan 选中的那个
+    NSString *scanned = [self.scan pathFor:SPToolchainComponentSDK];
+    if (scanned.length) return scanned;
+
+    // ③ 兜底：版本号最高的一个
+    NSArray *sorted = [[byName allKeys] sortedArrayUsingSelector:@selector(compare:)];
+    if (sorted.count) return byName[sorted.lastObject];
     return nil;
 }
 

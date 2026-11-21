@@ -79,6 +79,14 @@ typedef NS_ENUM(NSInteger, SPBuildTarget) {
 @property (nonatomic, copy, nullable) NSString *homeRoot; // 用户自定义安装目录
 
 - (void)rescan;
+
+/// 距上次扫描超过 minInterval 秒才真正重扫（避免每次刷新列表都全包扫一遍）。
+/// 返回 YES 表示这次真的扫了。
+- (BOOL)rescanIfStale:(NSTimeInterval)minInterval;
+
+/// 上次扫描的时间戳（0 表示从未扫过）
+@property (nonatomic) NSTimeInterval lastScanTime;
+
 @property (nonatomic, readonly) SPToolchainScan *scan;
 
 /// 可用 SDK 名列表（"iPhoneOS16.5.sdk" ...）

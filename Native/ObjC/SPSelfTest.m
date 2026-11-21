@@ -236,7 +236,11 @@
         NSString *cmd = [NSString stringWithFormat:
             @"set -o pipefail 2>/dev/null || true\n"
              "export THEOS=%@\n"
-             "export PATH=\"%@:$PATH\"\n"
+             // PATH 必须包含三处，否则 make 找不到关键工具：
+             //   %@ = theos-root/usr/bin   （clang-16 / ld64 / make）
+             //   installRoot/helpers       （bash / dpkg-deb / fakeroot —— 打包必需）
+             //   theos/bin                 （logos.pl —— .x 预处理必需）
+             "export PATH=\"%@:%@/helpers:%@/bin:$PATH\"\n"
              "export LD_LIBRARY_PATH=\"%@\"\n"
              "export DYLD_LIBRARY_PATH=\"%@\"\n"
              "export PERL5LIB=\"%@\"\n"
@@ -248,10 +252,17 @@
              "echo \"==> clang=$(command -v clang-16 || echo none)\"\n"
              "echo \"==> uid=$(id -u)\"\n"
              "make package FINALPACKAGE=1 2>&1\n"
-             "echo \"==> make exit=$?\"\n"
-             "ls -l packages/*.deb 2>/dev/null || echo \"==> 没有产物\"\n",
+             "MK=$?\n"
+             "echo \"==> make exit=$MK\"\n"
+             "ls -l packages/*.deb 2>/dev/null || echo \"==> 没有产物\"\n"
+             // 关键：把 make 的退出码作为整个脚本的退出码带出去。
+             // 以前最后一句是 `ls ... || echo`，它永远返回 0，
+             // 于是外面看到的 exitCode 恒为 0，make 失败也被判成「成功」。
+             "exit $MK\n",
             [SPUtil shellQuote:theos],
             [SPUtil shellQuote:bin],
+            [SPUtil shellQuote:inst.installRoot],
+            [SPUtil shellQuote:theos],
             [SPUtil shellQuote:inst.libDir],
             [SPUtil shellQuote:inst.libDir],
             [SPUtil shellQuote:inst.perl5Dir],
@@ -272,7 +283,19 @@
             if (logHandler) dispatch_async(dispatch_get_main_queue(), ^{ logHandler(line ?: @""); });
         };
         s.onFinish = ^(SPCommandResult *r) {
-            buildOK = (r.exitCode == 0);
+            // 退出码优先，但双保险：日志里若明确写了 `==> make exit=N`，以 N 为准
+            // （某些 shell 包装会把 exit 吃掉，只看 exitCode 可能误判）
+            NSInteger code = r.exitCode;
+            @synchronized (buildLog) {
+                NSRange rg = [buildLog rangeOfString:@"==> make exit="];
+                if (rg.location != NSNotFound) {
+                    NSString *rest = [buildLog substringFromIndex:NSMaxRange(rg)];
+                    NSString *num = [[rest componentsSeparatedByCharactersInSet:
+                                      [NSCharacterSet whitespaceAndNewlineCharacterSet]] firstObject];
+                    if (num.length) code = num.integerValue;
+                }
+            }
+            buildOK = (code == 0);
             if (!buildOK) {
                 NSString *out = r.stdoutText ?: @"";
                 if (!out.length) @synchronized (buildLog) { out = [buildLog copy]; }
