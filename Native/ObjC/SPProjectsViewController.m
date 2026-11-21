@@ -6,6 +6,7 @@
 #import "SPProjectsViewController.h"
 #import "SPNewProjectViewController.h"
 #import "SPTrashViewController.h"
+#import "SPToolchainInstaller.h"
 #import "ProjectTrash.h"
 #import "SPTheme.h"
 #import "SPGlassKit.h"
@@ -663,6 +664,212 @@ forRowAtIndexPath:(NSIndexPath *)ip {
     [self presentViewController:a animated:YES completion:nil];
 }
 
+#pragma mark - 从 GitHub 导入
+
+- (void)promptGitHubImport {
+    UIAlertController *a = [UIAlertController
+        alertControllerWithTitle:@"从 GitHub 导入"
+        message:@"输入 owner/repo 或完整链接。会下载该仓库默认分支的 zip 存档。\n\n"
+                 "注意：设备上没有 git，因此不含 .git 历史；导入后可在工程里自行 git init。"
+        preferredStyle:UIAlertControllerStyleAlert];
+    [a addTextFieldWithConfigurationHandler:^(UITextField *tf) {
+        tf.placeholder = @"owner/repo 或 https://github.com/owner/repo";
+        tf.autocorrectionType = UITextAutocorrectionTypeNo;
+        tf.autocapitalizationType = UITextAutocapitalizationTypeNone;
+        tf.clearButtonMode = UITextFieldViewModeWhileEditing;
+        tf.keyboardType = UIKeyboardTypeURL;
+    }];
+    [a addAction:[UIAlertAction actionWithTitle:@"下载" style:UIAlertActionStyleDefault
+                                        handler:^(UIAlertAction *x) {
+        NSString *raw = a.textFields.firstObject.text ?: @"";
+        [self importFromGitHub:raw];
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
+}
+
+/// 把用户输入解析成 owner / repo / branch
+- (nullable NSDictionary *)parseGitHubInput:(NSString *)input {
+    NSString *s = [input stringByTrimmingCharactersInSet:
+                   [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (!s.length) return nil;
+
+    // 完整链接：https://github.com/owner/repo(/tree/branch)?
+    NSRange gh = [s rangeOfString:@"github.com/" options:NSCaseInsensitiveSearch];
+    if (gh.location != NSNotFound) {
+        s = [s substringFromIndex:NSMaxRange(gh)];
+    }
+    // 去掉协议残留与 .git 后缀
+    if ([s hasSuffix:@".git"]) s = [s substringToIndex:s.length - 4];
+    // 去掉尾部查询串
+    NSRange q = [s rangeOfString:@"?"];
+    if (q.location != NSNotFound) s = [s substringToIndex:q.location];
+
+    NSMutableArray *parts = [[s componentsSeparatedByString:@"/"] mutableCopy];
+    [parts filterUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *p, NSDictionary *b) {
+        return p.length > 0;
+    }]];
+    if (parts.count < 2) return nil;
+
+    NSString *owner = parts[0];
+    NSString *repo = parts[1];
+    NSString *branch = nil;
+    // /tree/<branch> 形式
+    NSUInteger ti = [parts indexOfObject:@"tree"];
+    if (ti != NSNotFound && ti + 1 < parts.count) branch = parts[ti + 1];
+
+    return @{@"owner": owner, @"repo": repo, @"branch": branch ?: @"HEAD"};
+}
+
+- (void)importFromGitHub:(NSString *)input {
+    NSDictionary *info = [self parseGitHubInput:input];
+    if (!info) {
+        [self presentAlert:@"格式不对" message:@"请填写 owner/repo，例如 yangokok886/dylix"];
+        return;
+    }
+    NSString *owner = info[@"owner"];
+    NSString *repo = info[@"repo"];
+    NSString *branch = info[@"branch"];
+    NSString *slug = [NSString stringWithFormat:@"%@-%@", owner, repo];
+
+    // 下载地址：优先用 tree 指定的分支，否则 HEAD（GitHub 会跳默认分支）
+    NSString *pathPart = [branch isEqualToString:@"HEAD"] ? @"HEAD" : branch;
+    NSString *urlStr = [NSString stringWithFormat:
+        @"https://codeload.github.com/%@/%@/zip/%@", owner, repo, pathPart];
+    NSURL *url = [NSURL URLWithString:urlStr];
+    if (!url) return;
+
+    [SPMotion hapticLight];
+    SPLog(@"[GitHub] 开始下载 %@", urlStr);
+
+    // 进度提示（用简单的 HUD：标题 + 活动指示器）
+    UIAlertController *hud = [UIAlertController alertControllerWithTitle:@"正在下载…"
+                                                                message:[NSString stringWithFormat:@"%@/%@", owner, repo]
+                                                         preferredStyle:UIAlertControllerStyleAlert];
+    UIActivityIndicatorView *spinner =
+        [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    [spinner startAnimating];
+    [hud.view addSubview:spinner];
+    spinner.translatesAutoresizingMaskIntoConstraints = NO;
+    [NSLayoutConstraint activateConstraints:@[
+        [spinner.centerXAnchor constraintEqualToAnchor:hud.view.centerXAnchor],
+        [spinner.bottomAnchor constraintEqualToAnchor:hud.view.bottomAnchor constant:-16],
+    ]];
+    [self presentViewController:hud animated:YES completion:nil];
+
+    NSURLSessionConfiguration *cfg = [NSURLSessionConfiguration ephemeralSessionConfiguration];
+    cfg.timeoutIntervalForRequest = 60;
+    cfg.timeoutIntervalForResource = 900;
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:cfg];
+
+    __weak typeof(self) weakSelf = self;
+    NSURLSessionDownloadTask *task = [session downloadTaskWithURL:url
+        completionHandler:^(NSURL *location, NSURLResponse *resp, NSError *err) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [hud dismissViewControllerAnimated:YES completion:^{
+                if (err || !location) {
+                    NSString *msg = err.localizedDescription ?: @"下载失败";
+                    if ([msg containsString:@"404"]) {
+                        msg = @"仓库或分支不存在（也可能是私有仓库）";
+                    }
+                    SPLog(@"[GitHub] 下载失败：%@", msg);
+                    [weakSelf presentAlert:@"下载失败" message:msg];
+                    return;
+                }
+                NSHTTPURLResponse *http = [resp isKindOfClass:NSHTTPURLResponse.class] ? (id)resp : nil;
+                if (http && http.statusCode != 200) {
+                    [weakSelf presentAlert:@"下载失败"
+                                   message:[NSString stringWithFormat:@"服务器返回 %ld", (long)http.statusCode]];
+                    return;
+                }
+                [weakSelf unpackGitHubArchive:location slug:slug];
+            }];
+        });
+    }];
+    [task resume];
+}
+
+- (void)unpackGitHubArchive:(NSURL *)archiveURL slug:(NSString *)slug {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSString *staging = [NSTemporaryDirectory() stringByAppendingPathComponent:
+                         [NSString stringWithFormat:@"gh-%@", [SPUtil timestampSlug]]];
+    [fm createDirectoryAtPath:staging withIntermediateDirectories:YES attributes:nil error:NULL];
+
+    NSString *zip = [staging stringByAppendingPathComponent:@"repo.zip"];
+    NSError *err = nil;
+    if (![fm moveItemAtURL:archiveURL toURL:[NSURL fileURLWithPath:zip] error:&err]) {
+        [self presentAlert:@"导入失败" message:err.localizedDescription ?: @"无法保存下载文件"];
+        return;
+    }
+
+    SPLog(@"[GitHub] 已下载，开始解压");
+    NSString *unzip = [SPUtil findExecutable:@[@"unzip"] searchDirs:@[
+        [SPToolchainInstaller shared].installRoot ?: @"" ,
+        [[SPToolchainInstaller shared].installRoot stringByAppendingPathComponent:@"helpers"],
+        [[SPToolchainInstaller shared].installRoot stringByAppendingPathComponent:@"usr/bin"],
+    ]];
+    if (!unzip.length) {
+        [self presentAlert:@"导入失败" message:@"找不到 unzip，请先在工具链页展开运行时"];
+        return;
+    }
+
+    NSString *cmd = [NSString stringWithFormat:@"%@ -oq %@ -d %@",
+                     [SPUtil shellQuote:unzip], [SPUtil shellQuote:zip], [SPUtil shellQuote:staging]];
+    SPSession *sess = [[SPSession alloc] initWithEnvironment:@{} workingDirectory:staging];
+    sess.timeout = 300;
+    __weak typeof(self) weakSelf = self;
+    sess.onFinish = ^(SPCommandResult *r) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (r.exitCode != 0) {
+                [weakSelf presentAlert:@"解压失败" message:r.stderrText ?: @"unzip 返回非零"];
+                return;
+            }
+            // GitHub 的 zip 会套一层 repo-branch/ 目录
+            NSString *root = [weakSelf findProjectRootUnder:staging];
+            if (!root.length) {
+                [weakSelf presentAlert:@"导入失败" message:@"压缩包里没有找到工程目录"];
+                return;
+            }
+            [weakSelf registerGitHubProjectAt:root name:slug];
+        });
+    };
+    [sess runShell:cmd];
+}
+
+- (void)registerGitHubProjectAt:(NSString *)root name:(NSString *)slug {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSString *projects = [SPStore shared].projectsDirectory;
+    [fm createDirectoryAtPath:projects withIntermediateDirectories:YES attributes:nil error:NULL];
+
+    NSString *dest = [projects stringByAppendingPathComponent:slug];
+    if ([fm fileExistsAtPath:dest]) {
+        dest = [projects stringByAppendingPathComponent:
+                [NSString stringWithFormat:@"%@-%@", slug, [SPUtil timestampSlug]]];
+    }
+    NSError *err = nil;
+    if (![fm moveItemAtPath:root toPath:dest error:&err]) {
+        [self presentAlert:@"导入失败" message:err.localizedDescription ?: @"无法移动到项目目录"];
+        return;
+    }
+
+    SPLog(@"[GitHub] 已导入到 %@", dest);
+    [SPMotion hapticSuccess];
+    [self reloadAll];
+
+    NSError *pe = nil;
+    SPProject *p = [SPProject projectAtPath:dest error:&pe];
+    if (p) {
+        [[SPStore shared] pushRecentProject:p];
+        [self presentAlert:@"导入完成"
+                   message:[NSString stringWithFormat:
+                       @"%@\n\n设备上没有 git，因此不含 .git 历史。\n"
+                        "需要版本管理可在工程页用「Git 版本管理」初始化。",
+                       dest.lastPathComponent]];
+    } else {
+        [self presentAlert:@"已下载" message:@"目录已就位，但没有识别出 Theos 工程结构。"];
+    }
+}
+
 - (void)addTapped {
     [SPMotion hapticLight];
     UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"新建或导入" message:nil
@@ -680,6 +887,12 @@ forRowAtIndexPath:(NSIndexPath *)ip {
     }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"从磁盘导入目录…" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
         [self pickDirectory];
+    }]];
+    // 设备上没有 git 二进制（Rein 也没有），所以不做真正的 git clone。
+    // 改为下载 GitHub 的仓库 zip 存档 —— 覆盖「把别人的仓库拿到本机」这个主要场景，
+    // 代价是没有 .git 历史（导入后可以自己 git init）。
+    [sheet addAction:[UIAlertAction actionWithTitle:@"从 GitHub 仓库导入…" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        [self promptGitHubImport];
     }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"从收件箱导入" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
         SPInboxViewController *inbox = [[SPInboxViewController alloc] init];
