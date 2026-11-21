@@ -5,6 +5,7 @@
 
 #import "SPProjectsViewController.h"
 #import "SPNewProjectViewController.h"
+#import "SPTrashViewController.h"
 #import "ProjectTrash.h"
 #import "SPTheme.h"
 #import "SPGlassKit.h"
@@ -107,7 +108,13 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
                                                             style:UIBarButtonItemStylePlain
                                                            target:self action:@selector(reloadAll)];
     scan.accessibilityLabel = @"刷新项目列表";
-    self.navigationItem.leftBarButtonItem = scan;
+
+    // 回收站入口（对齐 dylix 的 showTrash）
+    UIBarButtonItem *trash = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"trash"]
+                                                              style:UIBarButtonItemStylePlain
+                                                             target:self action:@selector(showTrash)];
+    trash.accessibilityLabel = @"项目回收站";
+    self.navigationItem.leftBarButtonItems = @[scan, trash];
 }
 
 #pragma mark - 数据
@@ -382,6 +389,14 @@ forRowAtIndexPath:(NSIndexPath *)ip {
         }];
         remove.attributes = UIMenuElementAttributesDestructive;
 
+        UIAction *rename = [UIAction actionWithTitle:@"重命名" image:[UIImage systemImageNamed:@"pencil"]
+                                              identifier:nil handler:^(UIAction *a) {
+            [self renameProjectAtIndexPath:ip];
+        }];
+        UIAction *share = [UIAction actionWithTitle:@"分享工程" image:[UIImage systemImageNamed:@"square.and.arrow.up"]
+                                            identifier:nil handler:^(UIAction *a) {
+            [self shareProjectAtIndexPath:ip];
+        }];
         UIAction *copy = [UIAction actionWithTitle:@"复制路径" image:[UIImage systemImageNamed:@"doc.on.doc"]
                                            identifier:nil handler:^(UIAction *a) {
             UIPasteboard.generalPasteboard.string = d[@"path"];
@@ -708,6 +723,93 @@ forRowAtIndexPath:(NSIndexPath *)ip {
     NSUInteger pruned = TMCPruneProjectTrash(trash, [NSDate date]);
     if (pruned) SPLog(@"[回收站] 清理了 %lu 个过期工程", (unsigned long)pruned);
     return YES;
+}
+
+- (void)showTrash {
+    SPTrashViewController *vc = [SPTrashViewController new];
+    __weak typeof(self) weakSelf = self;
+    vc.onChange = ^{ [weakSelf reloadAll]; };
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)renameProjectAtIndexPath:(NSIndexPath *)ip {
+    if (ip.row >= (NSInteger)self.items.count) return;
+    NSDictionary *d = self.items[ip.row];
+    NSString *oldPath = d[@"path"] ?: @"";
+    NSString *oldName = d[@"name"] ?: oldPath.lastPathComponent;
+    if (!oldPath.length) return;
+
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"重命名工程"
+                                                              message:@"会同时重命名磁盘目录。"
+                                                       preferredStyle:UIAlertControllerStyleAlert];
+    [a addTextFieldWithConfigurationHandler:^(UITextField *tf) {
+        tf.text = oldName;
+        tf.placeholder = @"新名称（英文）";
+        tf.autocorrectionType = UITextAutocorrectionTypeNo;
+        tf.clearButtonMode = UITextFieldViewModeWhileEditing;
+    }];
+    [a addAction:[UIAlertAction actionWithTitle:@"重命名" style:UIAlertActionStyleDefault
+                                        handler:^(UIAlertAction *x) {
+        NSString *newName = [a.textFields.firstObject.text stringByTrimmingCharactersInSet:
+                             NSCharacterSet.whitespaceAndNewlineCharacterSet];
+        if (!newName.length || [newName isEqualToString:oldName]) return;
+
+        NSString *dest = [[oldPath stringByDeletingLastPathComponent]
+                          stringByAppendingPathComponent:newName];
+        NSFileManager *fm = NSFileManager.defaultManager;
+        if ([fm fileExistsAtPath:dest]) {
+            [self presentAlert:@"重命名失败" message:@"同名工程已存在"];
+            return;
+        }
+        NSError *err = nil;
+        if (![fm moveItemAtPath:oldPath toPath:dest error:&err]) {
+            [self presentAlert:@"重命名失败" message:err.localizedDescription ?: @"未知错误"];
+            return;
+        }
+        [[SPStore shared] removeRecentProjectAtPath:oldPath];
+        NSError *pe = nil;
+        SPProject *np = [SPProject projectAtPath:dest error:&pe];
+        if (np) [[SPStore shared] pushRecentProject:np];
+        [SPMotion hapticSuccess];
+        [self reloadAll];
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
+}
+
+- (void)shareProjectAtIndexPath:(NSIndexPath *)ip {
+    if (ip.row >= (NSInteger)self.items.count) return;
+    NSString *path = self.items[ip.row][@"path"];
+    if (!path.length || ![NSFileManager.defaultManager fileExistsAtPath:path]) return;
+
+    NSString *name = path.lastPathComponent;
+    NSString *zip = [NSTemporaryDirectory() stringByAppendingPathComponent:
+                     [NSString stringWithFormat:@"%@.zip", name]];
+    [NSFileManager.defaultManager removeItemAtPath:zip error:NULL];
+
+    NSString *cmd = [NSString stringWithFormat:@"cd %@ && zip -qry %@ %@",
+                     [SPUtil shellQuote:path.stringByDeletingLastPathComponent],
+                     [SPUtil shellQuote:zip], [SPUtil shellQuote:name]];
+    SPSession *sess = [[SPSession alloc] initWithEnvironment:@{} workingDirectory:NSTemporaryDirectory()];
+    sess.timeout = 120;
+    __weak typeof(self) weakSelf = self;
+    sess.onFinish = ^(SPCommandResult *r) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (r.exitCode != 0 || ![NSFileManager.defaultManager fileExistsAtPath:zip]) {
+                [weakSelf presentAlert:@"打包失败" message:r.stderrText ?: @"zip 命令不可用"];
+                return;
+            }
+            UIActivityViewController *av = [[UIActivityViewController alloc]
+                initWithActivityItems:@[[NSURL fileURLWithPath:zip]] applicationActivities:nil];
+            if (av.popoverPresentationController) {
+                UITableViewCell *c = [weakSelf.tableView cellForRowAtIndexPath:ip];
+                av.popoverPresentationController.sourceView = c ?: weakSelf.view;
+                av.popoverPresentationController.sourceRect = (c ?: weakSelf.view).bounds;
+            }
+            [weakSelf presentViewController:av animated:YES completion:nil];
+        });
+    };
+    [sess runShell:cmd];
 }
 
 - (void)presentNewProjectForm {
