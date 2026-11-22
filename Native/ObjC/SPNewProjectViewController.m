@@ -250,10 +250,20 @@ typedef NS_ENUM(NSInteger, SPNewProjectKind) {
         [mk appendFormat:@"INSTALL_TARGET_PROCESSES = %@\n", target];
     }
     [mk appendString:@"\ninclude $(THEOS)/makefiles/common.mk\n\n"];
-    [mk appendFormat:@"TWEAK_NAME = %@\n\n", name];
-    [mk appendFormat:@"%@_FILES = %@\n", name, files];
-    [mk appendFormat:@"%@_CFLAGS = -fobjc-arc\n\n", name];
-    [mk appendString:@"include $(THEOS_MAKE_PATH)/tweak.mk\n"];
+    if (isDylib) {
+        // 纯动态库用 library.mk / LIBRARY_NAME。
+        // 之前一律写 tweak.mk + TWEAK_NAME —— 产物会被当成 tweak 处理，
+        // 还会要求过滤 plist，与「纯动态库」模板自相矛盾。
+        [mk appendFormat:@"LIBRARY_NAME = %@\n\n", name];
+        [mk appendFormat:@"%@_FILES = %@\n", name, files];
+        [mk appendFormat:@"%@_CFLAGS = -fobjc-arc\n\n", name];
+        [mk appendString:@"include $(THEOS_MAKE_PATH)/library.mk\n"];
+    } else {
+        [mk appendFormat:@"TWEAK_NAME = %@\n\n", name];
+        [mk appendFormat:@"%@_FILES = %@\n", name, files];
+        [mk appendFormat:@"%@_CFLAGS = -fobjc-arc\n\n", name];
+        [mk appendString:@"include $(THEOS_MAKE_PATH)/tweak.mk\n"];
+    }
     [mk writeToFile:[path stringByAppendingPathComponent:@"Makefile"]
            atomically:YES encoding:NSUTF8StringEncoding error:NULL];
 
@@ -295,23 +305,37 @@ typedef NS_ENUM(NSInteger, SPNewProjectKind) {
          writeToFile:[path stringByAppendingPathComponent:@"Tweak.m"]
          atomically:YES encoding:NSUTF8StringEncoding error:NULL];
     } else {
+        // 之前的模板有个致命错误：
+        //   static IMP Xxx(id, SEL, id) { return NULL; }    ← 这是「函数」
+        //   Xxx = method_getImplementation(m);              ← 却当「变量」赋值
+        // 编译直接失败，而且根本没做 class_replaceMethod，等于没 hook。
+        // 下面改成能编译、且真的替换实现的最小实现。
         [@"// Spark 生成的 Objective-C tweak\n"
           "#import <Foundation/Foundation.h>\n"
           "#import <objc/runtime.h>\n\n"
-          "static IMP SPOrig_applicationDidFinishLaunching(id self, SEL _cmd, id app) {\n"
-          "    return NULL;\n}\n\n"
+          "/// 原实现的函数指针（不是函数）\n"
+          "static IMP SPOrig = NULL;\n\n"
+          "static void SPReplace_applicationDidFinishLaunching(id self, SEL _cmd, id app) {\n"
+          "    NSLog(@\"[SPARK] applicationDidFinishLaunching: called\");\n"
+          "    if (SPOrig) ((void (*)(id, SEL, id))SPOrig)(self, _cmd, app);\n"
+          "}\n\n"
           "__attribute__((constructor)) static void SparkHookInit(void) {\n"
           "    Class cls = objc_getClass(\"SpringBoard\");\n"
+          "    if (!cls) return;\n"
           "    SEL sel = sel_registerName(\"applicationDidFinishLaunching:\");\n"
           "    Method m = class_getInstanceMethod(cls, sel);\n"
-          "    if (m) SPOrig_applicationDidFinishLaunching = method_getImplementation(m);\n"
-          "    NSLog(@\"[SPARK] hooked\");\n}\n"
+          "    if (!m) return;\n"
+          "    SPOrig = method_getImplementation(m);\n"
+          "    class_replaceMethod(cls, sel, (IMP)SPReplace_applicationDidFinishLaunching,\n"
+          "                        method_getTypeEncoding(m));\n"
+          "    NSLog(@\"[SPARK] hooked applicationDidFinishLaunching:\");\n"
+          "}\n"
          writeToFile:[path stringByAppendingPathComponent:@"Tweak.m"]
          atomically:YES encoding:NSUTF8StringEncoding error:NULL];
     }
 
     // ── MobileCompiler.json（dylix 也生成这个）──
-    [self writeCompilerManifest:path name:name bundle:bundle isDylib:isDylib];
+    [self writeCompilerManifest:path name:name bundle:bundle isDylib:isDylib isLogos:isLogos];
 
     // ── 目录与忽略文件 ──
     [fm createDirectoryAtPath:[path stringByAppendingPathComponent:@"layout/DEBIAN"]
@@ -326,7 +350,8 @@ typedef NS_ENUM(NSInteger, SPNewProjectKind) {
 - (void)writeCompilerManifest:(NSString *)path
                          name:(NSString *)name
                        bundle:(NSString *)bundle
-                      isDylib:(BOOL)isDylib {
+                      isDylib:(BOOL)isDylib
+                      isLogos:(BOOL)isLogos {
     // 由运行时（SPRuntimeLayout / SPToolchain）读取的是
     // 「工程名 + 产物名 + 包标识」，不涉及工具链路径 —— 
     // 工具链位置仍由 App 内的探测决定，这里不写死任何运行时路径。
@@ -336,7 +361,7 @@ typedef NS_ENUM(NSInteger, SPNewProjectKind) {
         @"package": bundle,
         @"product": [name stringByAppendingString:@".dylib"],
         @"filters": isDylib ? @[] : @[[name stringByAppendingString:@".plist"]],
-        @"sources": @[isDylib ? @"Tweak.m" : @"Tweak.m"],
+        @"sources": @[isLogos ? @"Tweak.x" : @"Tweak.m"],
     };
     NSData *data = [NSJSONSerialization dataWithJSONObject:manifest
                                                    options:NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys

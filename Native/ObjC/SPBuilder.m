@@ -53,7 +53,11 @@
         //   旧布局:              Spark.app/Toolchain/usr/bin 或 Spark.app/usr/bin
         // 自动定位真正的 bin 目录，避免 PATH 指向不存在的位置。
         [lines addObject:@"for c in \"$SPARK_TC/theos-root\" \"$SPARK_TC/Toolchain\" \"$SPARK_TC\"; do "
-                      "[ -x \"$c/usr/bin/clang-16\" ] && { export SPARK_ROOT=\"$c\"; break; }; done"];
+                      // 判据放宽：clang-16 或 llvm-16/bin/clang 任一存在即可 ——
+                 // 有些运行时把真正的 clang 放在 llvm-16/bin，usr/bin 只有薄壳 clang-16。
+                 // 用子 shell 把「或」整体括起来，避免 || 与 && 的求值歧义
+                 "if [ -x \"$c/usr/bin/clang-16\" ] || [ -x \"$c/usr/lib/llvm-16/bin/clang\" ]; "
+                 "then export SPARK_ROOT=\"$c\"; break; fi; done"];
         [lines addObject:@"[ -n \"${SPARK_ROOT:-}\" ] || export SPARK_ROOT=\"$SPARK_TC\""];
         // llvm-16/bin 必须进 PATH：Theos 的 targets/_common/darwin_head.mk 里
         //   _THEOS_TARGET_CC := clang
