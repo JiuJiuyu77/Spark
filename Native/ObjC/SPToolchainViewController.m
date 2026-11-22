@@ -38,8 +38,11 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
 
     // 与 SPToolchainComponent 枚举一一对应
+    // 必须与 SPToolchainComponent 枚举逐项对应（含 Swift）。
+    // 之前这里只有 8 项而枚举有 9 个，numberOfRows 返回 9，
+    // 滚动到第 8 行时 componentKeys[8] 越界 → NSRangeException 崩溃。
     self.componentKeys = @[@"Theos", @"iPhoneOS SDK", @"Darwin 编译工具", @"OLLVM 混淆",
-                           @"逆向工具", @"Python", @"Node", @"SSH（远程编译）"];
+                           @"逆向工具", @"Python", @"Node", @"SSH（远程编译）", @"Swift"];
 
     self.table = SPMakeInsetTable(self);
     self.table.backgroundColor = [SPTheme background];
@@ -122,7 +125,7 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
-        case SPToolSectionStatus: return SPToolchainComponentCount;
+        case SPToolSectionStatus: return (NSInteger)self.componentKeys.count;
         case SPToolSectionSDK: return MAX(1, (NSInteger)[[SPToolchain shared] availableSDKs].count);
         case SPToolSectionTarget: return 4;
         case SPToolSectionDisplay: return 3;
@@ -145,7 +148,7 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
     switch (ip.section) {
         case SPToolSectionStatus: {
             BOOL ok = [scan has:(SPToolchainComponent)ip.row];
-            NSString *key = self.componentKeys[ip.row];
+            NSString *key = SPAtIndex(self.componentKeys, ip.row, @"未知组件");
             cell.textLabel.text = key;
             cell.imageView.image = [UIImage systemImageNamed:ok ? @"checkmark.circle.fill" : @"xmark.circle.fill"];
             cell.imageView.tintColor = ok ? [SPTheme success] : [SPTheme danger];

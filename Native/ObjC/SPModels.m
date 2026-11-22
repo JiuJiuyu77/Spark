@@ -254,6 +254,35 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
     return self;
 }
 
+/// 在 dir 的直接子目录里找工程根（有 Makefile 或 package.json）。
+/// 只探一层，避免在大型源码树里做全量遍历。
++ (nullable NSString *)findNestedProjectRoot:(NSString *)dir {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSArray *items = [fm contentsOfDirectoryAtPath:dir error:NULL] ?: @[];
+    // 优先看名字不像隐藏目录的
+    NSMutableArray *cands = [NSMutableArray array];
+    for (NSString *n in items) {
+        if ([n hasPrefix:@"."]) continue;
+        BOOL isDir = NO;
+        if (![fm fileExistsAtPath:[dir stringByAppendingPathComponent:n] isDirectory:&isDir] || !isDir) continue;
+        [cands addObject:n];
+    }
+    for (NSString *n in cands) {
+        NSString *sub = [dir stringByAppendingPathComponent:n];
+        if ([fm fileExistsAtPath:[sub stringByAppendingPathComponent:@"Makefile"]] ||
+            [fm fileExistsAtPath:[sub stringByAppendingPathComponent:@"package.json"]]) {
+            return sub;
+        }
+    }
+    // 子目录里也没有 —— 再看一层（有些包是 <name>/<版本>/Makefile）
+    for (NSString *n in cands) {
+        NSString *sub = [dir stringByAppendingPathComponent:n];
+        NSString *deep = [self findNestedProjectRoot:sub];
+        if (deep.length) return deep;
+    }
+    return nil;
+}
+
 + (instancetype)projectAtPath:(NSString *)path error:(NSError **)error {
     BOOL isDir = NO;
     if (![NSFileManager.defaultManager fileExistsAtPath:path isDirectory:&isDir] || !isDir) {
@@ -266,6 +295,20 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
     NSFileManager *fm = NSFileManager.defaultManager;
     BOOL hasMakefile = [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"Makefile"]];
     BOOL hasPackage  = [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"package.json"]];
+
+    // 兼容「源码包内嵌一层目录」的情况（BluedHush 这类发布包就是这样：
+    // 解压出来是 <名字>/，里面才是 Makefile）。
+    // 向上、向下各探一层，命中就把 path 换成真正的工程根。
+    if (!hasMakefile && !hasPackage) {
+        NSString *nested = [self findNestedProjectRoot:path];
+        if (nested.length) {
+            path = nested;
+            hasMakefile = [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"Makefile"]];
+            hasPackage  = [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"package.json"]];
+            SPLog(@"[工程] 发现嵌套工程根：%@", path);
+        }
+    }
+
     if (!hasMakefile && !hasPackage) {
         if (error) {
             *error = SPError(SPErrorCodeInvalidProject,
