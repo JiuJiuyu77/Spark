@@ -374,7 +374,19 @@
              // Theos 的 darwin_head.mk 里 _THEOS_TARGET_CC := clang / clang++，
              // 而真正的 clang 在 usr/lib/llvm-16/bin/，usr/bin 里只有 clang-16。
              // 少了这一段，make 一进链接就报 library.mk:37 Error 2。
-             "export PATH=\"%@/usr/lib/llvm-16/bin:%@:%@/helpers:%@/bin:$PATH\"\n"
+             // SPARK_ROOT 自动探测（与正式构建脚本的探测逻辑保持一致）：
+             //   平铺: <installRoot>/theos-root
+             //   旧版: <installRoot>/Toolchain 或 <installRoot>
+             // 之前这里直接把 installRoot 当成 root，拼出
+             //   Spark.app/usr/lib/llvm-16/bin   ← 不存在
+             // 正确的应是 Spark.app/theos-root/usr/lib/llvm-16/bin，
+             // 所以 clang 一直找不到，make 报 library.mk:37 Error 2。
+             "for c in \"%@/theos-root\" \"%@/Toolchain\" \"%@\"; do "
+             "  if [ -x \"$c/usr/lib/llvm-16/bin/clang\" ] || [ -x \"$c/usr/bin/clang-16\" ]; "
+             "then export SPARK_ROOT=\"$c\"; break; fi; done\n"
+             "[ -n \"${SPARK_ROOT:-}\" ] || export SPARK_ROOT=\"%@\"\n"
+             "export PATH=\"$SPARK_ROOT/usr/lib/llvm-16/bin:$SPARK_ROOT/usr/bin:"
+             "$SPARK_ROOT/bin:%@/helpers:%@/bin:$PATH\"\n"
              "export LD_LIBRARY_PATH=\"%@\"\n"
              "export DYLD_LIBRARY_PATH=\"%@\"\n"
              "export PERL5LIB=\"%@\"\n"
@@ -398,15 +410,17 @@
              // 以前最后一句是 `ls ... || echo`，它永远返回 0，
              // 于是外面看到的 exitCode 恒为 0，make 失败也被判成「成功」。
              "exit $MK\n",
-            [SPUtil shellQuote:theos],
-            [SPUtil shellQuote:inst.installRoot],
-            [SPUtil shellQuote:bin],
-            [SPUtil shellQuote:inst.installRoot],
-            [SPUtil shellQuote:theos],
-            [SPUtil shellQuote:inst.libDir],
-            [SPUtil shellQuote:inst.libDir],
-            [SPUtil shellQuote:inst.perl5Dir],
-            [SPUtil shellQuote:work]];
+            [SPUtil shellQuote:theos],              // THEOS
+            [SPUtil shellQuote:inst.installRoot],   // 探测 1: <root>/theos-root
+            [SPUtil shellQuote:inst.installRoot],   // 探测 2: <root>/Toolchain
+            [SPUtil shellQuote:inst.installRoot],   // 探测 3: <root>
+            [SPUtil shellQuote:inst.installRoot],   // 兜底 SPARK_ROOT
+            [SPUtil shellQuote:inst.installRoot],   // %@/helpers
+            [SPUtil shellQuote:theos],              // %@/bin（logos.pl）
+            [SPUtil shellQuote:inst.libDir],        // LD_LIBRARY_PATH
+            [SPUtil shellQuote:inst.libDir],        // DYLD_LIBRARY_PATH
+            [SPUtil shellQuote:inst.perl5Dir],      // PERL5LIB
+            [SPUtil shellQuote:work]];              // cd
 
         __block NSMutableString *buildLog = [NSMutableString string];
         __block BOOL buildOK = NO;
@@ -439,11 +453,36 @@
             if (!buildOK) {
                 NSString *out = r.stdoutText ?: @"";
                 if (!out.length) @synchronized (buildLog) { out = [buildLog copy]; }
-                // 取最后几行作为错误摘要
+                // 错误摘要：**优先提取真正的 error 行**，再补 make 的尾部。
+                // 之前只取最后 12 行，用户看到的永远是
+                // 「make: *** [rules.mk:146 ...] Error 2」这种兜底信息，
+                // 真正的原因（clang not found / ld: undefined symbols）在日志中间。
                 NSArray *lines = [out componentsSeparatedByString:@"\n"];
-                NSUInteger from = lines.count > 12 ? lines.count - 12 : 0;
-                buildErr = [[lines subarrayWithRange:NSMakeRange(from, lines.count - from)]
-                            componentsJoinedByString:@"\n"];
+                NSMutableArray *errs = [NSMutableArray array];
+                for (NSString *ln in lines) {
+                    NSString *t = [ln stringByTrimmingCharactersInSet:
+                                   NSCharacterSet.whitespaceCharacterSet];
+                    if (!t.length) continue;
+                    BOOL hit = ([t rangeOfString:@"error:"].location != NSNotFound) ||
+                               ([t rangeOfString:@"Error "].location != NSNotFound) ||
+                               ([t rangeOfString:@"command not found"].location != NSNotFound) ||
+                               ([t rangeOfString:@"No such file"].location != NSNotFound) ||
+                               ([t rangeOfString:@"undefined symbol"].location != NSNotFound) ||
+                               ([t rangeOfString:@"ld:"].location != NSNotFound);
+                    if (hit) [errs addObject:t];
+                    if (errs.count >= 6) break;
+                }
+                NSMutableArray *parts = [NSMutableArray array];
+                if (errs.count) {
+                    [parts addObject:@"实际错误："];
+                    [parts addObjectsFromArray:errs];
+                    [parts addObject:@""];
+                }
+                NSUInteger from = lines.count > 10 ? lines.count - 10 : 0;
+                [parts addObject:@"make 尾部："];
+                [parts addObject:[[lines subarrayWithRange:NSMakeRange(from, lines.count - from)]
+                                  componentsJoinedByString:@"\n"] ];
+                buildErr = [parts componentsJoinedByString:@"\n"];
             }
             dispatch_semaphore_signal(sem);
         };
