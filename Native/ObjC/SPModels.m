@@ -270,6 +270,7 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
     for (NSString *n in cands) {
         NSString *sub = [dir stringByAppendingPathComponent:n];
         if ([fm fileExistsAtPath:[sub stringByAppendingPathComponent:@"Makefile"]] ||
+            [fm fileExistsAtPath:[sub stringByAppendingPathComponent:@"makefile"]] ||
             [fm fileExistsAtPath:[sub stringByAppendingPathComponent:@"package.json"]]) {
             return sub;
         }
@@ -293,7 +294,8 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
     // 必须是可识别的工程：有 Makefile（Theos / Node）或 package.json
     // 否则用户导入一个空目录也会「成功」，然后点编译才发现没东西可编
     NSFileManager *fm = NSFileManager.defaultManager;
-    BOOL hasMakefile = [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"Makefile"]];
+    BOOL hasMakefile = [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"Makefile"]] ||
+                       [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"makefile"]];
     BOOL hasPackage  = [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"package.json"]];
 
     // 兼容「源码包内嵌一层目录」的情况（BluedHush 这类发布包就是这样：
@@ -303,7 +305,8 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
         NSString *nested = [self findNestedProjectRoot:path];
         if (nested.length) {
             path = nested;
-            hasMakefile = [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"Makefile"]];
+            hasMakefile = [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"Makefile"]] ||
+                          [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"makefile"]];
             hasPackage  = [fm fileExistsAtPath:[path stringByAppendingPathComponent:@"package.json"]];
             SPLog(@"[工程] 发现嵌套工程根：%@", path);
         }
@@ -350,13 +353,18 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
 - (void)reload {
     NSFileManager *fm = NSFileManager.defaultManager;
     self.name = self.path.lastPathComponent;
+    // 兼容 Makefile / makefile 两种大小写（dylix 也是这么做的）
     NSString *makefile = [self.path stringByAppendingPathComponent:@"Makefile"];
+    if (![fm fileExistsAtPath:makefile]) {
+        NSString *lower = [self.path stringByAppendingPathComponent:@"makefile"];
+        if ([fm fileExistsAtPath:lower]) makefile = lower;
+    }
     self.makefilePath = [fm fileExistsAtPath:makefile] ? makefile : nil;
     self.isTheosProject = self.makefilePath != nil;
 
     // ---- 解析 Makefile / control ----
     if (self.makefilePath) {
-        NSString *mk = [NSString stringWithContentsOfFile:makefile encoding:NSUTF8StringEncoding error:NULL] ?: @"";
+        NSString *mk = [NSString stringWithContentsOfFile:self.makefilePath encoding:NSUTF8StringEncoding error:NULL] ?: @"";
         if ([self firstValueOfMakeVar:@"TWEAK_NAME" in:mk]) {
             self.kind = SPProjectKindTweak;
             self.executable = [self firstValueOfMakeVar:@"TWEAK_NAME" in:mk];
@@ -435,16 +443,71 @@ static NSArray<NSString *> *SPFlagsForPass(NSString *pass) {
 }
 
 - (nullable NSString *)firstValueOfMakeVar:(NSString *)var in:(NSString *)makefile {
+    // 第 1043 轮修正（对齐 dylix 的 TheosMakefile 解析）：
+    //
+    // 旧实现有两个致命问题，导致「自己新建的工程」也解析失败：
+    //   ① 要求 `TWEAK_NAME=` 紧贴行首 —— 但 Theos 惯例是 `TWEAK_NAME = xxx`
+    //      （等号两边有空格），我们自己的模板就是这么生成的。
+    //   ② 不支持 ?= / := / += 这几种赋值写法。
+    //
+    // 现在的做法：拆出「变量名」「赋值符」「值」三段，只比较变量名，
+    // 容忍任意空格，并剥掉行尾注释。
     for (NSString *rawLine in [makefile componentsSeparatedByString:@"\n"]) {
-        NSString *line = [rawLine stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
-        if ([line hasPrefix:@"#"]) continue;
-        NSRange r = [line rangeOfString:[var stringByAppendingString:@"="]];
-        if (r.location == NSNotFound) continue;
-        if (r.location != 0) continue; // 只认行首定义，避免 VAR2= 误判
-        NSString *v = [line substringFromIndex:NSMaxRange(r)];
-        v = [v stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" \t\r$()"]];
-        // 形如 $(TWEAK_NAME) 的引用不算
-        if ([v hasPrefix:@"$"]) return nil;
+        NSString *line = [rawLine stringByTrimmingCharactersInSet:
+                          NSCharacterSet.whitespaceCharacterSet];
+        if (!line.length || [line hasPrefix:@"#"]) continue;
+
+        // 变量名：字母/数字/下划线，必须从行首开始
+        NSUInteger i = 0;
+        NSCharacterSet *nameSet = [NSCharacterSet characterSetWithCharactersInString:
+                                   @"abcdefghijklmnopqrstuvwxyz"
+                                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"];
+        while (i < line.length && [nameSet characterIsMember:[line characterAtIndex:i]]) i++;
+        if (i == 0) continue;
+
+        NSString *name = [line substringToIndex:i];
+        if (![name isEqualToString:var]) continue;
+
+        // 跳过空白
+        while (i < line.length && [[NSCharacterSet whitespaceCharacterSet]
+                                   characterIsMember:[line characterAtIndex:i]]) i++;
+
+        // 赋值符：= / ?= / := / +=
+        BOOL assign = NO;
+        if (i < line.length) {
+            unichar c = [line characterAtIndex:i];
+            if (c == '=') { assign = YES; i++; }
+            else if ((c == '?' || c == ':' || c == '+') && i + 1 < line.length &&
+                     [line characterAtIndex:i + 1] == '=') { assign = YES; i += 2; }
+        }
+        if (!assign) continue;
+
+        NSString *v = [[line substringFromIndex:i]
+                       stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+
+        // 剥掉行尾注释（不在引号内的 #）
+        BOOL inQuote = NO; unichar q = 0;
+        for (NSUInteger k = 0; k < v.length; k++) {
+            unichar ch = [v characterAtIndex:k];
+            if (inQuote) {
+                if (ch == q) inQuote = NO;
+            } else if (ch == '"' || ch == '\'') {
+                inQuote = YES; q = ch;
+            } else if (ch == '#') {
+                v = [v substringToIndex:k];
+                break;
+            }
+        }
+        v = [v stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+
+        // 形如 $(XXX) 的引用不算（说明值来自别处，解析不出来）
+        if ([v hasPrefix:@"$"]) continue;
+        // 去掉包裹的引号
+        if (v.length >= 2 &&
+            (( [v hasPrefix:@"\""] && [v hasSuffix:@"\""] ) ||
+             ( [v hasPrefix:@"'"]  && [v hasSuffix:@"'"]  ))) {
+            v = [v substringWithRange:NSMakeRange(1, v.length - 2)];
+        }
         return v.length ? v : nil;
     }
     return nil;

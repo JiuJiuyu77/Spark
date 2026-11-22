@@ -100,21 +100,67 @@
         // 而且包内软链在重签名后可能失效。
         // 做法：只有当 $THEOS/sdks 里没有真 SDK 时，才把顶层 sdks 复制进去；
         // 复制前先看目标位置是否已有完整 SDK，避免每次构建都重复拷几百 MB。
+        // SDK 注入：**不用软链**（TrollStore 的 ldid -s 遇软链会整体失败）。
+        // 判定「已复制完整」必须同时满足三件事，只看 SDKSettings.json 不够：
+        //   ① SDKSettings.json 在   ② usr/include 在   ③ System/Library/Frameworks 非空
+        // 否则上一次复制中途失败（空间不足/被杀）留下的半成品会被误判为完整，
+        // 之后每次构建都跳过复制，SDK 永远残缺。
         [lines addObject:@"if [ -d \"$SPARK_TC/sdks\" ] && [ -n \"${THEOS:-}\" ]; then "
                       "mkdir -p \"$THEOS/sdks\" 2>/dev/null || true; "
                       "for s in \"$SPARK_TC\"/sdks/iPhoneOS*.sdk; do "
-                      "[ -d \"$s\" ] || continue; "
-                      "n=$(basename \"$s\"); "
-                      "[ -f \"$THEOS/sdks/$n/SDKSettings.json\" ] && continue; "
-                      "cp -R \"$s\" \"$THEOS/sdks/\" 2>/dev/null || true; "
+                      "  [ -d \"$s\" ] || continue; "
+                      "  n=$(basename \"$s\"); "
+                      "  d=\"$THEOS/sdks/$n\"; "
+                      "  if [ -f \"$d/SDKSettings.json\" ] && [ -d \"$d/usr/include\" ] && "
+                      "     [ -n \"$(ls \"$d/System/Library/Frameworks\" 2>/dev/null | head -1)\" ]; then "
+                      "    continue; "
+                      "  fi; "
+                      "  if [ -d \"$d\" ]; then warn \"SDK $n 不完整，重新复制\"; rm -rf \"$d\"; fi; "
+                      "  avail=$(df -Pm \"$THEOS\" 2>/dev/null | awk 'NR==2{print $4}'); "
+                      "  need=$(du -sm \"$s\" 2>/dev/null | awk '{print $1}'); "
+                      "  if [ -n \"$avail\" ] && [ -n \"$need\" ] && [ \"$avail\" -lt \"$need\" ]; then "
+                      "    warn \"空间不足：需要 ${need}MB，可用 ${avail}MB —— 跳过 $n\"; continue; "
+                      "  fi; "
+                      "  say \"复制 SDK $n（${need:-?}MB）\"; "
+                      "  if cp -R \"$s\" \"$THEOS/sdks/\" 2>/dev/null; then "
+                      "    ok \"SDK $n 就绪\"; "
+                      "  else "
+                      "    warn \"复制 SDK $n 失败，清理残件\"; rm -rf \"$d\"; "
+                      "  fi; "
                       "done; fi"];
-        [lines addObject:@"[ -n \"${THEOS:-}\" ] || warn '没找到带 SDK 的 theos 目录'"];
+        // THEOS 没找到时必须**立刻中止**。
+        // 以前只 warn 一句就继续 make，用户看到的是一屏
+        // 「make: *** No rule to make target ...」「common.mk: No such file」，
+        // 完全看不出是工具链没装好。
+        [lines addObject:@"if [ -z \"${THEOS:-}\" ]; then "
+                      "warn '没找到可用的 Theos（makefiles/common.mk + sdks 都没找到）'; "
+                      "warn '请到「工具」页安装/修复工具链，或检查运行时是否解压完整'; "
+                      "exit 4; "
+                      "fi"];
         // SYSROOT 也要显式给：Theos 会拿它去校验 SDK 是否存在，
         // 不设置时在某些版本上会报「chosen SYSROOT does not exist」。
+        // 选最新 SDK。**不能用 sort -V**：iOS 上跑的是 busybox sort，
+        // 很多版本不认 -V，失败后静默输出空 → SYSROOT 没设上，
+        // 后面 make 就会报「chosen SYSROOT does not exist」或直接挑错 SDK。
+        // 改成把版本号拆成主/次两段，用 POSIX 的 sort -n 排序，任何 busybox 都支持。
         [lines addObject:@"if [ -z \"${SYSROOT:-}\" ] && [ -n \"${THEOS:-}\" ]; then "
-                      "sdk=$(ls -d \"$THEOS\"/sdks/iPhoneOS*.sdk 2>/dev/null | sort -V | tail -1); "
+                      "sdk=$(ls -d \"$THEOS\"/sdks/iPhoneOS*.sdk 2>/dev/null | while IFS= read -r s; do "
+                      "  v=${s##*iPhoneOS}; v=${v%.sdk}; "
+                      "  maj=${v%%.*}; rest=${v#*.}; min=${rest%%.*}; "
+                      "  case \"$maj\" in ''|*[!0-9]*) maj=0;; esac; "
+                      "  case \"$min\" in ''|*[!0-9]*) min=0;; esac; "
+                      "  printf '%s %s %s\\n' \"$maj\" \"$min\" \"$s\"; "
+                      "done | sort -n -k1,1 -k2,2 | tail -1 | cut -d' ' -f3-); "
                       "[ -n \"$sdk\" ] && export SYSROOT=\"$sdk\" && export THEOS_SDK=\"$sdk\"; fi"];
-        [lines addObject:@"[ -n \"${SYSROOT:-}\" ] && ok \"SDK: $SYSROOT\" || warn '未设置 SYSROOT'"];
+        // SYSROOT 同样必须硬性拦截 —— 没有 SDK 时 make 会报
+        // 「chosen SYSROOT does not exist」或者干脆挑到一个空目录。
+        [lines addObject:@"if [ -z \"${SYSROOT:-}\" ]; then "
+                      "warn '没找到 iPhoneOS SDK'; "
+                      "warn '需要 \"$THEOS/sdks\" 或运行时顶层 sdks/ 里有完整的 iPhoneOS*.sdk'; "
+                      "ls -d \"$THEOS\"/sdks/* 2>/dev/null | sed 's/^/    现有: /' || true; "
+                      "exit 5; "
+                      "fi"];
+        [lines addObject:@"ok \"SDK: $SYSROOT\""];
     }
 
     // App 自带的命令行工具目录（spark-logos 等）
@@ -188,7 +234,19 @@
     [lines addObject:@"say '开始编译'"];
     [lines addObject:[NSString stringWithFormat:@"echo '+ %@'", makeCmd]];
     [lines addObject:@"__rb_start=$(date +%s)"];
-    [lines addObject:makeCmd];
+    // make 之后**必须立刻判退出码**。
+    // 之前这里是裸跑 make，失败后脚本继续往下走：
+    //   ① 补签用 .theos/obj 里的旧产物
+    //   ② 收集 packages/*.deb —— 如果用户没勾「清理旧产物」，
+    //      收上来的是上一次的 deb，于是 make 失败也显示「构建成功」。
+    [lines addObject:@"__rb_make_ok=1"];
+    [lines addObject:[makeCmd stringByAppendingString:@" || __rb_make_ok=0"]];
+    [lines addObject:@"if [ \"$__rb_make_ok\" = \"0\" ]; then "
+                  "  __rb_t=$(($(date +%s) - __rb_begin)); "
+                  "  warn \"make 失败（$__rb_t 秒）—— 往上找 error: 行\"; "
+                  "  exit 6; "
+                  "fi"];
+    [lines addObject:@"ok \"编译通过（$(($(date +%s) - __rb_begin)) 秒）\""];
 
     // ---- 签名 ----
     if (options.signWithLdid) {
@@ -211,8 +269,8 @@
     [lines addObject:@"    dpkg-deb -I \"$d\" 2>/dev/null | grep -E 'Package:|Version:|Architecture:' | sed 's/^/      /' || true"];
     [lines addObject:@"  fi"];
     [lines addObject:@"done"];
-    [lines addObject:@"__rb_end=$(date +%s)"];
-    [lines addObject:@"ok \"用时 $((__rb_end - __rb_begin)) 秒\""];
+    [lines addObject:@"__rb_finish=$(date +%s)"];
+    [lines addObject:@"ok \"全部完成（总用时 $((__rb_finish - __rb_begin)) 秒）\""];
 
     return [lines componentsJoinedByString:@"\n"];
 }

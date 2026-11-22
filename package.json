@@ -8,7 +8,7 @@
     "detect": "node scripts/detect-toolchain.mjs",
     "gen": "node scripts/gen-build-script.mjs",
     "test": "node --test ShareKit/test/model.test.mjs ProjectKit/test/trollinject.test.mjs ProjectKit/test/mcp.test.mjs ProjectKit/test/mcp-loopback.test.mjs Workers/test/worker.test.mjs",
-    "check": "node --check Workers/SPCloudWorker.js && python3 scripts/check-balance.py && python3 scripts/check-imports.py && python3 scripts/check-header-selfcontained.py && python3 scripts/check-objc-syntax.py && python3 scripts/check-theme-usage.py && python3 scripts/check-entitlements.py && python3 scripts/audit-layout.py && python3 scripts/check-visual-consistency.py && python3 scripts/check-quality.py && sh tools/selftest-cross.sh && python3 tests/logos_test.py",
+    "check": "node --check Workers/SPCloudWorker.js && python3 scripts/check-balance.py && python3 scripts/check-imports.py && python3 scripts/check-header-selfcontained.py && python3 scripts/check-objc-syntax.py && python3 scripts/check-theme-usage.py && python3 scripts/check-entitlements.py && python3 scripts/audit-layout.py && python3 scripts/check-visual-consistency.py && python3 scripts/check-quality.py && sh tools/selftest-cross.sh && python3 tests/logos_test.py && python3 tests/makefile_parse_test.py",
     "troll": "node -e \"import('./ProjectKit/src/trolltools.mjs').then(m=>console.log(m.summarizeTools(m.detectTools())))\"",
     "mcp": "node bin/spark-mcp.mjs",
     "mcp:http": "node bin/spark-mcp.mjs --http"
