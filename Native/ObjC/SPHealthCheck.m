@@ -560,6 +560,8 @@
 
     // clang 真实版本（能跑起来才算数）
     {
+        SPHealthItem *it = [SPHealthItem new];
+        it.category = SPHealthCategoryCompiler;
         it.title = @"clang 可运行";
         // 与上面工具查找保持同一套目录：当前运行时是 Rein 对齐包，
         // 真正的 clang 在 theos-root/usr/lib/llvm-16/bin。
