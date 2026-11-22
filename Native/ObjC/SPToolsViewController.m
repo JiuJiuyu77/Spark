@@ -17,6 +17,7 @@
 #import "SPRemoteViewController.h"
 #import "SPSignatureViewController.h"
 #import "SPCrossBuildViewController.h"
+#import "SPHealthViewController.h"
 #import "SPSelfTestViewController.h"
 #import "SPStore.h"
 #import "SPCompat.h"
@@ -140,9 +141,16 @@
     audit.tint = [SPTheme success];
     audit.controllerClass = SPSignatureViewController.class;
 
+    SPToolItem *health = [SPToolItem new];
+    health.title = @"自检";
+    health.detail = @"运行时 · 编译链 · 工具链 · 环境，失败给命令与原因";
+    health.symbol = @"stethoscope";
+    health.tint = [SPTheme gold];
+    health.controllerClass = SPHealthViewController.class;
+
     SPToolItem *selftest = [SPToolItem new];
     selftest.title = @"测试构建";
-    selftest.detail = @"自动生成最小 tweak 并编译，逐步报告哪一环不通";
+    selftest.detail = @"真的编一个最小 tweak，验证端到端能出包";
     selftest.symbol = @"checklist";
     selftest.tint = [SPTheme gold];
     selftest.controllerClass = SPSelfTestViewController.class;
@@ -169,7 +177,7 @@
     logs.controllerClass = SPLogsViewController.class;
 
     self.groupTitles = @[@"编译", @"分析与注入", @"文件与记录", @"远程与诊断"];
-    self.groups = @[@[tc], @[selftest, cross], @[rev, inj, mount, logs], @[remote, crash, audit]];
+    self.groups = @[@[tc], @[health, selftest, cross], @[rev, inj, mount, logs], @[remote, crash, audit]];
 }
 
 #pragma mark - Table

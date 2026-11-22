@@ -75,9 +75,12 @@
     NSString *n = name.lowercaseString;
     if ([n hasPrefix:@"troll-"]) return @"注入";
     if ([n hasPrefix:@"selfcheck"]) return @"自检";
+    if ([n hasPrefix:@"health"]) return @"自检";
     if ([n hasPrefix:@"rev-"]) return @"逆向";
     if ([n hasPrefix:@"inject"]) return @"注入";
     if ([n hasSuffix:@".sh"]) return @"脚本";
+    // 构建日志文件名是 <时间戳>-<jobId>.log，jobId 里带 build 的就是构建
+    if ([n containsString:@"build"]) return @"构建";
     return @"构建";
 }
 

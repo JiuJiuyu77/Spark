@@ -9,6 +9,7 @@
 #import "SPBuilder.h"
 #import "SPSession.h"
 #import "SPStore.h"
+#import "SPHealthCheck.h"
 #import "SPCompat.h"
 #import "SPAppDelegate.h"
 #import "SPCrashGuard.h"
@@ -457,10 +458,38 @@
                     symbol:@"xmark.octagon.fill" color:[SPTheme danger]];
         }
         [SPMotion hapticError];
-        [self showHint:job.failureHint ?: @"编译失败，请查看日志最后几行。"];
+
+        // ── 失败时把日志翻成「人话」──
+        // 以前只把 failureHint 丢给用户，而它往往是 make 的兜底信息
+        // （「Error 2」），真正原因埋在几百行输出里。
+        // 现在用 SPHealthCheck 的翻译表扫一遍日志，把结论直接显示出来，
+        // 同时把完整日志落盘，方便分享出来排查。
+        NSString *fullLog = [self.logView fullText] ?: @"";
+        NSString *human = [SPHealthCheck humanizeOutput:fullLog
+                                              exitCode:job.exitCode
+                                                intent:@"编译"];
+        NSString *hint = human.length ? human : (job.failureHint ?: @"编译失败，请查看日志最后几行。");
+
+        [self showHint:hint];
         [self offerAutofixForJob:job];
         [self.logView appendLine:@"" level:SPLogLevelOut];
-        [self.logView appendLine:[NSString stringWithFormat:@"[!] %@", job.failureHint ?: @"构建失败"] level:SPLogLevelErr];
+        [self.logView appendLine:@"──── 诊断 ────" level:SPLogLevelErr];
+        for (NSString *ln in [hint componentsSeparatedByString:@"\n"]) {
+            [self.logView appendLine:ln level:SPLogLevelErr];
+        }
+
+        // 自动落盘：失败日志最有价值，不该等用户手动点保存
+        if (fullLog.length) {
+            NSString *path = [[SPStore shared] persistLogText:fullLog
+                                                        jobId:job.jobId ?: @"build"];
+            if (path.length) {
+                [self.logView appendLine:@""
+                                 level:SPLogLevelOut];
+                [self.logView appendLine:[NSString stringWithFormat:
+                    @"[i] 日志已保存：%@（在「工具」→「日志」里可查看/分享）",
+                    path.lastPathComponent] level:SPLogLevelStep];
+            }
+        }
     }
 
     [[SPStore shared] appendBuildRecord:job];
