@@ -450,11 +450,13 @@
         SPHealthItem *it = [SPHealthItem new];
         it.category = SPHealthCategoryRuntime;
         it.title = @"可用磁盘空间";
-        [self run:@"df -Pm . 2>/dev/null | awk 'NR==2{print $4" MB"}'"
+        // 注意：ObjC 字符串里不能再出现未转义的 "，
+        // 所以 awk 只输出数字，单位在下面拼。
+        [self run:@"df -Pm . 2>/dev/null | awk 'NR==2{print $4}'"
               item:it intent:@"检查剩余空间" envPrefix:nil timeout:15];
         if (it.status == SPHealthStatusPass) {
-            // 从 "1234 MB" 里取数字
-            NSInteger mb = [[it.summary componentsSeparatedByString:@" "] firstObject].integerValue;
+            // awk 现在只输出数字（没有单位），直接取值
+            NSInteger mb = it.summary.integerValue;
             if (mb > 0 && mb < 200) {
                 it.status = SPHealthStatusWarn;
                 it.summary = [NSString stringWithFormat:@"仅剩 %ld MB", (long)mb];
