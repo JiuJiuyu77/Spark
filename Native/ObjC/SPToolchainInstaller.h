@@ -62,6 +62,14 @@ typedef void (^SPInstallCompletion)(BOOL ok, NSError *_Nullable error);
 @property (nonatomic, readonly) NSString *ollvmRoot;    // Toolchain/ollvm
 @property (nonatomic, readonly) NSString *reverseBinDir;// Toolchain/reverse/bin
 
+/// 统一的子进程环境（PATH / DYLD_LIBRARY_PATH / PERL5LIB / THEOS …）。
+///
+/// 所有要跑 shell 的地方都必须用它，而不是自己拼 PATH ——
+/// 之前自检里 `df` / `uname` / `awk` / `head` 全返回 127，
+/// 就是因为 SPSession 只继承了 App 进程的 PATH（不含 helpers/bin）。
+/// 这里只把**真实存在**的目录放进去，避免 PATH 里塞一堆空路径。
+- (NSDictionary<NSString *, NSString *> *)runtimeEnvironment;
+
 @end
 
 NS_ASSUME_NONNULL_END

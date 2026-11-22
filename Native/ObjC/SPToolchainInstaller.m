@@ -144,6 +144,85 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
 - (NSString *)reverseBinDir { return [self.installRoot stringByAppendingPathComponent:@"reverse/bin"]; }
 
 
+
+#pragma mark - 子进程环境
+
+/// 把存在的目录按顺序拼进 PATH。
+/// 顺序有意义：llvm-16/bin 必须最前（Theos 调 `clang` / `clang++`，
+/// 而 usr/bin 里只有 clang-16）。
+- (NSDictionary<NSString *, NSString *> *)runtimeEnvironment {
+    NSMutableArray<NSString *> *pathDirs = [NSMutableArray array];
+    NSFileManager *fm = NSFileManager.defaultManager;
+
+    void (^addDir)(NSString *) = ^(NSString *p) {
+        if (!p.length) return;
+        BOOL isDir = NO;
+        if ([fm fileExistsAtPath:p isDirectory:&isDir] && isDir) {
+            if (![pathDirs containsObject:p]) [pathDirs addObject:p];
+        }
+    };
+
+    NSString *root = self.installRoot;
+    // 真实 clang / clang++ 所在
+    addDir([root stringByAppendingPathComponent:@"usr/lib/llvm-16/bin"]);
+    addDir([root stringByAppendingPathComponent:@"theos-root/usr/lib/llvm-16/bin"]);
+    // Darwin 工具集
+    addDir(self.binDir);
+    addDir([root stringByAppendingPathComponent:@"theos-root/usr/bin"]);
+    addDir(self.baseBinDir);
+    // 基础命令（cat / cp / awk / head / uname / df …）
+    addDir([root stringByAppendingPathComponent:@"helpers"]);
+    addDir([root stringByAppendingPathComponent:@"bin"]);
+    // 包内平铺布局
+    NSString *bundle = [NSBundle mainBundle].bundlePath;
+    addDir([bundle stringByAppendingPathComponent:@"helpers"]);
+    addDir([bundle stringByAppendingPathComponent:@"bin"]);
+    // Theos 自己的 bin（logos.pl / ldid 等）
+    NSString *theos = self.theosPath;
+    if (theos.length) addDir([theos stringByAppendingPathComponent:@"bin"]);
+    // 兜底：系统目录（有就用，没有也不报错）
+    [pathDirs addObject:@"/usr/bin"];
+    [pathDirs addObject:@"/bin"];
+    [pathDirs addObject:@"/usr/sbin"];
+    [pathDirs addObject:@"/sbin"];
+
+    NSMutableDictionary *env = [NSMutableDictionary dictionary];
+    env[@"PATH"] = [pathDirs componentsJoinedByString:@":"];
+    // HOME 指向 App 沙盒：基础命令有时会往 $HOME 写缓存
+    env[@"HOME"] = NSHomeDirectory();
+    env[@"TMPDIR"] = NSTemporaryDirectory();
+    env[@"LC_ALL"] = @"en_US.UTF-8";
+    env[@"LANG"] = @"en_US.UTF-8";
+    env[@"TERM"] = @"dumb";
+
+    // 动态库：clang / ld64 都是自带的 dylib，必须能查到
+    NSMutableArray<NSString *> *libs = [NSMutableArray array];
+    for (NSString *d in @[self.libDir,
+                          [root stringByAppendingPathComponent:@"theos-root/usr/lib"],
+                          [root stringByAppendingPathComponent:@"usr/lib/llvm-16/lib"]]) {
+        if (!d.length) continue;
+        BOOL isDir = NO;
+        if ([fm fileExistsAtPath:d isDirectory:&isDir] && isDir && ![libs containsObject:d]) {
+            [libs addObject:d];
+        }
+    }
+    if (libs.count) {
+        NSString *joined = [libs componentsJoinedByString:@":"];
+        env[@"DYLD_LIBRARY_PATH"] = joined;
+        env[@"LD_LIBRARY_PATH"] = joined;
+    }
+
+    // .x 预处理要 perl5 模块
+    NSString *perl5 = self.perl5Dir;
+    BOOL perlIsDir = NO;
+    if (perl5.length && [fm fileExistsAtPath:perl5 isDirectory:&perlIsDir] && perlIsDir) {
+        env[@"PERL5LIB"] = perl5;
+    }
+
+    if (theos.length) env[@"THEOS"] = theos;
+    return env;
+}
+
 #pragma mark - 状态
 
 - (NSString *)installedVersion {

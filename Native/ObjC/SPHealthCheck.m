@@ -225,7 +225,7 @@
 
     NSDate *t0 = [NSDate date];
     SPCommandResult *r = [SPSession runSyncShell:full
-                                     environment:@{}
+                                     environment:[[SPToolchainInstaller shared] runtimeEnvironment]
                                              cwd:NSTemporaryDirectory()
                                          timeout:timeout];
     item.elapsedMS = (NSInteger)(-[t0 timeIntervalSinceNow] * 1000);
@@ -483,24 +483,45 @@
         it.category = SPHealthCategoryCompiler;
         it.title = t;
 
-        // 依次在这些目录里找
+        // 依次在这些目录里找。**必须覆盖 theos-root/ 布局** ——
+        // 当前运行时是 Rein 对齐包：真正的 clang 在
+        // theos-root/usr/lib/llvm-16/bin，基础命令在 theos-root/usr/bin。
+        // 之前只查 installRoot/usr/lib/llvm-16/bin（不存在），
+        // 于是 clang / clang++ 一律报「找不到」。
+        NSString *root = inst.installRoot;
         NSArray *dirs = @[
-            [inst.installRoot stringByAppendingPathComponent:@"usr/lib/llvm-16/bin"],
+            [root stringByAppendingPathComponent:@"usr/lib/llvm-16/bin"],
+            [root stringByAppendingPathComponent:@"theos-root/usr/lib/llvm-16/bin"],
             inst.binDir ?: @"",
+            [root stringByAppendingPathComponent:@"theos-root/usr/bin"],
             inst.baseBinDir ?: @"",
-            [inst.installRoot stringByAppendingPathComponent:@"helpers"],
-            [inst.installRoot stringByAppendingPathComponent:@"usr/bin"],
+            [root stringByAppendingPathComponent:@"helpers"],
+            [root stringByAppendingPathComponent:@"bin"],
+            [root stringByAppendingPathComponent:@"usr/bin"],
         ];
+        // usr/bin 里只有 clang-16 / clang++-16，Theos 调的是 clang / clang++。
+        // 这里把别名也算命中，否则明明能编译却报「找不到 clang」。
+        NSMutableArray *names = [NSMutableArray arrayWithObject:t];
+        if ([t isEqualToString:@"clang"]) [names addObject:@"clang-16"];
+        if ([t isEqualToString:@"clang++"]) [names addObject:@"clang++-16"];
+
         NSString *found = nil;
         for (NSString *d in dirs) {
             if (!d.length) continue;
-            NSString *p = [d stringByAppendingPathComponent:t];
-            if ([NSFileManager.defaultManager isExecutableFileAtPath:p]) { found = p; break; }
+            for (NSString *n in names) {
+                NSString *p = [d stringByAppendingPathComponent:n];
+                if ([NSFileManager.defaultManager isExecutableFileAtPath:p]) { found = p; break; }
+            }
+            if (found) break;
         }
         if (found) {
             it.status = SPHealthStatusPass;
             it.summary = [found stringByReplacingOccurrencesOfString:NSHomeDirectory()
                                                            withString:@"~"];
+            if (![[found lastPathComponent] isEqualToString:t]) {
+                it.summary = [NSString stringWithFormat:@"%@（实为 %@）",
+                              it.summary, [found lastPathComponent]];
+            }
             it.output = found;
         } else {
             it.status = SPHealthStatusFail;
@@ -539,24 +560,44 @@
 
     // clang 真实版本（能跑起来才算数）
     {
-        SPHealthItem *it = [SPHealthItem new];
-        it.category = SPHealthCategoryCompiler;
         it.title = @"clang 可运行";
-        NSString *clangPath = [inst.installRoot stringByAppendingPathComponent:@"usr/lib/llvm-16/bin/clang"];
-        if (![NSFileManager.defaultManager isExecutableFileAtPath:clangPath]) {
-            clangPath = [inst.binDir stringByAppendingPathComponent:@"clang-16"];
+        // 与上面工具查找保持同一套目录：当前运行时是 Rein 对齐包，
+        // 真正的 clang 在 theos-root/usr/lib/llvm-16/bin。
+        NSString *root = inst.installRoot;
+        NSArray *clangCands = @[
+            [root stringByAppendingPathComponent:@"usr/lib/llvm-16/bin/clang"],
+            [root stringByAppendingPathComponent:@"theos-root/usr/lib/llvm-16/bin/clang"],
+            [inst.binDir stringByAppendingPathComponent:@"clang"],
+            [inst.binDir stringByAppendingPathComponent:@"clang-16"],
+            [root stringByAppendingPathComponent:@"theos-root/usr/bin/clang-16"],
+            [root stringByAppendingPathComponent:@"usr/bin/clang"],
+            [root stringByAppendingPathComponent:@"usr/bin/clang-16"],
+        ];
+        NSString *clangPath = nil;
+        for (NSString *p in clangCands) {
+            if (p.length && [NSFileManager.defaultManager isExecutableFileAtPath:p]) {
+                clangPath = p; break;
+            }
         }
-        if (![NSFileManager.defaultManager isExecutableFileAtPath:clangPath]) {
+        if (!clangPath) {
             it.status = SPHealthStatusSkip;
             it.summary = @"跳过（clang 不存在）";
+            it.output = [clangCands componentsJoinedByString:@"\n"];
             emit(it);
             return;
         }
-        NSString *env = [NSString stringWithFormat:
-                         @"export DYLD_LIBRARY_PATH=%@; export PATH=%@:$PATH",
-                         inst.libDir, [clangPath stringByDeletingLastPathComponent]];
-        [self run:[NSString stringWithFormat:@"%@ --version 2>&1 | head -2", clangPath]
-             item:it intent:@"确认 clang 能跑" envPrefix:env timeout:20];
+        // PATH / DYLD 已由 runtimeEnvironment 统一提供，
+        // 这里只把 clang 所在目录顶到最前，保证它自己能被解析到。
+        NSString *env = [NSString stringWithFormat:@"export PATH=%@:$PATH",
+                         [SPUtil shellQuote:[clangPath stringByDeletingLastPathComponent]]];
+        NSString *cmd = [NSString stringWithFormat:@"%@ --version 2>&1 | head -2",
+                         [SPUtil shellQuote:clangPath]];
+        [self run:cmd item:it intent:@"确认 clang 能跑" envPrefix:env timeout:20];
+        if (it.status == SPHealthStatusPass) {
+            NSString *one = [it.summary stringByReplacingOccurrencesOfString:@"\n"
+                                                                  withString:@" "];
+            it.summary = [NSString stringWithFormat:@"%@ · %@", one, [clangPath lastPathComponent]];
+        }
         emit(it);
     }
 }
