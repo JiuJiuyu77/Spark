@@ -7,7 +7,6 @@
 #import "SPHealthCheck.h"
 #import "SPTheme.h"
 #import "SPCompat.h"
-#import "SPMotion.h"
 
 @implementation SPHealthDetailViewController
 

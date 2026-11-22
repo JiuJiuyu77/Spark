@@ -16,7 +16,6 @@
 #import "SPTheme.h"
 #import "SPCompat.h"
 #import "SPGlassKit.h"
-#import "SPMotion.h"
 #import "SPHealthDetailViewController.h"
 #import "SPStore.h"
 
