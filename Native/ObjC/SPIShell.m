@@ -164,7 +164,7 @@ static NSString *const kIShellEnabledKey = @"Workbench.ishellEnabled";
 - (NSString *)pathFallbackSnippet {
     if (![SPIShell isEnabledByUser]) return @"";
     if (self.state != SPIShellStateAvailable) return @"";
-    return @"export PATH=\\"$PATH:/usr/bin:/bin\\"\\n";
+    return @"export PATH=\"$PATH:/usr/bin:/bin\"\n";
 }
 
 @end
