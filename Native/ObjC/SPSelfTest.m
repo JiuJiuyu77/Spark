@@ -333,6 +333,50 @@
             return;
         }
 
+        // ── 4.5 SDK 注入 $THEOS/sdks ──
+        // 这一步是自检此前漏掉的，也正是「自检全绿但 make 报
+        // library.mk:37 Error 2」的根因：
+        //   · 运行时里 SDK 放在顶层 <root>/sdks/
+        //   · 而 Theos 只认 $THEOS/sdks/
+        //   · 正式构建流程里有复制逻辑，SPSelfTest 没有
+        // 不复制的话 make 根本找不到 SDK，却只报一句 library.mk:37。
+        {
+            NSMutableArray *injected = [NSMutableArray array];
+            NSString *topSdks = [inst.installRoot stringByAppendingPathComponent:@"sdks"];
+            NSString *theosSdks = [theos stringByAppendingPathComponent:@"sdks"];
+
+            NSArray *cands = [fm contentsOfDirectoryAtPath:topSdks error:NULL] ?: @[];
+            for (NSString *n in cands) {
+                if (![n hasPrefix:@"iPhoneOS"] || ![n hasSuffix:@".sdk"]) continue;
+                NSString *src = [topSdks stringByAppendingPathComponent:n];
+                NSString *dst = [theosSdks stringByAppendingPathComponent:n];
+
+                // 已完整就不重复拷（SDK 有几百 MB，每次都拷会拖死自检）
+                BOOL done = [fm fileExistsAtPath:[dst stringByAppendingPathComponent:@"SDKSettings.json"]]
+                         && [fm fileExistsAtPath:[dst stringByAppendingPathComponent:@"usr/include"]];
+                if (done) { [injected addObject:[n stringByAppendingString:@"（已就绪）"]]; continue; }
+
+                // 半成品先删掉再拷
+                if ([fm fileExistsAtPath:dst]) [fm removeItemAtPath:dst error:NULL];
+                [fm createDirectoryAtPath:theosSdks withIntermediateDirectories:YES attributes:nil error:NULL];
+
+                NSError *cperr = nil;
+                if ([fm copyItemAtPath:src toPath:dst error:&cperr]) {
+                    [injected addObject:n];
+                } else {
+                    SPLog(@"[自检] 复制 SDK %@ 失败：%@", n, cperr.localizedDescription);
+                }
+            }
+
+            emit([self step:SPSelfTestStageSDK
+                     title:@"SDK 注入 THEOS/sdks"
+                    passed:(injected.count > 0)
+                    detail:injected.count ? [injected componentsJoinedByString:@"、"] : @"顶层 sdks/ 里没有 SDK"
+                      hint:injected.count ? nil
+                           : @"运行时缺少 sdks/iPhoneOS*.sdk，或 THEOS 目录不可写。"
+                             @"到「工具」→「工具链」重新展开，或用「默认 SDK」下载 17.0/26.5。"]);
+        }
+
         // ── 5. 生成最小工程 ──
         NSString *work = [[[SPStore shared] baseDirectory]
                           stringByAppendingPathComponent:@"selftest/tweak"];
@@ -378,6 +422,33 @@
         // ── 6. 实际编译 ──
         // 精简版脚本：只跑 make，不做混淆/签名等额外步骤，
         // 目的是验证「工具链能否真的编出 .deb」
+        // 选一个完整可用的 SDK 作为 SYSROOT。
+        // Theos 找不到 SYSROOT 时不会明确报「缺 SDK」，而是让 clang 拿不到
+        // -isysroot，最终在链接阶段炸成「library.mk:37 Error 2」——看不出根因。
+        // 版本比较在 ObjC 里做，避免 shell 里 ${v%.sdk} 的 % 与
+        // stringWithFormat 的格式符冲突（这类转义错误很难查）。
+        NSString *sdkPath = nil;
+        {
+            NSString *sdksDir = [theos stringByAppendingPathComponent:@"sdks"];
+            NSArray *names = [fm contentsOfDirectoryAtPath:sdksDir error:NULL] ?: @[];
+            NSInteger bestMajor = -1, bestMinor = -1;
+            for (NSString *n in names) {
+                if (![n hasPrefix:@"iPhoneOS"] || ![n hasSuffix:@".sdk"]) continue;
+                NSString *cand = [sdksDir stringByAppendingPathComponent:n];
+                // 只要完整的：SDKSettings.json + usr/include
+                if (![fm fileExistsAtPath:[cand stringByAppendingPathComponent:@"SDKSettings.json"]]) continue;
+                if (![fm fileExistsAtPath:[cand stringByAppendingPathComponent:@"usr/include"]]) continue;
+
+                NSString *v = [n substringWithRange:NSMakeRange(8, n.length - 8 - 4)];  // 去掉 iPhoneOS 与 .sdk
+                NSArray *parts = [v componentsSeparatedByString:@"."];
+                NSInteger maj = parts.count > 0 ? parts[0].integerValue : 0;
+                NSInteger min = parts.count > 1 ? parts[1].integerValue : 0;
+                if (maj > bestMajor || (maj == bestMajor && min > bestMinor)) {
+                    bestMajor = maj; bestMinor = min; sdkPath = cand;
+                }
+            }
+        }
+
         NSString *cmd = [NSString stringWithFormat:
             @"set -o pipefail 2>/dev/null || true\n"
              "export THEOS=%@\n"
@@ -408,6 +479,9 @@
              "export ARCHS=arm64 TARGET=iphone:clang:latest:15.0\n"
              "export LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8\n"
              "cd %@\n"
+             "export SYSROOT=%@\n"
+             "export THEOS_SDK=\"$SYSROOT\"\n"
+             "echo \"==> SYSROOT=$SYSROOT\"\n"
              "echo \"==> PWD=$(pwd)\"\n"
              "echo \"==> THEOS=$THEOS\"\n"
              // 同时打印 clang 与 clang-16 的解析结果 —— Theos 用的是 clang
@@ -417,7 +491,7 @@
              "echo \"==> uid=$(id -u)\"\n"
              // -d：把实际执行的命令打出来。之前只看到
              // 「lib.mk:52 ... Error 2」，看不到是哪条 ld 命令失败、缺了什么。
-             "make package FINALPACKAGE=1 -d 2>&1\n"
+             "make package FINALPACKAGE=1 V=1 2>&1\n"
              "MK=$?\n"
              "echo \"==> make exit=$MK\"\n"
              "ls -l packages/*.deb 2>/dev/null || echo \"==> 没有产物\"\n"
@@ -435,7 +509,8 @@
             [SPUtil shellQuote:inst.libDir],        // LD_LIBRARY_PATH
             [SPUtil shellQuote:inst.libDir],        // DYLD_LIBRARY_PATH
             [SPUtil shellQuote:inst.perl5Dir],      // PERL5LIB
-            [SPUtil shellQuote:work]];              // cd
+            [SPUtil shellQuote:work],          // cd
+            [SPUtil shellQuote:sdkPath ?: @""]];              // cd
 
         __block NSMutableString *buildLog = [NSMutableString string];
         __block BOOL buildOK = NO;

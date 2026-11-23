@@ -367,37 +367,6 @@
 
     NSMutableArray<SPLogLine *> *captured = [NSMutableArray array];
 
-    // ── 硬门禁：本项目只支持 TrollStore / 越狱（平台权限）环境 ──
-    // 非 root 时子进程一律拿不到权限，make/clang 必然失败，
-    // 且日志里只会看到一堆 Permission denied，根本看不出根因。
-    // 所以在这里直接拒绝，并把修复路径写进日志。
-    SPTrollStoreState tst = [SPTrollStoreFix state];
-    if (tst != SPTrollStoreStateOK) {
-        NSString *why = (tst == SPTrollStoreStateNotRoot)
-            ? @"当前以非 root 运行（uid != 0）。TrollStore 覆盖安装时没有重新赋予 root 能力。"
-            : @"签名里缺少 platform-application。自签工具会替换掉该权限。";
-        NSString *msg = [NSString stringWithFormat:
-            @"[!] 无法编译：本工具只支持 TrollStore / 越狱环境。\n"
-             "    %@\n"
-             "    修复：设置 → 工具链 → 运行身份 → 按引导重新安装（先卸载再全新安装）。\n", why];
-        SPLog(@"%@", msg);
-
-        job.state = SPJobStateFailed;
-        job.failureHint = msg;
-        job.finishedAt = [NSDate date];
-        @synchronized (captured) {
-            for (NSString *line in [msg componentsSeparatedByString:@"\n"]) {
-                if (line.length) [captured addObject:[SPLogLine lineWithText:line level:SPLogLevelErr]];
-            }
-        }
-        job.lines = [captured copy];
-        [[SPStore shared] appendBuildRecord:job];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (onFinish) onFinish(job);
-        });
-        return nil;
-    }
-
     NSString *script = [self scriptForProject:project options:options profile:profile
                                    backupPath:[project.path stringByAppendingPathComponent:@"_rb_backup"]];
 
