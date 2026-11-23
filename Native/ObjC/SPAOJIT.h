@@ -49,6 +49,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable NSArray<NSString *> *)directArgvForScript:(NSString *)script
                                           environment:(nullable NSDictionary<NSString *, NSString *> *)env;
 
+/// 管道版本：把 `a | b | c` 编译成多段 argv（每段 argv[0] 为绝对路径）。
+/// 仅当每一段都是「无 shell 语法的简单命令」且都能解析到绝对路径时返回；
+/// 否则返回 nil（调用方回落 sh，语义保持不变）。
+- (nullable NSArray<NSArray<NSString *> *> *)directStagesForScript:(NSString *)script
+                                                       environment:(nullable NSDictionary<NSString *, NSString *> *)env;
+
 /// 调用方在真正以 argv 直接 spawn 成功后调用，累加 directSpawnCount
 - (void)noteDirectSpawn;
 
