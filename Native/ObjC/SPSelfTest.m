@@ -489,9 +489,10 @@
              "echo \"==> clang-16=$(command -v clang-16 || echo none)\"\n"
              "echo \"==> ld=$(command -v ld || echo none)\"\n"
              "echo \"==> uid=$(id -u)\"\n"
-             // -d：把实际执行的命令打出来。之前只看到
-             // 「lib.mk:52 ... Error 2」，看不到是哪条 ld 命令失败、缺了什么。
-             "make package FINALPACKAGE=1 V=1 2>&1\n"
+             // messages=yes：Theos 的详细模式（打实际执行的命令）。
+             // -j1：串行，避免并行下错误散在多个 job 里。
+             // 不用 make -d：那会打上万行内部调试信息，真错误被埋掉。
+             "make package FINALPACKAGE=1 messages=yes -j1 2>&1\n"
              "MK=$?\n"
              "echo \"==> make exit=$MK\"\n"
              "ls -l packages/*.deb 2>/dev/null || echo \"==> 没有产物\"\n"
