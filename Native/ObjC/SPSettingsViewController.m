@@ -15,6 +15,7 @@
 #import "SPCompat.h"
 #import "SPSession.h"
 #import "SPJIT.h"
+#import "SPAOJIT.h"
 #import "SPBackground.h"
 #import "SPPrivileged.h"
 #import "SPTrollStoreFix.h"
@@ -138,10 +139,10 @@ typedef NS_ENUM(NSInteger, SPSection) {
         case SPSectionFiles:         return 5;
         case SPSectionMCP:           return 4;
         case SPSectionTarget:        return 4;
-        // 显示区只有 4 项（触感/常亮/日志行数/字号）。
-        // 之前这里写 7，而 cellForRow 的数组只有 4 项 —— 多出的
-        // 第 5~7 行一渲染就抛 NSRangeException 崩溃。
-        case SPSectionDisplay:       return 4;
+        // 显示区：0 触感 / 1 常亮 / 2 日志行数 / 3 字号
+        //          4 后台保活 / 5 自动修复 / 6 JIT / 7 AOJIT / 8 iSH
+        // 注意：cellForRow 里 case 4/5/6 一直存在，但行数写 4 导致它们从不显示。
+        case SPSectionDisplay:       return 9;
         default:                     return 3;
     }
 }
@@ -266,7 +267,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
                     UISwitch *sw = [[UISwitch alloc] init];
                     sw.tag = 6004;
                     sw.on = [SPBackground shared].userEnabled;
-                    [sw addTarget:self action:@selector(toggleSetting:) forControlEvents:UIControlEventValueChanged];
+                    [sw addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
                     cell.accessoryView = sw;
                     cell.selectionStyle = UITableViewCellSelectionStyleNone;
                     break;
@@ -277,12 +278,12 @@ typedef NS_ENUM(NSInteger, SPSection) {
                     UISwitch *sw = [[UISwitch alloc] init];
                     sw.tag = 6005;
                     sw.on = [[NSUserDefaults standardUserDefaults] boolForKey:@"Workbench.autofixEnabled"];
-                    [sw addTarget:self action:@selector(toggleSetting:) forControlEvents:UIControlEventValueChanged];
+                    [sw addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
                     cell.accessoryView = sw;
                     cell.selectionStyle = UITableViewCellSelectionStyleNone;
                     break;
                 }
-                default: {
+                case 6: {
                     // JIT 加速：只读状态 + 开关
                     cell.textLabel.text = @"JIT 加速";
                     cell.detailTextLabel.text = [SPJIT shared].statusText;
@@ -290,7 +291,36 @@ typedef NS_ENUM(NSInteger, SPSection) {
                     UISwitch *sw = [[UISwitch alloc] init];
                     sw.tag = 6003;
                     sw.on = [SPJIT shared].userEnabled;
-                    [sw addTarget:self action:@selector(toggleSetting:) forControlEvents:UIControlEventValueChanged];
+                    [sw addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
+                    cell.accessoryView = sw;
+                    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+                    break;
+                }
+                case 7: {
+                    // AOJIT：预编译 shell 执行计划，省掉 /bin/sh 启动
+                    cell.textLabel.text = @"AOJIT 管道加速";
+                    cell.detailTextLabel.text = [SPAOJIT shared].statusText;
+                    cell.detailTextLabel.font = [SPTheme caption];
+                    UISwitch *sw = [[UISwitch alloc] init];
+                    sw.tag = 6006;
+                    sw.on = [SPAOJIT shared].userEnabled;
+                    [sw addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
+                    cell.accessoryView = sw;
+                    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+                    break;
+                }
+                default: {
+                    // iSH：默认关闭（拖慢速度），需要时手动开
+                    cell.textLabel.text = @"iSH Linux 工具补充";
+                    cell.detailTextLabel.text = [[NSUserDefaults standardUserDefaults]
+                        boolForKey:@"Workbench.ishellEnabled"]
+                        ? @"已开启（会拖慢构建，仅缺命令时用）"
+                        : @"已关闭（推荐）";
+                    cell.detailTextLabel.font = [SPTheme caption];
+                    UISwitch *sw = [[UISwitch alloc] init];
+                    sw.tag = 6007;
+                    sw.on = [[NSUserDefaults standardUserDefaults] boolForKey:@"Workbench.ishellEnabled"];
+                    [sw addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
                     cell.accessoryView = sw;
                     cell.selectionStyle = UITableViewCellSelectionStyleNone;
                     break;
@@ -526,6 +556,16 @@ typedef NS_ENUM(NSInteger, SPSection) {
             if (sw.isOn) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ [[SPJIT shared] probe]; });
             [self.table reloadData];
             [self toast:sw.isOn ? @"已开启 JIT 加速" : @"已关闭 JIT 加速"];
+            return;
+        case 6006:
+            [SPAOJIT shared].userEnabled = sw.isOn;
+            [self.table reloadData];
+            [self toast:sw.isOn ? @"AOJIT 已开启（简单命令跳过 sh）" : @"AOJIT 已关闭"];
+            return;
+        case 6007:
+            [[NSUserDefaults standardUserDefaults] setBool:sw.isOn forKey:@"Workbench.ishellEnabled"];
+            [self.table reloadData];
+            [self toast:sw.isOn ? @"iSH 已开启（构建会变慢）" : @"iSH 已关闭"];
             return;
         case 6200:
             [[NSUserDefaults standardUserDefaults] setBool:sw.isOn forKey:@"Workbench.mcpEnabled"];

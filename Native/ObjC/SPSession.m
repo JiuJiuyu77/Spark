@@ -3,6 +3,7 @@
 //
 
 #import "SPSession.h"
+#import "SPAOJIT.h"
 #import "SPCompat.h"
 #import "SPToolchainInstaller.h"
 #import <spawn.h>
@@ -88,6 +89,8 @@ void SPSessionReapAllChildren(void) {
 @property (nonatomic, assign) BOOL finished;
 // 同步调用使用独立完成信号，不依赖主队列。
 @property (nonatomic, copy) void (^internalCompletion)(SPCommandResult *);
+/// AOJIT 试跑用：启动失败时不要通知完成（否则信号量提前释放，回退就废了）
+@property (nonatomic, assign) BOOL suppressLaunchFailureNotify;
 @end
 
 @implementation SPSession
@@ -223,6 +226,7 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
         r.launchError = SPError(SPErrorCodeLaunchFailed,
             [NSString stringWithFormat:@"无法启动 %@：%s", exe.lastPathComponent, strerror(savedErrno)]);
         self.result = r;
+        if (self.suppressLaunchFailureNotify) return -1;   // AOJIT 试跑：交给调用方回退
         [self finishNotifying];
         return -1;
     }
@@ -439,11 +443,195 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
         NSString *quoted = [self.workingDirectory stringByReplacingOccurrencesOfString:@"'" withString:@"'\\''"];
         body = [NSString stringWithFormat:@"cd '%@' || exit 200\n%@", quoted, body];
     }
+    // AOJIT：无工作目录的「单行简单命令」跳过 /bin/sh 直接 exec。
+    // 命中才走；任何可疑语法或解析失败都会返回 nil，自动回落 sh（语义不变）。
+    if (!self.workingDirectory.length) {
+        NSArray<NSArray<NSString *> *> *stages =
+            [[SPAOJIT shared] directStagesForScript:body environment:self.environment];
+        if (stages.count) {
+            if (stages.count == 1) {
+                // 单命令：走 launch:（失败可回退）
+                NSArray<NSString *> *argv = stages.firstObject;
+                NSArray<NSString *> *rest = argv.count > 1
+                    ? [argv subarrayWithRange:NSMakeRange(1, argv.count - 1)]
+                    : @[];
+                self.suppressLaunchFailureNotify = YES;
+                int rc = [self launch:argv[0] args:rest];
+                self.suppressLaunchFailureNotify = NO;
+                if (rc > 0) {
+                    [[SPAOJIT shared] noteDirectSpawn];
+                    return rc;
+                }
+                self.finished = NO;
+                self.result = nil;
+            } else {
+                // 管道：多进程直连，省掉 sh 的逐段解析
+                int rc = [self runPipeline:stages];
+                if (rc > 0) {
+                    [[SPAOJIT shared] noteDirectSpawn];
+                    return rc;
+                }
+                self.finished = NO;
+                self.result = nil;
+                self.pid = -1;
+            }
+        }
+    }
+
     return [self launch:sh args:@[@"-c", body]];
 }
 
 - (int)runExecutable:(NSString *)exe arguments:(NSArray<NSString *> *)args {
     return [self launch:exe args:args ?: @[]];
+}
+
+#pragma mark - 管道直执行（AOJIT 用）
+
+- (int)runPipeline:(NSArray<NSArray<NSString *> *> *)stages {
+    if (self.isRunning) return -1;
+    if (!stages.count) return -1;
+
+    NSUInteger n = stages.count;
+    NSMutableArray<NSNumber *> *pids = [NSMutableArray array];
+
+    int outPipe[2] = {-1, -1}, errPipe[2] = {-1, -1};
+    if (pipe(outPipe) != 0) return -1;
+    if (pipe(errPipe) != 0) { close(outPipe[0]); close(outPipe[1]); return -1; }
+
+    int prevRead = -1;   // 上一段的读端（作为本段 stdin）
+    int rc = 0;
+
+    for (NSUInteger i = 0; i < n; i++) {
+        NSArray<NSString *> *argvList = stages[i];
+        if (!argvList.count) { rc = -1; break; }
+
+        int nextPipe[2] = {-1, -1};
+        BOOL isLast = (i == n - 1);
+        if (!isLast && pipe(nextPipe) != 0) { rc = -1; break; }
+
+        posix_spawn_file_actions_t actions;
+        posix_spawn_file_actions_init(&actions);
+
+        // stdin
+        if (prevRead >= 0) {
+            posix_spawn_file_actions_adddup2(&actions, prevRead, STDIN_FILENO);
+            posix_spawn_file_actions_addclose(&actions, prevRead);
+        }
+        // stdout
+        if (isLast) {
+            posix_spawn_file_actions_adddup2(&actions, outPipe[1], STDOUT_FILENO);
+        } else {
+            posix_spawn_file_actions_adddup2(&actions, nextPipe[1], STDOUT_FILENO);
+            posix_spawn_file_actions_addclose(&actions, nextPipe[0]);
+        }
+        if (!isLast) posix_spawn_file_actions_addclose(&actions, nextPipe[1]);
+        posix_spawn_file_actions_addclose(&actions, outPipe[0]);
+        posix_spawn_file_actions_addclose(&actions, errPipe[0]);
+        // stderr：所有段共用
+        posix_spawn_file_actions_adddup2(&actions, errPipe[1], STDERR_FILENO);
+        posix_spawn_file_actions_addclose(&actions, errPipe[1]);
+
+        posix_spawnattr_t attr;
+        posix_spawnattr_init(&attr);
+        posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF);
+        posix_spawnattr_setpgroup(&attr, 0);
+        sigset_t defs; sigemptyset(&defs); sigaddset(&defs, SIGPIPE);
+        posix_spawnattr_setsigdefault(&attr, &defs);
+
+        char **argv = calloc(argvList.count + 1, sizeof(char *));
+        for (NSUInteger k = 0; k < argvList.count; k++) {
+            NSString *a = argvList[k];
+            argv[k] = strdup([a isKindOfClass:NSString.class] ? a.UTF8String : "");
+        }
+        argv[argvList.count] = NULL;
+
+        NSArray *envArr = [self environmentStrings];
+        char **envp = calloc(envArr.count + 1, sizeof(char *));
+        for (NSUInteger k = 0; k < envArr.count; k++) {
+            NSString *a = envArr[k];
+            envp[k] = strdup([a isKindOfClass:NSString.class] ? a.UTF8String : "");
+        }
+        envp[envArr.count] = NULL;
+
+        pid_t child = -1;
+        NSString *exe = argvList[0];
+        rc = posix_spawn(&child, exe.fileSystemRepresentation, &actions, &attr, argv, envp);
+
+        for (NSUInteger k = 0; k < argvList.count; k++) free(argv[k]);
+        free(argv);
+        for (NSUInteger k = 0; k < envArr.count; k++) free(envp[k]);
+        free(envp);
+        posix_spawn_file_actions_destroy(&actions);
+        posix_spawnattr_destroy(&attr);
+
+        if (prevRead >= 0) close(prevRead);
+        if (!isLast) close(nextPipe[1]);
+        prevRead = isLast ? -1 : nextPipe[0];
+
+        if (rc != 0) { break; }
+        [pids addObject:@(child)];
+        SPSessionPidAdd(child);
+    }
+
+    close(outPipe[1]);
+    close(errPipe[1]);
+    if (prevRead >= 0) close(prevRead);
+
+    if (rc != 0 || !pids.count) {
+        for (NSNumber *p in pids) {
+            kill(-p.intValue, SIGKILL); kill(p.intValue, SIGKILL);
+            SPSessionPidRemove(p.intValue);
+        }
+        close(outPipe[0]); close(errPipe[0]);
+        return -1;
+    }
+
+    self.pid = pids.lastObject.intValue;
+    self.outFd = outPipe[0];
+    self.errFd = errPipe[0];
+    self.startTime = [NSDate date];
+    self.finished = NO;
+    [self.outBuf setString:@""];
+    [self.errBuf setString:@""];
+
+    __weak typeof(self) weakSelf = self;
+    dispatch_group_t group = dispatch_group_create();
+    dispatch_group_async(group, self.readQueue, ^{
+        __strong typeof(weakSelf) self = weakSelf; if (!self) return;
+        [self pumpFd:self.outFd level:SPLogLevelOut buffer:self.outBuf];
+    });
+    dispatch_group_async(group, self.readQueue, ^{
+        __strong typeof(weakSelf) self = weakSelf; if (!self) return;
+        [self pumpFd:self.errFd level:SPLogLevelErr buffer:self.errBuf];
+    });
+
+    NSArray<NSNumber *> *allPids = [pids copy];
+    dispatch_group_notify(group, dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+        __strong typeof(weakSelf) self = weakSelf; if (!self) return;
+        int lastCode = -1;
+        for (NSNumber *p in allPids) {
+            int status = 0; pid_t w = 0;
+            do { w = waitpid(p.intValue, &status, 0); } while (w < 0 && errno == EINTR);
+            if (w == p.intValue) {
+                if (WIFEXITED(status)) lastCode = WEXITSTATUS(status);
+                else if (WIFSIGNALED(status)) lastCode = 128 + WTERMSIG(status);
+            }
+            SPSessionPidRemove(p.intValue);
+        }
+        self.pid = -1;
+        [self completeWithExitCode:lastCode];
+    });
+
+    if (self.timeout > 0) {
+        NSTimeInterval t = self.timeout;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(t * NSEC_PER_SEC)),
+                       dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (self && self.isRunning) { self.timedOut = YES; [self cancel]; }
+        });
+    }
+
+    return self.pid;
 }
 
 - (void)cancel {
