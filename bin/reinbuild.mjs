@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * spark —— 命令行入口，配合 Spark App 的「工具链」页使用。
+ * spark —— 命令行入口，配合 Workbench App 的「工具链」页使用。
  *
  * 用法：
  *   node bin/spark.mjs doctor                     # 体检：有哪些编译能力
@@ -115,7 +115,7 @@ function optionsFromFlags() {
 }
 
 async function cmdDoctor() {
-  console.log('Spark doctor\n');
+  console.log('Workbench doctor\n');
   const tc = toolchain();
   const lines = [
     ['Rein 目录', REIN_ROOT],
@@ -134,7 +134,7 @@ async function cmdDoctor() {
 
 async function cmdProjects() {
   const roots = [
-    path.join(HOME, 'Documents/Spark/projects'),
+    path.join(HOME, 'Documents/Workbench/projects'),
     path.join(REIN_ROOT, 'workspace'),
     path.join(REIN_ROOT, 'home'),
   ];
@@ -204,7 +204,7 @@ const table = {
 };
 
 if (!table[cmd]) {
-  console.log(`spark —— Spark 的命令行伴生工具
+  console.log(`spark —— Workbench 的命令行伴生工具
 
   doctor                      体检工具链
   projects                    列出候选项目

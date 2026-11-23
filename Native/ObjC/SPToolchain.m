@@ -6,8 +6,8 @@
 #import "SPCompat.h"
 #import "SPToolchainInstaller.h"
 
-static NSString *const kDefaultsHomeRoot = @"Spark.homeRoot";
-static NSString *const kDefaultsReinRoot = @"Spark.reinRoot";
+static NSString *const kDefaultsHomeRoot = @"Workbench.homeRoot";
+static NSString *const kDefaultsReinRoot = @"Workbench.reinRoot";
 
 #pragma mark - SPToolchainProfile
 
@@ -186,7 +186,7 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
         //   ② /var/containers/Bundle/Application/<UUID>/DSH.app
         //      —— TrollStore 安装的 App 本体（实际最常见）
         // 之前只认 ①，所以装了 Rein App 也探测不到工具链。
-        // Spark 运行时已完整内嵌，不再自动探测外部 Rein/DSH 目录
+        // Workbench 运行时已完整内嵌，不再自动探测外部 Rein/DSH 目录
         // （之前会指向别人的安装，让人误以为检测错了）
         // 清掉历史版本自动探测时存下的外部 Rein 路径 ——
         // 用户从没手动指定过，留着它会让工具链继续指向 Rein。
@@ -220,7 +220,7 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
 - (NSArray<NSString *> *)candidateRoots {
     NSMutableArray *roots = [NSMutableArray array];
 
-    // 1) 内置工具链（ipa 里带的，首启展开到 Documents/Spark/Toolchain）
+    // 1) 内置工具链（ipa 里带的，首启展开到 Documents/Workbench/Toolchain）
     SPToolchainInstaller *inst = [SPToolchainInstaller shared];
     if (inst.isInstalled) {
         // 安装目录的布局是 <root>/bin、<root>/theos、<root>/ollvm、<root>/reverse
@@ -230,20 +230,20 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     }
 
     // 2) **App 包内自带的运行时优先**
-    //    Spark 已完整内嵌（288 工具 + 3 SDK），不该再依赖任何外部目录。
+    //    Workbench 已完整内嵌（288 工具 + 3 SDK），不该再依赖任何外部目录。
     //    之前外部 Rein 目录排在前，导致工具链指向别人的安装，
-    //    用户看到「检测到的目录并非 Spark」。
+    //    用户看到「检测到的目录并非 Workbench」。
     NSString *bundle = [NSBundle mainBundle].bundlePath;
     [roots addObject:bundle];
 
     // 3) 用户手动指定的目录（可选）
     //
     // **不再把 reinRoot 放进来**：
-    // Spark 的运行时完整内嵌在 App 包里，混入别人的安装目录只会出错 ——
+    // Workbench 的运行时完整内嵌在 App 包里，混入别人的安装目录只会出错 ——
     // 实测生成的构建脚本会变成
     //   PATH=/var/mobile/Documents/Rein/tools/theos-root/usr/bin:...
     //   CA_TOOL_OLLVM_CLANG=/var/mobile/Documents/Rein/tools/ollvm/bin/clang
-    // 等于用 Rein 的工具链编译 Spark 的工程，路径、版本都不匹配。
+    // 等于用 Rein 的工具链编译 Workbench 的工程，路径、版本都不匹配。
     if (self.homeRoot.length) [roots addObject:self.homeRoot];
     return roots;
 }
@@ -290,7 +290,7 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     NSFileManager *fm = NSFileManager.defaultManager;
 
     // 1) Theos：tools/theos-local、tools/theos-full、theos-root/theos、…/theos
-    NSString *theos = [self firstExistingDirectory:@[@"Spark/Toolchain/theos", @"Toolchain/theos",
+    NSString *theos = [self firstExistingDirectory:@[@"Workbench/Toolchain/theos", @"Toolchain/theos",
                                                      @"theos",
                                                      @"tools/theos-local",
                                                      @"theos-root/theos", @"tools/theos-root/theos",
@@ -318,26 +318,36 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     for (NSString *rel in @[@"sdks",                       // 顶层（DSH/Rein 布局）
                             @"theos-root/theos/sdks",      // 平铺后 Theos 自己的 sdks
                             @"theos-full/sdks",
-                            @"Spark/SDKs", @"SDKs", @"sdks-store"]) {
+                            @"Workbench/SDKs", @"SDKs", @"sdks-store"]) {
         for (NSString *root in roots) {
             [sdkDirs addObject:[root stringByAppendingPathComponent:rel]];
         }
     }
 
-    // 逐个目录找 iPhoneOS*.sdk，且必须含 SDKSettings.json
+    // 逐个目录找 iPhoneOS*.sdk，且必须含 SDKSettings.json。
+    //
+    // **优先完整 SDK**：运行时里 16.5 / 17.0 只有 SDKSettings.json 和
+    // Frameworks，没有 usr/include —— 这种半成品能通过「有 SDKSettings」
+    // 的旧判定，被选成默认 SDK，然后在编译时找不到 stdio.h 报一堆
+    // 「file not found」。所以先找完整的，完整的一个都没有才退回半成品。
+    NSString *sdkFallback = nil;
     for (NSString *dir in sdkDirs) {
         if (![fm fileExistsAtPath:dir]) continue;
         NSArray *names = [fm contentsOfDirectoryAtPath:dir error:NULL];
         for (NSString *name in names ?: @[]) {
             if (![name hasPrefix:@"iPhoneOS"] || ![name hasSuffix:@".sdk"]) continue;
             NSString *cand = [dir stringByAppendingPathComponent:name];
-            if ([fm fileExistsAtPath:[cand stringByAppendingPathComponent:@"SDKSettings.json"]]) {
-                sdk = cand;
-                break;
+            if (![fm fileExistsAtPath:[cand stringByAppendingPathComponent:@"SDKSettings.json"]]) continue;
+            if (![self sdkDirectoryIsComplete:cand]) {
+                if (!sdkFallback) sdkFallback = cand;
+                continue;
             }
+            sdk = cand;
+            break;
         }
         if (sdk) break;
     }
+    if (!sdk) sdk = sdkFallback;
 
     // 兜底：上面的固定路径都没命中时，直接在包内浅层扫描
     // （最多 3 层深，避免遍历整个 500MB SDK）
@@ -399,9 +409,9 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     }
 
     // 3) Darwin bin：theos-root/usr/bin / helpers（真机可执行）
-    //    平铺布局下是 Spark.app/theos-root/usr/bin
+    //    平铺布局下是 Workbench.app/theos-root/usr/bin
     NSString *darwin = [self firstExistingDirectory:@[@"theos-root/usr/bin",
-                                                       @"Spark/Toolchain/bin", @"Toolchain/bin",
+                                                       @"Workbench/Toolchain/bin", @"Toolchain/bin",
                                                        @"usr/bin", @"tools/theos-root/usr/bin"]
                                           fromRoots:roots];
     if (!darwin) darwin = [self firstExistingDirectory:@[@"helpers"] fromRoots:[@[[NSBundle mainBundle].bundlePath] arrayByAddingObjectsFromArray:roots]];
@@ -416,7 +426,7 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     [scan setPath:darwin for:SPToolchainComponentDarwin];
 
     // 4) OLLVM
-    NSString *ollvm = [self firstExistingDirectory:@[@"Spark/Toolchain/ollvm", @"Toolchain/ollvm",
+    NSString *ollvm = [self firstExistingDirectory:@[@"Workbench/Toolchain/ollvm", @"Toolchain/ollvm",
                                                      @"tools/ollvm", @"ollvm"] fromRoots:roots];
     if (ollvm && ![fm fileExistsAtPath:[ollvm stringByAppendingPathComponent:@"bin/clang"]]) ollvm = nil;
     self.resolvedOLLVM = ollvm;
@@ -424,7 +434,7 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
 
     // 5) 逆向工具
     NSString *rev = [self firstExistingDirectory:@[@"reverse/bin",
-                                                    @"Spark/Toolchain/reverse/bin", @"Toolchain/reverse/bin",
+                                                    @"Workbench/Toolchain/reverse/bin", @"Toolchain/reverse/bin",
                                                     @"tools/reverse/bin"] fromRoots:roots];
     // 判定：只要 mt-macho / rabin2 / r2 任一存在即可
     // （Rein 的 reverse/bin 里没有 rabin2，早先过严会导致整个组件被判为未安装）
@@ -503,20 +513,68 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     return [names sortedArrayUsingSelector:@selector(compare:)];
 }
 
+/// 所有可能放 SDK 的目录，顺序即优先级。
+///
+/// **必须与 resolvedSDKPathNamed / rescan 共用同一套**。
+/// 以前这里是另一份旧列表（Workbench/SDKs、SDKs、tools/theos-full/sdks、
+/// tools/theos-local/sdks、sdks-store —— 全是 Rein 的旧布局），
+/// 平铺安装后真实 SDK 在 Workbench.app/theos-root/theos/sdks，
+/// 这里一个都命中不了，于是工具链页永远显示「尚未安装 SDK」，
+/// 而项目页却能正常构建（那边走的是另一套路径）。
+- (NSArray<NSString *> *)sdkDirectories {
+    NSMutableArray<NSString *> *dirs = [NSMutableArray array];
+    NSString *theos = [self.scan pathFor:SPToolchainComponentTheos];
+    if (theos.length) [dirs addObject:[theos stringByAppendingPathComponent:@"sdks"]];
+    for (NSString *root in [self candidateRoots]) {
+        for (NSString *rel in @[@"theos-root/theos/sdks", @"theos/sdks", @"sdks",
+                                @"theos-full/sdks", @"theos-local/sdks",
+                                @"tools/theos-full/sdks", @"tools/theos-local/sdks",
+                                @"sdks-store", @"Workbench/SDKs", @"SDKs"]) {
+            NSString *d = [root stringByAppendingPathComponent:rel];
+            if (![dirs containsObject:d]) [dirs addObject:d];
+        }
+    }
+    return dirs;
+}
+
+/// SDK 是否完整可用：SDKSettings.json + usr/include 缺一不可。
+/// 缺 usr/include 时 clang 连 stdio.h 都找不到，编译必然失败。
+- (BOOL)sdkDirectoryIsComplete:(NSString *)sdkPath {
+    if (!sdkPath.length) return NO;
+    NSFileManager *fm = NSFileManager.defaultManager;
+    if (![fm fileExistsAtPath:[sdkPath stringByAppendingPathComponent:@"SDKSettings.json"]]) return NO;
+    return [fm fileExistsAtPath:[sdkPath stringByAppendingPathComponent:@"usr/include"]];
+}
+
 - (NSArray<NSString *> *)availableSDKs {
-    NSMutableArray *out = [NSMutableArray array];
-    NSArray *roots = [self candidateRoots];
-    for (NSString *root in roots) {
-        for (NSString *rel in @[@"Spark/SDKs", @"SDKs",
-                                @"tools/theos-full/sdks", @"tools/theos-local/sdks", @"sdks-store"]) {
-            NSString *dir = [root stringByAppendingPathComponent:rel];
-            BOOL isDir = NO;
-            if ([NSFileManager.defaultManager fileExistsAtPath:dir isDirectory:&isDir] && isDir) {
-                for (NSString *n in [self sdkNamesInDirectory:dir]) if (![out containsObject:n]) [out addObject:n];
-            }
+    return [self availableSDKsIncludingIncomplete:NO];
+}
+
+- (NSArray<NSString *> *)availableSDKsIncludingIncomplete:(BOOL)includeIncomplete {
+    NSMutableArray<NSString *> *out = [NSMutableArray array];
+    NSFileManager *fm = NSFileManager.defaultManager;
+    for (NSString *dir in [self sdkDirectories]) {
+        BOOL isDir = NO;
+        if (![fm fileExistsAtPath:dir isDirectory:&isDir] || !isDir) continue;
+        for (NSString *n in [self sdkNamesInDirectory:dir]) {
+            if ([out containsObject:n]) continue;
+            NSString *cand = [dir stringByAppendingPathComponent:n];
+            if (!includeIncomplete && ![self sdkDirectoryIsComplete:cand]) continue;
+            [out addObject:n];
         }
     }
     return [out sortedArrayUsingSelector:@selector(compare:)];
+}
+
+/// 按名字找 SDK 的绝对路径（找不到返回 nil）
+- (nullable NSString *)sdkPathForName:(nullable NSString *)name {
+    if (!name.length) return nil;
+    NSFileManager *fm = NSFileManager.defaultManager;
+    for (NSString *dir in [self sdkDirectories]) {
+        NSString *cand = [dir stringByAppendingPathComponent:name];
+        if ([fm fileExistsAtPath:cand]) return cand;
+    }
+    return nil;
 }
 
 - (nullable NSString *)resolvedSDKPathNamed:(nullable NSString *)sdkName {
@@ -527,7 +585,7 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
     //
     // 以前这里写死 tools/theos-full/sdks、tools/theos-local/sdks、sdks-store
     // —— 全是 Rein 的旧布局。平铺安装后真实 SDK 在
-    // Spark.app/theos-root/theos/sdks，这里一个都命中不了，
+    // Workbench.app/theos-root/theos/sdks，这里一个都命中不了，
     // 于是出现「工具链页显示 SDK ✓、项目页却报没找到 SDK」。
     NSMutableArray<NSString *> *dirs = [NSMutableArray array];
     NSString *theos = [self.scan pathFor:SPToolchainComponentTheos];
@@ -536,7 +594,7 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
         for (NSString *rel in @[@"theos-root/theos/sdks", @"sdks", @"theos-full/sdks",
                                 @"theos-local/sdks", @"tools/theos-full/sdks",
                                 @"tools/theos-local/sdks", @"sdks-store",
-                                @"Spark/SDKs", @"SDKs"]) {
+                                @"Workbench/SDKs", @"SDKs"]) {
             [dirs addObject:[root stringByAppendingPathComponent:rel]];
         }
     }
@@ -552,16 +610,20 @@ static NSString *const kMarks[] = {@"✓", @"✗"};
         }
     }
 
-    // ① 精确命中用户指定的名字
-    if (want && byName[want]) return byName[want];
+    // ① 精确命中用户指定的名字 —— 但只在它完整时采用。
+    //    半成品 SDK（缺 usr/include）一定会编译失败，
+    //    宁可退回到完整的那一个，也不要「按用户要求」踩坑。
+    if (want && byName[want] && [self sdkDirectoryIsComplete:byName[want]]) return byName[want];
 
     // ② 用户没指定（或指定的版本已不存在）→ 用 rescan 选中的那个
     NSString *scanned = [self.scan pathFor:SPToolchainComponentSDK];
-    if (scanned.length) return scanned;
+    if (scanned.length && [self sdkDirectoryIsComplete:scanned]) return scanned;
 
-    // ③ 兜底：版本号最高的一个
+    // ③ 兜底：版本号最高且完整的一个
     NSArray *sorted = [[byName allKeys] sortedArrayUsingSelector:@selector(compare:)];
-    if (sorted.count) return byName[sorted.lastObject];
+    for (NSString *n in [sorted reverseObjectEnumerator]) {
+        if ([self sdkDirectoryIsComplete:byName[n]]) return byName[n];
+    }
     return nil;
 }
 

@@ -1,6 +1,6 @@
 //
 //  SPTheme.h
-//  Spark —— 视觉层：样式遵循 Apple HIG，动画统一走 Gasp 缓动。
+//  Workbench —— 视觉层：样式遵循 Apple HIG，动画统一走 Gasp 缓动。
 //
 //  设计原则（Apple HIG）：
 //   · 用系统语义色（labelColor / systemBackground / separatorColor），自动适配深浅色

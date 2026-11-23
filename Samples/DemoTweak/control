@@ -2,7 +2,7 @@ Package: com.reinbuild.demo.tweak
 Name: DemoTweak
 Version: 1.0.0
 Architecture: iphoneos-arm
-Description: Spark 示例 tweak
-Maintainer: Spark
-Author: Spark
+Description: Workbench 示例 tweak
+Maintainer: Workbench
+Author: Workbench
 Section: Tweaks

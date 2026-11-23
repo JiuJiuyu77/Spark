@@ -10,8 +10,8 @@
 #import <time.h>
 #import <execinfo.h>
 
-static NSString *const kContextKey = @"Spark.currentContext";
-static NSString *const kCrashedFlag = @"Spark.crashedLastRun";
+static NSString *const kContextKey = @"Workbench.currentContext";
+static NSString *const kCrashedFlag = @"Workbench.crashedLastRun";
 
 // 前置声明：install 方法里要用，定义在文件末尾
 static void SPHandleUncaughtException(NSException *exception);
@@ -19,7 +19,7 @@ static void SPHandleUncaughtException(NSException *exception);
 static void SPHandleSignal(int sig);
 
 static NSString *SPCrashDirectory(void) {
-    NSString *dir = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/crashes"];
+    NSString *dir = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Workbench/crashes"];
     [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:NULL];
     return dir;
 }
@@ -34,7 +34,7 @@ static void SPWriteCrashFile(const char *name, const char *text) {
     fclose(f);
 }
 
-/// 顺带把崩溃内容追加到主日志 spark.log。
+/// 顺带把崩溃内容追加到主日志 workbench.log。
 ///
 /// 为什么单独写一个函数而不直接用 SPLog：
 /// 这段代码运行在**信号处理器**里，只能用 async-signal-safe 的调用。
@@ -45,7 +45,7 @@ static void SPAppendToMainLog(const char *text) {
     const char *home = getenv("HOME");
     if (!home) return;
     char path[1024];
-    snprintf(path, sizeof(path), "%s/Documents/Spark/logs/spark.log", home);
+    snprintf(path, sizeof(path), "%s/Documents/Workbench/logs/workbench.log", home);
     FILE *lf = fopen(path, "a");
     if (!lf) return;
     fputs(text, lf);
@@ -132,7 +132,7 @@ static void SPDumpBacktrace(char *buffer, size_t size) {
 static void SPHandleUncaughtException(NSException *exception) {
     @autoreleasepool {
         NSMutableString *report = [NSMutableString string];
-        [report appendFormat:@"=== Spark 未捕获异常 ===\n"];
+        [report appendFormat:@"=== Workbench 未捕获异常 ===\n"];
         [report appendFormat:@"时间: %@\n", [NSDate date]];
         [report appendFormat:@"名称: %@\n", exception.name];
         [report appendFormat:@"原因: %@\n", exception.reason];
@@ -154,9 +154,9 @@ static void SPHandleUncaughtException(NSException *exception) {
         [report appendFormat:@"backtrace:\n%s\n", bt];
 
         // 崩溃内容**并入主日志**，不再单独留一个文件。
-        // 以前崩溃写在 Documents/Spark/crashes/exception-*.log，
-        // 而普通日志在 Documents/Spark/logs/spark.log —— 排查时要来回翻两个地方，
-        // 时间线也对不上。现在直接写进 spark.log，时间戳天然连续。
+        // 以前崩溃写在 Documents/Workbench/crashes/exception-*.log，
+        // 而普通日志在 Documents/Workbench/logs/workbench.log —— 排查时要来回翻两个地方，
+        // 时间线也对不上。现在直接写进 workbench.log，时间戳天然连续。
         for (NSString *line in [report componentsSeparatedByString:@"\n"]) {
             if (line.length) SPLog(@"[崩溃] %@", line);
         }
@@ -174,7 +174,7 @@ static void SPHandleSignal(int sig) {
     SPDumpBacktrace(bt, sizeof(bt));
     char text[9216];
     NSString *ctx = [[NSUserDefaults standardUserDefaults] stringForKey:kContextKey] ?: @"（未设置）";
-    snprintf(text, sizeof(text), "=== Spark 信号崩溃 ===\n信号: %d\n操作上下文: %s\nbacktrace:\n%s\n",
+    snprintf(text, sizeof(text), "=== Workbench 信号崩溃 ===\n信号: %d\n操作上下文: %s\nbacktrace:\n%s\n",
              sig, [ctx UTF8String], bt);
     char name[64];
     time_t now = time(NULL);

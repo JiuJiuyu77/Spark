@@ -1,6 +1,6 @@
 //
 //  SPTrollStoreFix.h
-//  Spark —— TrollStore 安装态自检与修复入口
+//  Workbench —— TrollStore 安装态自检与修复入口
 //
 //  背景
 //  ----

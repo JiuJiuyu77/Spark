@@ -8,7 +8,7 @@
 
 TrollFools 的核心在 `InjectorV3+*.swift` 这几个文件里，流程可以拆成 6 步：
 
-| 步骤 | TrollFools 做了什么 | Spark 对应实现 |
+| 步骤 | TrollFools 做了什么 | Workbench 对应实现 |
 |---|---|---|
 | 1. 预处理 | `.deb` / `.zip` 先解出 `dylib / framework / bundle`，只保留这三类 | `ProjectKit/src/trollinject.mjs: selectPlugins()` |
 | 2. 规范化安装路径 | 把绝对路径改成 `@executable_path/…`（否则 App 沙盒里找不到） | `normalizeInstallName()` |

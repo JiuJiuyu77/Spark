@@ -1,6 +1,6 @@
 //
 //  SPTrashViewController.h
-//  Spark —— 项目回收站（对齐 dylix 的 trashMode）
+//  Workbench —— 项目回收站（对齐 dylix 的 trashMode）
 //
 //  行为约定与 dylix 的 ProjectTrash 一致：
 //    · 每个条目目录里有 .studio-trash.json（deletedAt / originalPath）

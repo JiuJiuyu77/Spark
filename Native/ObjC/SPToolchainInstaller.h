@@ -1,9 +1,9 @@
 //
 //  SPToolchainInstaller.h
-//  Spark —— 内置工具链的首启安装器
+//  Workbench —— 内置工具链的首启安装器
 //
 //  ipa 里带着 Resources/Toolchain（约 480MB，含 clang/ld64/ldid/Theos/OLLVM/radare2）。
-//  首次启动时解到 Documents/Spark/Toolchain 并 chmod +x，
+//  首次启动时解到 Documents/Workbench/Toolchain 并 chmod +x，
 //  之后所有构建都直接用这份 —— 不再依赖设备上是否装了 Rein。
 //
 //  SDK 不内置（Apple 的东西不适合再分发），由用户在「设置 → SDK」里导入压缩包。
@@ -23,7 +23,7 @@ typedef void (^SPInstallCompletion)(BOOL ok, NSError *_Nullable error);
 
 + (instancetype)shared;
 
-/// 安装根目录：Documents/Spark/Toolchain
+/// 安装根目录：Documents/Workbench/Toolchain
 @property (nonatomic, readonly) NSString *installRoot;
 
 /// 包内工具链目录（[[NSBundle mainBundle] pathForResource:@"Toolchain" ofType:nil]）

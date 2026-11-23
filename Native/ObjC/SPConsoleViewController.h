@@ -1,6 +1,6 @@
 //
 //  SPConsoleViewController.h
-//  Spark —— 构建控制台：日志 + 失败诊断 + 产物
+//  Workbench —— 构建控制台：日志 + 失败诊断 + 产物
 //
 
 #import <UIKit/UIKit.h>

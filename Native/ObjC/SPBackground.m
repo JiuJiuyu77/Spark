@@ -23,7 +23,7 @@
         b.reasons = [NSMutableDictionary dictionary];
         b.bgTask = UIBackgroundTaskInvalid;
         NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
-        b.userEnabled = [d objectForKey:@"Spark.keepAlive"] == nil ? YES : [d boolForKey:@"Spark.keepAlive"];
+        b.userEnabled = [d objectForKey:@"Workbench.keepAlive"] == nil ? YES : [d boolForKey:@"Workbench.keepAlive"];
 
         // 切前台/后台时维护兜底任务
         NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
@@ -51,7 +51,7 @@
 
 - (void)setUserEnabled:(BOOL)userEnabled {
     _userEnabled = userEnabled;
-    [[NSUserDefaults standardUserDefaults] setBool:userEnabled forKey:@"Spark.keepAlive"];
+    [[NSUserDefaults standardUserDefaults] setBool:userEnabled forKey:@"Workbench.keepAlive"];
     if (!userEnabled) {
         [self.reasons removeAllObjects];
         [self stopAudio];
@@ -164,7 +164,7 @@
 - (void)beginBackgroundTask {
     if (self.bgTask != UIBackgroundTaskInvalid) return;
     __weak typeof(self) weakSelf = self;
-    self.bgTask = [[UIApplication sharedApplication] beginBackgroundTaskWithName:@"Spark.build"
+    self.bgTask = [[UIApplication sharedApplication] beginBackgroundTaskWithName:@"Workbench.build"
         expirationHandler:^{
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;

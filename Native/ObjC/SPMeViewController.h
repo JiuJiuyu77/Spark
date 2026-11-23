@@ -1,6 +1,6 @@
 //
 //  SPMeViewController.h
-//  Spark —— 「我的」页：头部卡片 + 设置入口
+//  Workbench —— 「我的」页：头部卡片 + 设置入口
 //
 
 #import <UIKit/UIKit.h>

@@ -1,11 +1,11 @@
 //
 //  SPIncoming.h
-//  Spark —— 收件箱：把分享/导入进来的文件整理成「可直接用的东西」
+//  Workbench —— 收件箱：把分享/导入进来的文件整理成「可直接用的东西」
 //
 //  来源：
 //   · Share Extension 写进 App Group 的 Incoming/<job>/
 //   · 用户在「设置 → 接收文件」导入的
-//   · 文件 App 通过「用 Spark 打开」传来的（openURL）
+//   · 文件 App 通过「用 Workbench 打开」传来的（openURL）
 //
 //  导入后的归类：
 //   · 含 Makefile / control 的目录    → 可注册为项目

@@ -1,6 +1,6 @@
 //
 //  SPLogView.h
-//  Spark —— 虚拟化的日志视图：只渲染可见行，几万行日志也不卡。
+//  Workbench —— 虚拟化的日志视图：只渲染可见行，几万行日志也不卡。
 //
 
 #import <UIKit/UIKit.h>

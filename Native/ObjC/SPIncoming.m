@@ -8,7 +8,7 @@
 #import "SPSession.h"
 #import "SPToolchainInstaller.h"
 
-static NSString *const kAppGroup = @"group.com.HuQing.Spark";
+static NSString *const kAppGroup = @"group.com.HuQing.Workbench";
 
 @implementation SPIncomingItem
 @end

@@ -1,6 +1,6 @@
 //
 //  SPDiagnostics.h
-//  Spark —— 构建与运行风险诊断（参考 Dylix 的 RuntimeDiagnostics 思路）
+//  Workbench —— 构建与运行风险诊断（参考 Dylix 的 RuntimeDiagnostics 思路）
 //
 //  与「编译失败诊断」不同，这里回答的是「这一版做出来能不能用」：
 //   · 二进制索引：架构 / 依赖库 / 是否含签名

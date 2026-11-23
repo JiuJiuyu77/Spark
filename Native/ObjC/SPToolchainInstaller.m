@@ -5,7 +5,7 @@
 #import "SPToolchainInstaller.h"
 #import "SPCompat.h"
 
-static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
+static NSString *const kInstalledVersionKey = @"Workbench.toolchainVersion";
 
 @interface SPToolchainInstaller ()
 @property (nonatomic, strong) dispatch_queue_t queue;
@@ -34,7 +34,7 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
     //
     // 只有当用户手动导入过外部运行时（Documents 里那份更新/存在），
     // 才用 Documents 的 —— 这样「从文件导入」功能仍然有效。
-    NSString *docs = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/Toolchain"];
+    NSString *docs = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Workbench/Toolchain"];
     NSFileManager *fm = NSFileManager.defaultManager;
 
     BOOL docsReady = [fm fileExistsAtPath:[docs stringByAppendingPathComponent:@".installed"]];
@@ -48,7 +48,7 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
 
 - (NSString *)bundledRoot {
     // 新版：运行时**平铺在 .app 根目录**（与 Rein 一致）
-    //   Spark.app/theos-root/  helpers/  sdks/
+    //   Workbench.app/theos-root/  helpers/  sdks/
     NSString *bundle = [NSBundle mainBundle].bundlePath;
     NSString *flatMarker = [bundle stringByAppendingPathComponent:@"theos-root/usr/bin/clang-16"];
     if ([NSFileManager.defaultManager fileExistsAtPath:flatMarker]) return bundle;
@@ -191,8 +191,12 @@ static NSString *const kInstalledVersionKey = @"Spark.toolchainVersion";
     // HOME 指向 App 沙盒：基础命令有时会往 $HOME 写缓存
     env[@"HOME"] = NSHomeDirectory();
     env[@"TMPDIR"] = NSTemporaryDirectory();
-    env[@"LC_ALL"] = @"en_US.UTF-8";
-    env[@"LANG"] = @"en_US.UTF-8";
+    // 设备上没有 en_US.UTF-8 的 locale 定义，设了以后 bash 每次启动都会打印
+    // 「setlocale: LC_ALL: cannot change locale (en_US.UTF-8): No such file or directory」。
+    // 这条噪音会混进每条命令的 stderr，把真正的报错淹掉。
+    // 用 C 最稳：工具输出仍是 UTF-8 字节，不受影响。
+    env[@"LC_ALL"] = @"C";
+    env[@"LANG"] = @"C";
     env[@"TERM"] = @"dumb";
 
     // 动态库：clang / ld64 都是自带的 dylib，必须能查到

@@ -134,7 +134,7 @@
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
     if (s == 0) return @"只监听局域网，默认关闭；HTTP 明文，仅限可信网络使用。";
     return @"网页支持：浏览文件、编辑保存（自动备份 .sparkbak）、触发构建、看构建历史。\n"
-            "写入限制在 Spark 的 projects 目录内，不能越界。";
+            "写入限制在 Workbench 的 projects 目录内，不能越界。";
 }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
@@ -190,7 +190,7 @@
     [[SPCrashGuard shared] setContext:@"remote"];
     SPRemoteServer *s = [SPRemoteServer shared];
     if (sw.isOn) {
-        NSInteger port = [[NSUserDefaults standardUserDefaults] integerForKey:@"Spark.remotePort"];
+        NSInteger port = [[NSUserDefaults standardUserDefaults] integerForKey:@"Workbench.remotePort"];
         if (port <= 0) port = 8787;
         NSError *err = nil;
         if (![s startWithPort:port error:&err]) {
@@ -226,7 +226,7 @@
             for (NSNumber *p in @[@8787, @8080, @9000, @17878]) {
                 [a addAction:[UIAlertAction actionWithTitle:[p stringValue] style:UIAlertActionStyleDefault
                                                     handler:^(UIAlertAction *x) {
-                    [[NSUserDefaults standardUserDefaults] setInteger:p.integerValue forKey:@"Spark.remotePort"];
+                    [[NSUserDefaults standardUserDefaults] setInteger:p.integerValue forKey:@"Workbench.remotePort"];
                     [self.table reloadData];
                 }]];
             }
@@ -265,7 +265,7 @@
          "· 看构建历史\n\n"
          "限制：\n"
          "· 明文 HTTP，不要在公共网络上开\n"
-         "· 只能访问 Spark 的 projects 目录\n"
+         "· 只能访问 Workbench 的 projects 目录\n"
          "· iOS 后台会挂起服务，切回前台恢复";
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"使用说明"
         message:msg preferredStyle:UIAlertControllerStyleAlert];

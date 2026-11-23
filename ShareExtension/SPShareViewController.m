@@ -1,10 +1,10 @@
 //
 //  SPShareViewController.m
-//  Spark Share Extension —— 让 Spark 出现在其它 App 的「分享」菜单里
+//  Workbench Share Extension —— 让 Workbench 出现在其它 App 的「分享」菜单里
 //
 //  流程：
 //   1. 从 NSItemProvider 取出文件副本（支持多个，也支持文件夹→自动打包）
-//   2. 写进 App Group 的共享容器：group.com.HuQing.Spark/Incoming/<job>/
+//   2. 写进 App Group 的共享容器：group.com.HuQing.Workbench/Incoming/<job>/
 //   3. 用 spark://import 拉活主 App，主 App 扫描 Incoming 并清空
 //   4. 用户点「完成」结束扩展
 //
@@ -14,7 +14,7 @@
 #import <UIKit/UIKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
-static NSString *const kAppGroup = @"group.com.HuQing.Spark";
+static NSString *const kAppGroup = @"group.com.HuQing.Workbench";
 
 @interface SPShareViewController : UIViewController
 
@@ -59,7 +59,7 @@ static NSString *const kAppGroup = @"group.com.HuQing.Spark";
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor systemGroupedBackgroundColor];
-    self.title = @"存入 Spark";
+    self.title = @"存入 Workbench";
 
     UIStackView *stack = [[UIStackView alloc] init];
     stack.axis = UILayoutConstraintAxisVertical;
@@ -84,7 +84,7 @@ static NSString *const kAppGroup = @"group.com.HuQing.Spark";
     self.statusLabel.textAlignment = NSTextAlignmentCenter;
     [stack addArrangedSubview:self.statusLabel];
 
-    self.openButton = [self filledButton:@"打开 Spark" symbol:@"arrow.up.forward.app" action:@selector(openHost)];
+    self.openButton = [self filledButton:@"打开 Workbench" symbol:@"arrow.up.forward.app" action:@selector(openHost)];
     self.openButton.hidden = YES;
     [stack addArrangedSubview:self.openButton];
 
@@ -148,7 +148,7 @@ static NSString *const kAppGroup = @"group.com.HuQing.Spark";
 
     if (!providers.count) {
         self.phase = @"noProviders";
-        [self showRecovery:@"没有可接收的文件。\n请在「文件」里选择文件后再分享到 Spark（网页链接不支持）。"];
+        [self showRecovery:@"没有可接收的文件。\n请在「文件」里选择文件后再分享到 Workbench（网页链接不支持）。"];
         return;
     }
     if (providers.count > 20) {
@@ -213,7 +213,7 @@ static NSString *const kAppGroup = @"group.com.HuQing.Spark";
             }
             self.phase = @"readyInGroup";
             self.jobId = job;
-            self.statusLabel.text = [NSString stringWithFormat:@"已接收 %ld 个文件（%@）\n正在打开 Spark…",
+            self.statusLabel.text = [NSString stringWithFormat:@"已接收 %ld 个文件（%@）\n正在打开 Workbench…",
                                      (long)self.fileCount, [NSByteCountFormatter stringFromByteCount:(long long)self.totalBytes
                                                                                            countStyle:NSByteCountFormatterCountStyleFile]];
             self.iconView.hidden = NO;
@@ -224,7 +224,7 @@ static NSString *const kAppGroup = @"group.com.HuQing.Spark";
             self.exportURLs = saved;
             self.iconView.hidden = NO;
             self.statusLabel.text = [NSString stringWithFormat:
-                @"已准备 %ld 个文件\n\n点「选择保存位置」，保存到「我的 iPhone → Spark」，再打开 Spark 会自动识别。\n"
+                @"已准备 %ld 个文件\n\n点「选择保存位置」，保存到「我的 iPhone → Workbench」，再打开 Workbench 会自动识别。\n"
                  "（当前签名没带 App Group，所以需要手动存一次。）", (long)self.fileCount];
             self.exportButton.hidden = NO;
             self.doneButton.hidden = NO;
@@ -266,7 +266,7 @@ static NSString *const kAppGroup = @"group.com.HuQing.Spark";
             src = [NSURL fileURLWithPath:tmp];
         }
         if (!src) {
-            NSError *e = [NSError errorWithDomain:@"Spark.Share" code:2
+            NSError *e = [NSError errorWithDomain:@"Workbench.Share" code:2
                                         userInfo:@{NSLocalizedDescriptionKey: @"来源 App 没有提供文件副本。"}];
             completion(nil, nil, e);
             return;
@@ -313,7 +313,7 @@ static NSString *const kAppGroup = @"group.com.HuQing.Spark";
     NSURL *url = [NSURL URLWithString:@"spark://import"];
     NSURL *group = [self.class sharedContainer];
     if (!group && !self.jobId) {
-        [self showRecovery:@"文件已接收，但需要手动保存到 Spark。"];
+        [self showRecovery:@"文件已接收，但需要手动保存到 Workbench。"];
         return;
     }
 
@@ -327,7 +327,7 @@ static NSString *const kAppGroup = @"group.com.HuQing.Spark";
             [self doneShare];
         } else {
             [self.spinner stopAnimating];
-            self.statusLabel.text = @"文件已接收。\n若没有自动跳转，请从桌面打开 Spark，文件会在「收件箱」里。";
+            self.statusLabel.text = @"文件已接收。\n若没有自动跳转，请从桌面打开 Workbench，文件会在「收件箱」里。";
             self.iconView.hidden = NO;
             self.openButton.hidden = NO;
             self.doneButton.hidden = NO;

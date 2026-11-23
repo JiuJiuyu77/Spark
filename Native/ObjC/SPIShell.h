@@ -1,6 +1,6 @@
 //
 //  SPIShell.h
-//  Spark —— iSH（Alpine Linux）集成
+//  Workbench —— iSH（Alpine Linux）集成
 //
 //  为什么需要它：
 //   iOS 自带的 BSD 工具很残缺 —— 没有 GNU sed/awk/grep 的很多用法，
@@ -10,7 +10,7 @@
 //
 //  集成方式：**调用 iSH 的 CLI**，不内嵌终端。
 //    · 只借用它的 Linux 用户态工具补齐命令缺口
-//    · 编译、链接、签名仍走 Spark 自己的 Darwin 工具链
+//    · 编译、链接、签名仍走 Workbench 自己的 Darwin 工具链
 //      （clang-16 / ld64 / ldid 必须在 Darwin 侧跑，Linux 侧跑不了）
 //
 //  设备上没装 iSH 时，所有接口返回「不可用」，调用方自动跳过。

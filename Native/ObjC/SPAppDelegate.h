@@ -1,6 +1,6 @@
 //
 //  SPAppDelegate.h
-//  Spark
+//  Workbench
 
 #import <UIKit/UIKit.h>
 

@@ -1,4 +1,4 @@
-# Spark 对照检查表
+# Workbench 对照检查表
 
 > 以**代码实际存在**为准。上一版多处标 ✅ 但代码里没有，已逐项核实更正。
 
@@ -29,7 +29,7 @@ TheosRuntime/
 
 ## A. Rein（DSH.app）—— 编译能力基准
 
-| # | Rein | Spark | 状态 |
+| # | Rein | Workbench | 状态 |
 |---|---|---|---|
 | A0 | Darwin 工具集（clang/ld64/ldid/perl/dpkg-deb） | 已打进 rootfs 运行时包 | ✅ 本轮修复 |
 | A1 | Theos 多 SDK（16.5/17.0/26.5） | 内置 16.5+17.0 | ✅ |
@@ -45,7 +45,7 @@ TheosRuntime/
 
 ## B. TrollFools —— 注入器基准
 
-| # | TrollFools | Spark | 状态 |
+| # | TrollFools | Workbench | 状态 |
 |---|---|---|---|
 | B1 | 走 LaunchServices 枚举 App | **`SPAppEnumerator`**：动态调 `LSApplicationWorkspace`，失败回退文件系统；图标走 LS 缓存 | ✅ **本轮完成** |
 | B2 | 主 Mach-O 选择（跳过 PlugIns/framework） | 同规则 | ✅ |
@@ -58,7 +58,7 @@ TheosRuntime/
 
 ## C. Dylix —— 工作台基准
 
-| # | Dylix | Spark | 状态 |
+| # | Dylix | Workbench | 状态 |
 |---|---|---|---|
 | C1 | 项目模板 | tweak / app | ✅ |
 | C2 | 语法着色 + 查找替换 | 有 | ✅ |

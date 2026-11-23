@@ -52,7 +52,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
 
     // 草稿：读取「默认选项」，改动即时落盘
     self.draft = [[SPStore shared] optionsForProjectPath:@"__defaults__"];
-    self.logFontSize = [[NSUserDefaults standardUserDefaults] floatForKey:@"Spark.logFontSize"];
+    self.logFontSize = [[NSUserDefaults standardUserDefaults] floatForKey:@"Workbench.logFontSize"];
     if (self.logFontSize <= 0) self.logFontSize = 12;
 
     self.table = SPMakeInsetTable(self);
@@ -113,13 +113,13 @@ typedef NS_ENUM(NSInteger, SPSection) {
             if (!i.hasBundledToolchain) return @"这个安装包里没有内置工具链。可以从「从文件导入工具链」补装。";
             if (!i.isInstalled) return @"内置工具链尚未展开，点上面「展开工具链」开始（Theos + 最小编译链，几秒）。";
             return [NSString stringWithFormat:
-                    @"已安装到 %@\n\nTheos 与最小编译链随包内置；OLLVM / 逆向工具 / 完整工具集\n按需点下方下载。SDK 需自行导入。",
+                    @"已安装到 %@\n\nTheos、最小编译链与 iPhoneOS16.5 SDK 随包内置；\n17.0 / 26.5 SDK 与 OLLVM / 逆向工具按需下载。",
                     [i.installRoot stringByReplacingOccurrencesOfString:NSHomeDirectory() withString:@"~"]];
         }
         case SPSectionFiles:
             return @"「接收文件」会把文件复制到 App 自己的目录，之后在项目里可以直接引用。";
         case SPSectionMCP: {
-            return @"MCP 让 Claude Desktop / Cursor 这类客户端直接调用 Spark 的编译与注入能力。\n"
+            return @"MCP 让 Claude Desktop / Cursor 这类客户端直接调用 Workbench 的编译与注入能力。\n"
                     "地址固定 127.0.0.1（只接受本机连接）；远程用请走 SSH 隧道。";
         }
         case SPSectionDisplay:
@@ -198,8 +198,8 @@ typedef NS_ENUM(NSInteger, SPSection) {
 
         case SPSectionMCP: {
             NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
-            BOOL on = [d boolForKey:@"Spark.mcpEnabled"];
-            NSInteger port = [d integerForKey:@"Spark.mcpPort"];
+            BOOL on = [d boolForKey:@"Workbench.mcpEnabled"];
+            NSInteger port = [d integerForKey:@"Workbench.mcpPort"];
             if (port <= 0) port = 7878;
             switch (ip.row) {
                 case 0:
@@ -249,7 +249,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
             cell.textLabel.text = SPAtIndex(titles, ip.row, @"");
             NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
             switch (ip.row) {
-                case 0: [self addSwitch:cell on:[d boolForKey:@"Spark.haptics"] tag:6001]; break;
+                case 0: [self addSwitch:cell on:[d boolForKey:@"Workbench.haptics"] tag:6001]; break;
                 case 1: [self addSwitch:cell on:SPSettings.shared.keepScreenOn tag:6002]; break;
                 case 2:
                     cell.detailTextLabel.text = [NSString stringWithFormat:@"%ld", (long)SPSettings.shared.maxLogLines];
@@ -276,7 +276,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
                     cell.detailTextLabel.text = @"会改源码（有备份）";
                     UISwitch *sw = [[UISwitch alloc] init];
                     sw.tag = 6005;
-                    sw.on = [[NSUserDefaults standardUserDefaults] boolForKey:@"Spark.autofixEnabled"];
+                    sw.on = [[NSUserDefaults standardUserDefaults] boolForKey:@"Workbench.autofixEnabled"];
                     [sw addTarget:self action:@selector(toggleSetting:) forControlEvents:UIControlEventValueChanged];
                     cell.accessoryView = sw;
                     cell.selectionStyle = UITableViewCellSelectionStyleNone;
@@ -510,10 +510,10 @@ typedef NS_ENUM(NSInteger, SPSection) {
             if (!sw.isOn) o.obfuscation = SPObfuscationNone;
             else if (o.obfuscation == SPObfuscationNone) o.obfuscation = SPObfuscationLight;
             break;
-        case 6001: [d setBool:sw.isOn forKey:@"Spark.haptics"]; [SPMotion hapticLight]; break;
+        case 6001: [d setBool:sw.isOn forKey:@"Workbench.haptics"]; [SPMotion hapticLight]; break;
         case 6002: SPSettings.shared.keepScreenOn = sw.isOn; [SPSettings.shared save]; break;
         case 6005:
-            [[NSUserDefaults standardUserDefaults] setBool:sw.isOn forKey:@"Spark.autofixEnabled"];
+            [[NSUserDefaults standardUserDefaults] setBool:sw.isOn forKey:@"Workbench.autofixEnabled"];
             [self toast:sw.isOn ? @"已开启（失败时会提示改源码）" : @"已关闭自动修复"];
             return;
         case 6004:
@@ -528,7 +528,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
             [self toast:sw.isOn ? @"已开启 JIT 加速" : @"已关闭 JIT 加速"];
             return;
         case 6200:
-            [[NSUserDefaults standardUserDefaults] setBool:sw.isOn forKey:@"Spark.mcpEnabled"];
+            [[NSUserDefaults standardUserDefaults] setBool:sw.isOn forKey:@"Workbench.mcpEnabled"];
             [self.table reloadData];
             [self toast:sw.isOn ? @"MCP 服务已启用" : @"MCP 服务已停止"];
             return;
@@ -693,11 +693,11 @@ typedef NS_ENUM(NSInteger, SPSection) {
         if (ip.row == 1) {
             NSArray *ports = @[@"7878", @"8787", @"17878"];
             [self pick:ports title:@"MCP 监听端口" apply:^(NSInteger i) {
-                [[NSUserDefaults standardUserDefaults] setInteger:[ports[i] integerValue] forKey:@"Spark.mcpPort"];
+                [[NSUserDefaults standardUserDefaults] setInteger:[ports[i] integerValue] forKey:@"Workbench.mcpPort"];
                 [self.table reloadData];
             }];
         } else if (ip.row == 3) {
-            NSInteger port = [[NSUserDefaults standardUserDefaults] integerForKey:@"Spark.mcpPort"];
+            NSInteger port = [[NSUserDefaults standardUserDefaults] integerForKey:@"Workbench.mcpPort"];
             if (!port) port = 7878;
             NSString *json = [NSString stringWithFormat:
                 @"{\n  \"mcpServers\": {\n    \"spark\": {\n"
@@ -728,7 +728,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
             [self pick:@[@"10 pt", @"11 pt", @"12 pt", @"14 pt", @"16 pt"] title:@"日志字号" apply:^(NSInteger i) {
                 NSArray<NSNumber *> *fontOptions = @[ @10, @11, @12, @14, @16 ];
                 self.logFontSize = (CGFloat)fontOptions[i].doubleValue;
-                [[NSUserDefaults standardUserDefaults] setFloat:self.logFontSize forKey:@"Spark.logFontSize"];
+                [[NSUserDefaults standardUserDefaults] setFloat:self.logFontSize forKey:@"Workbench.logFontSize"];
                 [self.table reloadData];
             }];
         }
@@ -1065,7 +1065,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
 
 - (void)showAbout {
     NSString *msg = [NSString stringWithFormat:
-        @"Spark %@\n构建 %@\n%@\n\n"
+        @"Workbench %@\n构建 %@\n%@\n\n"
          "参考 Rein 的可视化编译工具：\n"
          "• Theos / Logos 一键编译（内置交叉编译工具链）\n"
          "• OLLVM（Arkari LLVM 16）混淆，5 个 pass 可组合\n"
@@ -1073,7 +1073,7 @@ typedef NS_ENUM(NSInteger, SPSection) {
          "• 巨魔（TrollStore）注入器\n\n"
          "MIT License",
         SPVersion.shared.semver, SPVersion.shared.gitDescribe, SPVersion.shared.builtAt];
-    [self alert:@"关于 Spark" message:msg];
+    [self alert:@"关于 Workbench" message:msg];
 }
 
 - (void)runSelfCheck {

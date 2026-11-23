@@ -17,6 +17,7 @@
 #import "SPCompat.h"
 #import "SPGlassKit.h"
 #import "SPHealthDetailViewController.h"
+#import "SPSelfTestViewController.h"
 #import "SPStore.h"
 
 #pragma mark - 主列表
@@ -123,7 +124,7 @@
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
     if (s != 0) return nil;
     if (self.running) return @"正在检查…";
-    if (!self.items.count) return @"点「全部重测」开始。";
+    if (!self.items.count) return @"点「全部重测」开始；想验证真能出包就点「开始测试构建」。";
 
     NSInteger fail = 0, warn = 0, pass = 0;
     for (SPHealthItem *i in self.items) {
@@ -139,7 +140,10 @@
 }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
-    if (s == 0) return 1;
+    // 操作区两行：全部重测 / 开始测试构建。
+    // 合并入口后「测试构建」不再单独占工具页的格子，
+    // 直接挂在自检页里 —— 用户看到哪一项红，就能就地编一次验证。
+    if (s == 0) return 2;
     SPHealthCategory c = (SPHealthCategory)(s - 1);
     NSInteger n = 0;
     for (SPHealthItem *i in self.items) if (i.category == c) n++;
@@ -154,13 +158,23 @@
     cell.accessoryType = UITableViewCellAccessoryNone;
 
     if (ip.section == 0) {
-        cell.textLabel.text = self.running ? @"检查中…" : @"全部重测";
         cell.textLabel.textAlignment = NSTextAlignmentCenter;
-        cell.textLabel.textColor = self.running ? [SPTheme textDim] : [SPTheme accent];
         cell.textLabel.font = [SPTheme scaled:UIFontTextStyleBody weight:UIFontWeightMedium];
-        cell.imageView.image = [UIImage systemImageNamed:@"arrow.triangle.2.circlepath"];
-        cell.imageView.tintColor = self.running ? [SPTheme textDim] : [SPTheme accent];
-        cell.detailTextLabel.text = nil;
+        if (ip.row == 0) {
+            cell.textLabel.text = self.running ? @"检查中…" : @"全部重测";
+            cell.textLabel.textColor = self.running ? [SPTheme textDim] : [SPTheme accent];
+            cell.imageView.image = [UIImage systemImageNamed:@"arrow.triangle.2.circlepath"];
+            cell.imageView.tintColor = self.running ? [SPTheme textDim] : [SPTheme accent];
+            cell.detailTextLabel.text = nil;
+        } else {
+            cell.textLabel.text = @"开始测试构建";
+            cell.textLabel.textColor = [SPTheme info];
+            cell.imageView.image = [UIImage systemImageNamed:@"hammer.circle.fill"];
+            cell.imageView.tintColor = [SPTheme info];
+            cell.detailTextLabel.text = @"生成最小 tweak 并完整编译一遍，验证端到端能出包";
+            cell.detailTextLabel.font = [SPTheme scaled:UIFontTextStyleCaption1 weight:UIFontWeightRegular];
+            cell.detailTextLabel.textColor = [SPTheme textDim];
+        }
         cell.selectionStyle = UITableViewCellSelectionStyleDefault;
         return cell;
     }
@@ -197,7 +211,12 @@
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
-    if (ip.section == 0) { [self runAll]; return; }
+    if (ip.section == 0) {
+        if (ip.row == 0) { [self runAll]; return; }
+        [SPMotion hapticLight];
+        [self.navigationController pushViewController:[SPSelfTestViewController new] animated:YES];
+        return;
+    }
 
     SPHealthCategory cat = (SPHealthCategory)(ip.section - 1);
     NSMutableArray *row = [NSMutableArray array];
@@ -220,7 +239,7 @@
     NSMutableString *text = [NSMutableString string];
     NSDateFormatter *df = [NSDateFormatter new];
     df.dateFormat = @"yyyy-MM-dd HH:mm:ss";
-    [text appendFormat:@"Spark 自检报告\n生成时间：%@\n结论：%@\n耗时：%.1f 秒\n\n",
+    [text appendFormat:@"Workbench 自检报告\n生成时间：%@\n结论：%@\n耗时：%.1f 秒\n\n",
      [df stringFromDate:report.startedAt], report.headline, report.totalSeconds];
 
     for (NSInteger c = 0; c < SPHealthCategoryCount; c++) {

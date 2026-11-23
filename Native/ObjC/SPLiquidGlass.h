@@ -1,6 +1,6 @@
 //
 //  SPLiquidGlass.h
-//  Spark —— 液态玻璃（照搬 DnV1eX/LiquidGlassKit 的实现思路）
+//  Workbench —— 液态玻璃（照搬 DnV1eX/LiquidGlassKit 的实现思路）
 //
 //  私有 API 部分完全照搬：
 //    · CABackdropLayer —— 抓取图层背后的内容（Apple 自己在 UITabBar 里用）

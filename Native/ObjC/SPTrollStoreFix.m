@@ -77,7 +77,7 @@ extern CFTypeRef SecTaskCopyValueForEntitlement(SecTaskRef task,
                  "这几乎总是**覆盖安装**导致的 —— TrollStore 沿用了旧的"
                  "注册记录，没有重新赋予 root 能力。\n\n"
                  "解决办法：\n"
-                 @"1. 在 TrollStore 里先「卸载」Spark，再全新安装 ipa\n"
+                 @"1. 在 TrollStore 里先「卸载」Workbench，再全新安装 ipa\n"
                  @"2. 或在 TrollStore 里对本 App 点「重新注册 / Reinstall」\n"
                  @"3. 装完重启一次设备更稳妥"];
             break;

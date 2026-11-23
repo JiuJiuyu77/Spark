@@ -1,6 +1,6 @@
 //
 //  SPStore.h
-//  Spark —— 本地持久化（JSON 文件，放在 Documents/Spark 下）
+//  Workbench —— 本地持久化（JSON 文件，放在 Documents/Workbench 下）
 //
 
 #import <Foundation/Foundation.h>
@@ -12,7 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// 全局设置
 @interface SPSettings : NSObject <NSCopying>
 
-@property (nonatomic, copy) NSString *projectsRoot;        // 默认 Documents/Spark/projects
+@property (nonatomic, copy) NSString *projectsRoot;        // 默认 Documents/Workbench/projects
 @property (nonatomic, copy) NSString *defaultSDK;
 @property (nonatomic, assign) SPBuildTarget defaultTarget;
 @property (nonatomic, copy, nullable) NSString *sshHost;
@@ -32,7 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 编译前自动 git 快照（参考 Dylix 的 GitAutomation）
 @property (nonatomic, assign) BOOL autoSnapshotBeforeBuild;
-/// 快照提交用的作者信息（空则用 Spark 默认值）
+/// 快照提交用的作者信息（空则用 Workbench 默认值）
 @property (nonatomic, copy, nullable) NSString *gitUserName;
 @property (nonatomic, copy, nullable) NSString *gitUserEmail;
 

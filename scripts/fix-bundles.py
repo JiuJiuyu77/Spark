@@ -5,7 +5,7 @@
 --------
 TrollStore 安装 ipa 的最后一步是：
 
-    ldid -s Payload/Spark.app
+    ldid -s Payload/Workbench.app
 
 ldid 的目录签名逻辑（见 ldid.cpp 的 Sign(root, folder, ...)）：
   1. 递归找 `Frameworks/*.framework/Info.plist` 与
@@ -33,7 +33,7 @@ Theos 的 vendor 目录里很多 framework 只带 `.tbd` 桩文件（供编译�
 
 用法
 ----
-    python3 scripts/fix-bundles.py <Payload/Spark.app 的路径>
+    python3 scripts/fix-bundles.py <Payload/Workbench.app 的路径>
 
 退出码
 ------
@@ -131,7 +131,7 @@ def main() -> int:
     check_only = '--check' in sys.argv[1:]
 
     if not args:
-        print('用法: fix-bundles.py [--check] <Payload/Spark.app>', file=sys.stderr)
+        print('用法: fix-bundles.py [--check] <Payload/Workbench.app>', file=sys.stderr)
         return 1
     root = args[0]
     if not os.path.isdir(root):

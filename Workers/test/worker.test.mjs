@@ -37,7 +37,7 @@ function makeEnv(overrides = {}) {
     TOKEN: 'test-token-1234567890',
     GH_TOKEN: 'fake-gh',
     GH_OWNER: 'JiuJiuyu77',
-    GH_REPO: 'Spark',
+    GH_REPO: 'Workbench',
     GH_WORKFLOW: 'build.yml',
     GH_REF: 'main',
     MAX_UPLOAD_MB: '1',

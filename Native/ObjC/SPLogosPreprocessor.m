@@ -331,7 +331,7 @@ static void SPLLParseSignature(NSString *sig, SPLLMethod *m) {
     // ── 生成代码 ──
     NSMutableString *gen = [NSMutableString string];
 
-    [gen appendString:@"// 由 Spark 内置 Logos 预处理器生成（不依赖 perl）\n"];
+    [gen appendString:@"// 由 Workbench 内置 Logos 预处理器生成（不依赖 perl）\n"];
     [gen appendString:@"#include <objc/runtime.h>\n"];
     [gen appendString:@"#include <objc/message.h>\n"];
     [gen appendString:@"\n"];

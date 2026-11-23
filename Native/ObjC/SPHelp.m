@@ -46,7 +46,9 @@
             [self article:@"安装 SDK" summary:@"编译需要 iPhoneOS SDK"
                    symbol:@"shippingbox" category:@"入门" body:
 @"## SDK 从哪来\n\n"
- "**Spark 已内置 SDK**：iPhoneOS 16.5 / 17.0 / 26.5 三个，\n"
+ "**Workbench 已内置 SDK**：iPhoneOS 16.5（完整，开箱即用）。\n"
+ "17.0 / 26.5 可在「工具 → 工具链 → 默认 SDK」按需下载，\n"
+ "下载后自动可选用，不需要额外准备。\n\n"
  "随 App 一起装好，不需要任何额外准备，也不依赖其它 App。\n\n"
  "如果内置的缺失或不完整，可以自己补：\n\n"
  "**方法一：从 Xcode 拷**\n\n"
@@ -62,7 +64,7 @@
  "项目页 ＋ → 「从「文件」导入…」\n"
  "支持 zip / ipa / deb / tar.gz / tar.xz，会自动解压并找到工程根。\n\n"
  "**2. 其他 App 分享过来**\n\n"
- "在任何 App 里点分享 → 选 Spark，文件会进「收件箱」。\n\n"
+ "在任何 App 里点分享 → 选 Workbench，文件会进「收件箱」。\n\n"
  "**3. 从收件箱导入**\n\n"
  "我的 → 收件箱 → 选文件 → 「导入为项目」。\n\n"
  "> 判断工程根的依据：目录里有 `Makefile`。"],
@@ -116,7 +118,7 @@
  "iOS 上想改别的 App，只有一条路：**让它启动时加载你的代码**。\n\n"
  "做法是修改目标 App 的主二进制，加一条 `LC_LOAD_DYLIB` 命令，\n"
  "指向你的 dylib。App 启动时 dyld 就会加载它。\n\n"
- "## Spark 的流程\n\n"
+ "## Workbench 的流程\n\n"
  "1. 备份目标 App 为 `.sparkbak`\n"
  "2. 把 dylib 复制进 App\n"
  "3. 准备 CydiaSubstrate（`%hook` 的运行时）\n"
@@ -137,7 +139,7 @@
  "注入面板里打开「CoreTrust 绕过」选项，\n"
  "并确保 `ct_bypass` 在工具链 bin 目录里。\n\n"
  "**没有 CydiaSubstrate**\n\n"
- "`%hook` 依赖 Substrate 运行时。Spark 会自动准备，\n"
+ "`%hook` 依赖 Substrate 运行时。Workbench 会自动准备，\n"
  "但如果你只拷了 dylib 没带 framework，就会闪退。\n\n"
  "**App 有反注入保护**\n\n"
  "部分银行、社交类 App 会检测 `LC_LOAD_DYLIB`。这种情况无解。"],
@@ -163,7 +165,7 @@
             [self article:@"编译失败怎么查" summary:@"从日志判断问题"
                    symbol:@"text.magnifyingglass" category:@"排错" body:
 @"## 先看日志里的 `[!]` 行\n\n"
- "Spark 会在关键步骤打 `[ok]` / `[!]`，`[!]` 就是问题点。\n\n"
+ "Workbench 会在关键步骤打 `[ok]` / `[!]`，`[!]` 就是问题点。\n\n"
  "## 常见错误\n\n"
  "**找不到头文件**\n"
  "`fatal error: 'UIKit/UIKit.h' file not found`\n"
@@ -196,7 +198,7 @@
                    symbol:@"arrow.triangle.branch" category:@"进阶" body:
 @"## 为什么需要\n\n"
  "改代码改崩了想回退，没有 Git 就只能靠记忆。\n\n"
- "## Spark 做什么\n\n"
+ "## Workbench 做什么\n\n"
  "设置里「编译前自动快照」默认开启。\n"
  "每次编译前，若工程是 git 仓库且有未提交改动，\n"
  "会自动 `git add -A && git commit`。\n\n"

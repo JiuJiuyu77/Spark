@@ -1,6 +1,6 @@
 //
 //  SPJIT.h
-//  Spark —— JIT 加速
+//  Workbench —— JIT 加速
 //
 //  两条路，按设备能力自动挑：
 //   1. 越狱/TrollStore 设备：调用 jetsam / JIT 相关 entitlement 已是平台级，

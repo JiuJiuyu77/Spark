@@ -4,7 +4,7 @@
 
 #import "SPCompat.h"
 
-NSString *const SPErrorDomain = @"Spark.Error";
+NSString *const SPErrorDomain = @"Workbench.Error";
 
 id SPAtIndex(NSArray *array, NSInteger index, id fallback) {
     if (![array isKindOfClass:NSArray.class]) return fallback;
@@ -26,10 +26,10 @@ NSString *SPLogFilePath(void) {
     static NSString *p;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        NSString *dir = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/logs"];
+        NSString *dir = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Workbench/logs"];
         [[NSFileManager defaultManager] createDirectoryAtPath:dir
                                   withIntermediateDirectories:YES attributes:nil error:NULL];
-        p = [dir stringByAppendingPathComponent:@"spark.log"];
+        p = [dir stringByAppendingPathComponent:@"workbench.log"];
     });
     return p;
 }
@@ -59,7 +59,7 @@ void SPAppendLog(NSString *message) {
     // 这个崩溃发生在启动阶段（elevateSelf 打日志时），表现为一启动就闪退。
     static dispatch_queue_t ioq;
     static dispatch_once_t ioOnce;
-    dispatch_once(&ioOnce, ^{ ioq = dispatch_queue_create("spark.log.io", DISPATCH_QUEUE_SERIAL); });
+    dispatch_once(&ioOnce, ^{ ioq = dispatch_queue_create("workbench.log.io", DISPATCH_QUEUE_SERIAL); });
     dispatch_async(ioq, ^{
         FILE *f = fopen(SPLogFilePath().fileSystemRepresentation, "a");
         if (!f) return;

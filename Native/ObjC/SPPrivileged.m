@@ -158,7 +158,7 @@
             wasRoot ? @"0（root）" : @"非 0",
             wasRoot ? @"✓ 子进程以 root 运行"
                     : @"✗ 子进程以普通用户运行 —— 编译会失败\n"
-                      @"原因通常是：Spark 不是通过 TrollStore 安装，\n"
+                      @"原因通常是：Workbench 不是通过 TrollStore 安装，\n"
                       @"或安装时缺少 platform-application 权限。",
             output ?: @""];
         if (completion) completion(detail);

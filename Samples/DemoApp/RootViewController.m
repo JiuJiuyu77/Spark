@@ -7,7 +7,7 @@
     self.view.backgroundColor = [UIColor systemBackgroundColor];
 
     UILabel *label = [[UILabel alloc] initWithFrame:self.view.bounds];
-    label.text = @"Hello Spark";
+    label.text = @"Hello Workbench";
     label.textAlignment = NSTextAlignmentCenter;
     label.font = [UIFont boldSystemFontOfSize:24];
     label.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;

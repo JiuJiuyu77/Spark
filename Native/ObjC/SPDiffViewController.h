@@ -1,6 +1,6 @@
 //
 //  SPDiffViewController.h
-//  Spark —— 差异查看（参考 Dylix 的 GitDiffView）
+//  Workbench —— 差异查看（参考 Dylix 的 GitDiffView）
 //
 //  之前在 Git 页点 diff 只是把文本丢进编辑器，看不出改了哪几行。
 //  这里做行级着色：新增绿底、删除红底、@@ 头蓝色、上下文灰色。

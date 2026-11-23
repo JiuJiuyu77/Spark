@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "让 Spark 一键探测已有的 Theos / SDK / OLLVM / 逆向工具，并生成可复现的构建脚本",
+  "description": "让 Workbench 一键探测已有的 Theos / SDK / OLLVM / 逆向工具，并生成可复现的构建脚本",
   "scripts": {
     "detect": "node scripts/detect-toolchain.mjs",
     "gen": "node scripts/gen-build-script.mjs",

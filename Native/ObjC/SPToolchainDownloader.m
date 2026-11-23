@@ -8,7 +8,7 @@
 #import "SPSession.h"
 #import "SPCompat.h"
 
-static NSString *const kComponentStateKey = @"Spark.downloadedComponents";
+static NSString *const kComponentStateKey = @"Workbench.downloadedComponents";
 
 /**
  * 运行时清单（与 ProjectKit/src/runtimes.mjs 保持一致）。
@@ -21,7 +21,7 @@ static NSArray<NSDictionary *> *SPRuntimeManifest(void) {
     dispatch_once(&once, ^{
         // 与 ProjectKit/src/runtimes.mjs 一致；选型见 docs/runtime-decision.md
         NSString *codex = @"https://github.com/susu123oss/CodexApp-Runtime/releases/download";
-        NSString *self_ = @"https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v1";
+        NSString *self_ = @"https://github.com/JiuJiuyu77/Workbench-Runtime/releases/download/runtime-v3";
         m = @[
           @{@"id": @"coretools", @"name": @"核心工具集", @"size": @(10*1024*1024), @"order": @5,
             @"archive": [codex stringByAppendingString:@"/runtime-core-tools-a7e97567217a/CoreToolsRuntime.tar.gz"],
@@ -39,11 +39,17 @@ static NSArray<NSDictionary *> *SPRuntimeManifest(void) {
             @"archive": [codex stringByAppendingString:@"/runtime-python-3.13.14-3c834a2c8964/PythonRuntime.tar.gz"],
             @"probe": @"bin/python3", @"detail": @"Python 3.13.14", @"symbol": @"chevron.left.forwardslash.chevron.right"},
           @{@"id": @"theos", @"name": @"Theos 完整版", @"size": @(114*1024*1024), @"order": @25,
-            @"archive": [self_ stringByAppendingString:@"/SparkTheosRuntime.tar.gz"],
-            @"probe": @"theos/bin/logos.pl", @"detail": @"含 16.5 / 17.0 两个 SDK", @"symbol": @"wrench.and.screwdriver.fill"},
+            @"archive": [self_ stringByAppendingString:@"/SparkTheosRuntimeV3.tar.gz"],
+            @"probe": @"theos/bin/logos.pl", @"detail": @"Theos 本体（SDK 单独下载）", @"symbol": @"wrench.and.screwdriver.fill"},
           @{@"id": @"ollvm", @"name": @"OLLVM 混淆", @"size": @(35*1024*1024), @"order": @30,
             @"archive": [codex stringByAppendingString:@"/runtime-ollvm-23.1.1-e54f2878240e/OLLVMRuntime.tar.gz"],
             @"probe": @"bin/clang", @"detail": @"LLVM 23.1.1，7 个 pass", @"symbol": @"wand.and.stars"},
+          @{@"id": @"sdk17", @"name": @"iPhoneOS17.0.sdk", @"size": @(44*1024*1024), @"order": @0,
+            @"archive": [self_ stringByAppendingString:@"/iPhoneOS17.0.sdk.tar.gz"],
+            @"probe": @"sdks/iPhoneOS17.0.sdk/SDKSettings.json", @"detail": @"17.0 SDK（按需下载）", @"symbol": @"shippingbox"},
+          @{@"id": @"sdk26", @"name": @"iPhoneOS26.5.sdk", @"size": @(33*1024*1024), @"order": @0,
+            @"archive": [self_ stringByAppendingString:@"/iPhoneOS26.5.sdk.tar.gz"],
+            @"probe": @"sdks/iPhoneOS26.5.sdk/SDKSettings.json", @"detail": @"26.5 SDK（按需下载）", @"symbol": @"shippingbox"},
         ];
     });
     return m;
@@ -56,6 +62,14 @@ static NSArray<NSString *> *SPProxyPrefixes(void) {
 
 @implementation SPComponentInfo
 - (BOOL)isInstalled {
+    SPComponent c = self.component;
+    // SDK 组件：判断目标 SDK 是否真实存在（走 SPToolchain 的完整性判定，
+    // 不依赖 .installed 标记——SDK 包解到 installRoot 顶层，不能污染它的展开状态）。
+    if (c == SPComponentSDK17 || c == SPComponentSDK26) {
+        NSString *ver = (c == SPComponentSDK17) ? @"17.0" : @"26.5";
+        NSString *name = [NSString stringWithFormat:@"iPhoneOS%@.sdk", ver];
+        return [[[SPToolchain shared] availableSDKs] containsObject:name];
+    }
     NSString *dir = [[SPToolchainDownloader shared] directoryFor:self.component];
     return [[NSFileManager defaultManager] fileExistsAtPath:
             [dir stringByAppendingPathComponent:@".installed"]];
@@ -90,6 +104,12 @@ static NSArray<NSString *> *SPProxyPrefixes(void) {
 - (NSString *)directoryFor:(SPComponent)component {
     NSArray *m = SPRuntimeManifest();
     NSString *root = [SPToolchainInstaller shared].installRoot;
+    // SDK 组件：归档内部自带 sdks/ 前缀，直接解到 installRoot 顶层
+    //（installRoot/sdks/iPhoneOS17.0.sdk/...），不能嵌套成 installRoot/sdk17。
+    if (component == SPComponentSDK17 || component == SPComponentSDK26) {
+        return root;
+    }
+
     if (component >= 0 && component < (NSInteger)m.count) {
         return [root stringByAppendingPathComponent:m[component][@"id"]];
     }
@@ -138,7 +158,7 @@ static NSArray<NSString *> *SPProxyPrefixes(void) {
     }
 
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:finalURL]];
-    [req setValue:@"Spark/1.3" forHTTPHeaderField:@"User-Agent"];
+    [req setValue:@"Workbench/1.3" forHTTPHeaderField:@"User-Agent"];
     self.task = [self.session downloadTaskWithRequest:req];
     [self.task resume];
 }
@@ -171,6 +191,7 @@ didFinishDownloadingToURL:(NSURL *)location {
         [SPToolchainInstaller shared].installRoot,
         @"/usr/bin", @"/var/jb/usr/bin", @"/bin"]];
     BOOL ok = NO;
+    BOOL isSDK = (self.currentComponent == SPComponentSDK17 || self.currentComponent == SPComponentSDK26);
     if (tar) {
         if (self.progressBlock) dispatch_async(dispatch_get_main_queue(), ^{ self.progressBlock(0.95, @"解包…"); });
         NSString *cmd = [NSString stringWithFormat:
@@ -181,16 +202,20 @@ didFinishDownloadingToURL:(NSURL *)location {
         ok = (r.exitCode == 0);
     }
     if (ok) {
-        // 补执行权限
-        for (NSString *sub in @[@"bin", @"sbin", @"libexec"]) {
-            NSString *d = [dir stringByAppendingPathComponent:sub];
-            for (NSString *f in [fm contentsOfDirectoryAtPath:d error:NULL] ?: @[]) {
-                [fm setAttributes:@{NSFilePosixPermissions: @(0755)}
-               ofItemAtPath:[d stringByAppendingPathComponent:f] error:NULL];
+        // SDK 组件解到 installRoot 顶层，不能写 .installed（会污染全局安装状态），
+        // 也不需要给 bin/sbin/libexec 补执行位。
+        if (!isSDK) {
+            // 补执行权限
+            for (NSString *sub in @[@"bin", @"sbin", @"libexec"]) {
+                NSString *d = [dir stringByAppendingPathComponent:sub];
+                for (NSString *f in [fm contentsOfDirectoryAtPath:d error:NULL] ?: @[]) {
+                    [fm setAttributes:@{NSFilePosixPermissions: @(0755)}
+                   ofItemAtPath:[d stringByAppendingPathComponent:f] error:NULL];
+                }
             }
+            [@"ok" writeToFile:[dir stringByAppendingPathComponent:@".installed"]
+                    atomically:YES encoding:NSUTF8StringEncoding error:NULL];
         }
-        [@"ok" writeToFile:[dir stringByAppendingPathComponent:@".installed"]
-                atomically:YES encoding:NSUTF8StringEncoding error:NULL];
     }
 
     dispatch_async(dispatch_get_main_queue(), ^{

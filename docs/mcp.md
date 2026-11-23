@@ -1,10 +1,10 @@
 # MCP 支持（仅本地 127.0.0.1）
 
-Spark 内置一个 **MCP（Model Context Protocol）服务器**，让 Claude Desktop、Cursor、
-Zed 或你自己写的 agent 直接调用 Spark 的编译/注入/逆向能力。
+Workbench 内置一个 **MCP（Model Context Protocol）服务器**，让 Claude Desktop、Cursor、
+Zed 或你自己写的 agent 直接调用 Workbench 的编译/注入/逆向能力。
 
 > ⚠️ **安全边界：只监听 127.0.0.1。**
-> Spark 能读写整个文件系统、能起编译进程。一旦监听 `0.0.0.0`，同一 WiFi 下任何人
+> Workbench 能读写整个文件系统、能起编译进程。一旦监听 `0.0.0.0`，同一 WiFi 下任何人
 > 都能借它执行命令。所以监听地址在代码里写死为回环地址，不提供配置项：
 
 ```js
@@ -42,10 +42,10 @@ export const HTTP_BIND_HOST = '127.0.0.1';   // 刻意不可配置
   "mcpServers": {
     "spark": {
       "command": "node",
-      "args": ["/var/mobile/Documents/Spark/bin/spark-mcp.mjs"],
+      "args": ["/var/mobile/Documents/Workbench/bin/spark-mcp.mjs"],
       "env": {
         "SPARK_REIN_ROOT": "/var/mobile/Documents/Rein",
-        "SPARK_APP_PATH": "/Applications/Spark.app"
+        "SPARK_APP_PATH": "/Applications/Workbench.app"
       }
     }
   }
@@ -53,7 +53,7 @@ export const HTTP_BIND_HOST = '127.0.0.1';   // 刻意不可配置
 ```
 
 - `SPARK_REIN_ROOT`：Rein 数据目录（找 Theos / SDK / OLLVM）
-- `SPARK_APP_PATH`：Spark.app 路径（工具探测会顺带看它的 `helpers/`，
+- `SPARK_APP_PATH`：Workbench.app 路径（工具探测会顺带看它的 `helpers/`，
   Rein 里那套裁过的 `insert_dylib` / `ldid` 就在那儿）
 
 ## 手测（不装客户端也能验）

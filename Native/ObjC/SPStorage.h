@@ -1,6 +1,6 @@
 //
 //  SPStorage.h
-//  Spark —— 存储空间管理（参考 Dylix 的 StorageSpace 设计思路）
+//  Workbench —— 存储空间管理（参考 Dylix 的 StorageSpace 设计思路）
 //
 //  目标：让用户清楚看到「谁占了空间」，并且能分门别类地清理。
 //  分类固定为这几类，扫描根目录显式传入（便于测试与模拟）：

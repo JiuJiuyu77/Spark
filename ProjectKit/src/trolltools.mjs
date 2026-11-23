@@ -35,7 +35,7 @@ export const RECOMMENDED = ['install_name_tool', 'ct_bypass'];
 /**
  * Rein 把一套裁过的 Darwin 工具放在 DSH.app/helpers 里（insert_dylib、ldid 都在那儿）。
  * 这个函数顺着 REIN_ROOT 往上找 Bundle/Application/<UUID>/X.app/helpers，
- * 让 Spark 不用用户手动指路径也能用上它们。
+ * 让 Workbench 不用用户手动指路径也能用上它们。
  */
 function siblingHelperDirs() {
   const roots = [

@@ -14,15 +14,15 @@
     static SPJIT *j; static dispatch_once_t once;
     dispatch_once(&once, ^{
         j = [SPJIT new];
-        j->_userEnabled = [[NSUserDefaults standardUserDefaults] objectForKey:@"Spark.jitEnabled"] == nil
-            ? YES : [[NSUserDefaults standardUserDefaults] boolForKey:@"Spark.jitEnabled"];
+        j->_userEnabled = [[NSUserDefaults standardUserDefaults] objectForKey:@"Workbench.jitEnabled"] == nil
+            ? YES : [[NSUserDefaults standardUserDefaults] boolForKey:@"Workbench.jitEnabled"];
     });
     return j;
 }
 
 - (void)setUserEnabled:(BOOL)userEnabled {
     _userEnabled = userEnabled;
-    [[NSUserDefaults standardUserDefaults] setBool:userEnabled forKey:@"Spark.jitEnabled"];
+    [[NSUserDefaults standardUserDefaults] setBool:userEnabled forKey:@"Workbench.jitEnabled"];
 }
 
 - (BOOL)isPlatformApp {

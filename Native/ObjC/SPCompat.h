@@ -1,6 +1,6 @@
 //
 //  SPCompat.h
-//  Spark —— 共享在 ShareKit / ProjectKit / App 三处的基础宏与轻量封装。
+//  Workbench —— 共享在 ShareKit / ProjectKit / App 三处的基础宏与轻量封装。
 //
 //  原则：不依赖任何第三方库（Rein 环境里没有 Cephei 的保证），
 //  只用 Foundation + UIKit，能在 iOS 15~17 上编译，也能在 macOS 上用
@@ -19,7 +19,7 @@ NS_ASSUME_NONNULL_BEGIN
 ///  App 内的日志页面完全看不到这些 —— 用户看到的就是「日志不完整」，
 ///  而真正的错误信息（setuid 失败、shell 找不到、着色器缺失）全在里面。
 #define SPLog(fmt, ...) do { \
-    NSString *_msg = [NSString stringWithFormat:(@"[Spark] " fmt), ##__VA_ARGS__]; \
+    NSString *_msg = [NSString stringWithFormat:(@"[Workbench] " fmt), ##__VA_ARGS__]; \
     NSLog(@"%@", _msg); \
     SPAppendLog(_msg); \
 } while (0)

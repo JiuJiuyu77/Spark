@@ -20,7 +20,7 @@
                     backupPath:(NSString *)backupPath {
     NSMutableArray *lines = [NSMutableArray array];
 
-    [lines addObject:@"# Spark 生成脚本 —— 可整段复制到终端里单独运行"];
+    [lines addObject:@"# Workbench 生成脚本 —— 可整段复制到终端里单独运行"];
     [lines addObject:@"set -o pipefail 2>/dev/null || true"];
     [lines addObject:@"export LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8"];
     [lines addObject:@"__rb_begin=$(date +%s)"];
@@ -41,7 +41,7 @@
         [lines addObject:[NSString stringWithFormat:@"export %@=%@", k, [SPUtil shellQuote:v]]];
     }
 
-    // ---- 内置工具链（ipa 里的，首启展开到 Documents/Spark/Toolchain）----
+    // ---- 内置工具链（ipa 里的，首启展开到 Documents/Workbench/Toolchain）----
     // 结构与 CodexApp/TheosRuntime 一致：rootfs 形态
     //   bin/  usr/bin/  usr/lib/  theos/
     SPToolchainInstaller *inst = [SPToolchainInstaller shared];
@@ -49,8 +49,8 @@
         NSString *root = inst.installRoot;
         [lines addObject:[NSString stringWithFormat:@"export SPARK_TC=%@", [SPUtil shellQuote:root]]];
         // 运行时可能是两种布局：
-        //   平铺（与 Rein 一致）: Spark.app/theos-root/usr/bin
-        //   旧布局:              Spark.app/Toolchain/usr/bin 或 Spark.app/usr/bin
+        //   平铺（与 Rein 一致）: Workbench.app/theos-root/usr/bin
+        //   旧布局:              Workbench.app/Toolchain/usr/bin 或 Workbench.app/usr/bin
         // 自动定位真正的 bin 目录，避免 PATH 指向不存在的位置。
         [lines addObject:@"for c in \"$SPARK_TC/theos-root\" \"$SPARK_TC/Toolchain\" \"$SPARK_TC\"; do "
                       // 判据放宽：clang-16 或 llvm-16/bin/clang 任一存在即可 ——

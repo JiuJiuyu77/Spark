@@ -1,6 +1,6 @@
 //
 //  SPTrashViewController.m
-//  Spark —— 项目回收站
+//  Workbench —— 项目回收站
 //
 #import "SPTrashViewController.h"
 #import "SPStore.h"

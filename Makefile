@@ -1,4 +1,4 @@
-## Spark —— 可视化编译工具
+## Workbench —— 可视化编译工具
 ##
 ## 真机编译（Rein 里直接 make）：
 ##   THEOS=~/Rein/tools/theos-full make package FINALPACKAGE=1
@@ -6,7 +6,7 @@
 ## 交叉验证（语法/类型检查，不需要签名）：
 ##   make syntax-check
 ##
-## 产物：packages/com.HuQing.Spark_<版本>_iphoneos-arm.deb
+## 产物：packages/com.HuQing.Workbench_<版本>_iphoneos-arm.deb
 
 TARGET := iphone:clang:latest:15.0
 ARCHS  := arm64 arm64e
@@ -16,18 +16,18 @@ include $(THEOS)/makefiles/common.mk
 # 构建信息由 CI 注入（scripts/build-info.sh 会生成 include/build-info.mk）
 -include include/build-info.mk
 
-APPLICATION_NAME = Spark
+APPLICATION_NAME = Workbench
 
-Spark_FILES = $(wildcard Native/ObjC/*.m)
-Spark_FRAMEWORKS = UIKit Foundation CoreGraphics QuartzCore
-Spark_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-variable \
+Workbench_FILES = $(wildcard Native/ObjC/*.m)
+Workbench_FRAMEWORKS = UIKit Foundation CoreGraphics QuartzCore
+Workbench_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-variable \
                    $(SP_EXTRA_CFLAGS)
-Spark_OBJCFLAGS = $(Spark_CFLAGS)
-Spark_LIBRARIES = MobileCoreServices
-Spark_CODESIGN_FLAGS = -Ssign.plist
-Spark_INSTALL_PATH = /Applications
-Spark_RESOURCE_FILES = $(wildcard Native/Resources/*.png)
-Spark_RESOURCE_DIRS = Native/Resources/en.lproj Native/Resources/Assets.xcassets
+Workbench_OBJCFLAGS = $(Workbench_CFLAGS)
+Workbench_LIBRARIES = MobileCoreServices
+Workbench_CODESIGN_FLAGS = -Ssign.plist
+Workbench_INSTALL_PATH = /Applications
+Workbench_RESOURCE_FILES = $(wildcard Native/Resources/*.png)
+Workbench_RESOURCE_DIRS = Native/Resources/en.lproj Native/Resources/Assets.xcassets
 
 include $(THEOS_MAKE_PATH)/application.mk
 
@@ -36,7 +36,7 @@ include $(THEOS_MAKE_PATH)/application.mk
 ## ---------------------------------------------------------------------------
 
 after-install::
-	install.exec "killall -9 Spark 2>/dev/null || true"
+	install.exec "killall -9 Workbench 2>/dev/null || true"
 
 ## 只做语法/类型检查：用 SDK 的 clang 逐文件 -fsyntax-only，不链接不签名。
 ## 在 Linux/macOS 的 CI runner 上也能跑，方便 PR 快速反馈。

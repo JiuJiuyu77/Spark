@@ -1,6 +1,6 @@
 //
 //  SPSignatureAudit.h
-//  Spark —— 签名审计（参考 Dylix 的 DylibSignature 思路）
+//  Workbench —— 签名审计（参考 Dylix 的 DylibSignature 思路）
 //
 //  为什么需要它：
 //   .ipa 装不上时，TrollStore 只给一句 "ldid: Unknown header magic"，
@@ -15,7 +15,7 @@
 //
 //  与 Dylix 的区别：
 //   它只校验「签出的 dylib 是否合法」，我们校验整个 .app/ipa，
-//   因为 Spark 的痛点是在安装阶段而不是产出阶段。
+//   因为 Workbench 的痛点是在安装阶段而不是产出阶段。
 //
 
 #import <Foundation/Foundation.h>

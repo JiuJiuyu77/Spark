@@ -6,7 +6,7 @@
  * .app 里有图标；缺图标时有的工具直接拒绝安装，这也是「明明有 ipa 却装不上」的常见原因。
  *
  * 做法：直接写 PNG 文件头 + zlib 压缩的像素数据（用 node 内置 zlib）。
- * 图形：圆角底 + 中间一道闪电（Spark 取「火花/闪电」意）。
+ * 图形：圆角底 + 中间一道闪电（Workbench 取「火花/闪电」意）。
  *
  * 用法：node scripts/make-appicon.mjs Native/Resources/Assets.xcassets/AppIcon.appiconset
  */

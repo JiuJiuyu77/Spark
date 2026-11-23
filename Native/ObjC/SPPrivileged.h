@@ -1,6 +1,6 @@
 //
 //  SPPrivileged.h
-//  Spark —— 以 root 身份运行子进程（巨魔/TrollStore 特有）
+//  Workbench —— 以 root 身份运行子进程（巨魔/TrollStore 特有）
 //
 //  背景：
 //   · Dylix 那种自签 App 只能在沙盒里想办法，进程永远是自己那个 uid

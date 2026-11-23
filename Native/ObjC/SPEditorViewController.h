@@ -1,6 +1,6 @@
 //
 //  SPEditorViewController.h
-//  Spark —— 带行号与语法着色的只读编辑器（可临时编辑并保存）
+//  Workbench —— 带行号与语法着色的只读编辑器（可临时编辑并保存）
 //
 
 #import <UIKit/UIKit.h>

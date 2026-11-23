@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<!-- ==================================================================
-	     Spark Helper (bin/spark-jitd) 专用 entitlements
+	     Workbench Helper (bin/spark-jitd) 专用 entitlements
 	     必须与主 App 分开签名：Helper 是独立进程，
 	     继承不到主 App 的签名权限。
 	     ================================================================== -->

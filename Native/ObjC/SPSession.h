@@ -1,6 +1,6 @@
 //
 //  SPSession.h
-//  Spark —— 一次 shell / make 调用的封装：异步、可取消、逐行回调。
+//  Workbench —— 一次 shell / make 调用的封装：异步、可取消、逐行回调。
 //  刻意不用 NSTask（iOS 上不可用），而是 posix_spawn + 管道。
 //
 

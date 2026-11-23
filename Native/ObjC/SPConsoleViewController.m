@@ -219,7 +219,7 @@
 }
 
 - (void)appendInfoLines {
-    [self.logView appendLine:[NSString stringWithFormat:@"Spark %@ (%@)", SPVersion.shared.semver, SPVersion.shared.gitDescribe] level:SPLogLevelInfo];
+    [self.logView appendLine:[NSString stringWithFormat:@"Workbench %@ (%@)", SPVersion.shared.semver, SPVersion.shared.gitDescribe] level:SPLogLevelInfo];
     [self.logView appendLine:[NSString stringWithFormat:@"项目  %@", self.project.path] level:SPLogLevelInfo];
     [self.logView appendLine:[NSString stringWithFormat:@"目标  %@", self.profile.name] level:SPLogLevelInfo];
     [self.logView appendLine:[NSString stringWithFormat:@"选项  %@", [self.project.options displaySummary]] level:SPLogLevelInfo];
@@ -694,9 +694,9 @@
     for (SPLogLine *l in job.lines) { [log appendString:l.text]; [log appendString:@"\n"]; }
 
     // 注意：这是 Dylix 路线（沙盒里没有 shell 才要自动改源码）。
-    // Spark 是 TrollStore 环境，能直接看日志、改文件，所以默认不弹，
+    // Workbench 是 TrollStore 环境，能直接看日志、改文件，所以默认不弹，
     // 只有用户在设置里打开「构建后提示自动修复」才启用。
-    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"Spark.autofixEnabled"]) return;
+    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"Workbench.autofixEnabled"]) return;
     NSArray<SPFixIt *> *fixes = [SPAutofix parseLog:log projectRoot:self.project.path];
     NSMutableArray<SPFixIt *> *safe = [NSMutableArray array];
     for (SPFixIt *f in fixes) if (f.safe) [safe addObject:f];

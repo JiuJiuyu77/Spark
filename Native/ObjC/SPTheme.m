@@ -76,19 +76,19 @@
 }
 
 + (void)hapticLight {
-    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"Spark.haptics"]) return;
+    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"Workbench.haptics"]) return;
     UIImpactFeedbackGenerator *g = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
     [g impactOccurred];
 }
 
 + (void)hapticSuccess {
-    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"Spark.haptics"]) return;
+    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"Workbench.haptics"]) return;
     UINotificationFeedbackGenerator *g = [UINotificationFeedbackGenerator new];
     [g notificationOccurred:UINotificationFeedbackTypeSuccess];
 }
 
 + (void)hapticError {
-    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"Spark.haptics"]) return;
+    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"Workbench.haptics"]) return;
     UINotificationFeedbackGenerator *g = [UINotificationFeedbackGenerator new];
     [g notificationOccurred:UINotificationFeedbackTypeError];
 }

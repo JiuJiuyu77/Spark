@@ -1,13 +1,13 @@
 <div align="center">
 
-# Spark
+# Workbench
 
 **参考 Rein（DSH.app）复刻的可视化编译工具 —— 一个 iOS 原生 App**
 
 Theos / Logos 一键编译 · OLLVM 混淆 · 逆向工具台 · **巨魔注入器** · **MCP 服务** · 本机 / 远程 / GitHub CI 三种构建
 
-[![build](https://github.com/JiuJiuyu77/Spark/actions/workflows/build.yml/badge.svg)](https://github.com/JiuJiuyu77/Spark/actions/workflows/build.yml)
-[![checks](https://github.com/JiuJiuyu77/Spark/actions/workflows/checks.yml/badge.svg)](https://github.com/JiuJiuyu77/Spark/actions/workflows/checks.yml)
+[![build](https://github.com/JiuJiuyu77/Workbench/actions/workflows/build.yml/badge.svg)](https://github.com/JiuJiuyu77/Workbench/actions/workflows/build.yml)
+[![checks](https://github.com/JiuJiuyu77/Workbench/actions/workflows/checks.yml/badge.svg)](https://github.com/JiuJiuyu77/Workbench/actions/workflows/checks.yml)
 ![platform](https://img.shields.io/badge/platform-iOS%2015%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -17,11 +17,11 @@ Theos / Logos 一键编译 · OLLVM 混淆 · 逆向工具台 · **巨魔注入�
 
 ## 这是什么
 
-Spark 是一个装在越狱 iPhone 上的**原生 App**，把「写 tweak → 编译 → 打包 → 看日志」整条链路收进手机里。
+Workbench 是一个装在越狱 iPhone 上的**原生 App**，把「写 tweak → 编译 → 打包 → 看日志」整条链路收进手机里。
 它参照 Rein 的数据目录（`/var/mobile/Documents/Rein`）里那套工具链设计：**不重复造轮子，只把已有的
 Theos / OLLVM / radare2 串起来**，并给它们一个能点的界面。
 
-| 你在 Rein 里做的事 | Spark 里对应的地方 |
+| 你在 Rein 里做的事 | Workbench 里对应的地方 |
 |---|---|
 | 让 AI 帮你改代码、跑 `make package` | 「项目」页 → 编译按钮 → 控制台实时日志 |
 | `tools/theos-full` 多 SDK | 「工具链」页扫描并选 SDK |
@@ -73,7 +73,7 @@ Theos / OLLVM / radare2 串起来**，并给它们一个能点的界面。
 - **构建选项**：架构（arm64 / arm64e / 双架构）、包格式（传统 deb / rootless deb / .app / .tipa）、Debug↔Release、clean、`-j` 并行、ldid 补签、strip
 - **命令可预览**：任何一次编译都能先「预览命令」，看到的就是将要执行的完整 shell 脚本，可复制、可贴到终端复现
 - **失败会说人话**：从输出里认出 `ld: library not found` / 头文件缺失 / 被 OOM kill / Logos 语法错 等 10 多类问题，直接给一句中文建议
-- **日志**：虚拟化列表（几万行不卡）、颜色分级、复制、落盘到 `Documents/Spark/logs/`
+- **日志**：虚拟化列表（几万行不卡）、颜色分级、复制、落盘到 `Documents/Workbench/logs/`
 
 ### OLLVM
 
@@ -137,7 +137,7 @@ ct_bypass                                          ✗（需自备，见 docs/tr
 
 ### MCP 服务（仅本地 127.0.0.1）
 
-Spark 内置 MCP 服务器，Claude Desktop / Cursor / Zed 可以直接调用：
+Workbench 内置 MCP 服务器，Claude Desktop / Cursor / Zed 可以直接调用：
 
 ```bash
 node bin/spark-mcp.mjs          # stdio（桌面客户端）
@@ -162,7 +162,7 @@ node bin/spark-mcp.mjs --http   # HTTP：http://127.0.0.1:7878/mcp
 ## 仓库结构
 
 ```
-Spark/
+Workbench/
 ├── Native/                  iOS App（Objective-C，26 个源文件）
 │   ├── ObjC/
 │   │   ├── main.m / SPAppDelegate.m        入口 + 三 Tab 外壳
@@ -212,14 +212,14 @@ Spark/
 ### 1. 云端构建（不用自己装任何东西）
 
 ```bash
-git clone https://github.com/JiuJiuyu77/Spark.git
-cd Spark
+git clone https://github.com/JiuJiuyu77/Workbench.git
+cd Workbench
 
 # 看一眼工具链探测能不能认出 Rein 的目录
 REIN_ROOT=/var/mobile/Documents/Rein node scripts/detect-toolchain.mjs
 ```
 
-推到 GitHub 后，Actions 里的 `build` 工作流会自动编译出 `Spark-<版本>-arm64.ipa`。
+推到 GitHub 后，Actions 里的 `build` 工作流会自动编译出 `Workbench-<版本>-arm64.ipa`。
 打 tag 时会自动建 Release：
 
 ```bash
@@ -231,15 +231,15 @@ git tag v1.0.0 && git push origin v1.0.0
 CI 产物是 `codesign -s -` 的临时签名，装到真机要换自己的证书：
 
 ```bash
-unzip Spark-1.0.0-arm64.ipa
+unzip Workbench-1.0.0-arm64.ipa
 codesign -f -s "Apple Development: 你的名字 (XXXXXXXXXX)" \
-         --entitlements entitlements.plist Payload/Spark.app
+         --entitlements entitlements.plist Payload/Workbench.app
 # 或者用 TrollStore / AltStore / 自签工具直接装 .ipa
 ```
 
 ### 3. 真机直接编译（App 内）
 
-1. 打开 Spark → **工具链**，确认 Theos / SDK / Darwin 工具三项是 ✓
+1. 打开 Workbench → **工具链**，确认 Theos / SDK / Darwin 工具三项是 ✓
 2. **项目** 页点 `+` → 新建 tweak 模板，或「从磁盘选择目录」导入已有工程
 3. 进项目 → 选好选项 → 点 **编译**
 4. 编译完成点产物名可以直接分享 / 存到文件 App

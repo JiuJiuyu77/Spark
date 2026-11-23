@@ -1,6 +1,6 @@
 //
 //  SPHeaderExport.h
-//  Spark —— 从 IPA 导出 Objective-C 头文件（参考 Dylix 的「IPA 头文件导出」）
+//  Workbench —— 从 IPA 导出 Objective-C 头文件（参考 Dylix 的「IPA 头文件导出」）
 //
 //  做法：Mach-O 里的 __objc_classname / __objc_methname 段列出来，
 //  按 class 分组生成 @interface 声明。这不是「还原源码」，

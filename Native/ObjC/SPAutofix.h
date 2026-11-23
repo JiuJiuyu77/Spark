@@ -1,6 +1,6 @@
 //
 //  SPAutofix.h
-//  Spark —— 从编译日志解析可自动修复的问题（参考 Dylix 的 CompatibilityRepair）
+//  Workbench —— 从编译日志解析可自动修复的问题（参考 Dylix 的 CompatibilityRepair）
 //
 //  思路：
 //   1. 从编译日志里抽出 `file:line:col: error: msg`

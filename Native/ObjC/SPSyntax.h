@@ -1,6 +1,6 @@
 //
 //  SPSyntax.h
-//  Spark —— 极轻量的语法着色器（Regex 驱动，够用且不卡）
+//  Workbench —— 极轻量的语法着色器（Regex 驱动，够用且不卡）
 //  支持：Logos/ObjC/C/C++/Swift/Makefile/JSON/Shell/Plist
 //
 

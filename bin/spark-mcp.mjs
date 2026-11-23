@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * spark-mcp —— 把 Spark 包成 MCP 服务器
+ * spark-mcp —— 把 Workbench 包成 MCP 服务器
  *
  * 传输：
  *   stdio（默认，MCP 标准；Claude Desktop / Cursor / Zed 都支持）
@@ -9,7 +9,7 @@
  *     node bin/spark-mcp.mjs --http
  *
  * ⚠️ HTTP 传输**只监听 127.0.0.1（回环）**，不接受局域网/公网连接。
- *    这是硬约束：Spark 能读写整个文件系统、能起编译进程，
+ *    这是硬约束：Workbench 能读写整个文件系统、能起编译进程，
  *    一旦暴露到 0.0.0.0，同一网络里任何人都能借它执行命令。
  *    想远程用请走 SSH 隧道：ssh -L 7878:127.0.0.1:7878 你的设备
  *
@@ -18,7 +18,7 @@
  *     "mcpServers": {
  *       "spark": {
  *         "command": "node",
- *         "args": ["/path/to/Spark/bin/spark-mcp.mjs"],
+ *         "args": ["/path/to/Workbench/bin/spark-mcp.mjs"],
  *         "env": { "SPARK_REIN_ROOT": "/var/mobile/Documents/Rein" }
  *       }
  *     }
@@ -111,7 +111,7 @@ async function handle(msg) {
         },
         serverInfo: SERVER_INFO,
         instructions:
-          'Spark 是一个 iOS 编译工具：可以探测 Theos/OLLVM/逆向工具链、生成 Theos 构建脚本、' +
+          'Workbench 是一个 iOS 编译工具：可以探测 Theos/OLLVM/逆向工具链、生成 Theos 构建脚本、' +
           '生成巨魔（TrollStore）注入计划、分析 Mach-O。优先用 spark_doctor 看环境，' +
           '再用 spark_projects 找项目，最后用 spark_build_script 拿构建脚本。',
       });
@@ -137,7 +137,7 @@ async function handle(msg) {
         resources: [
           {
             uri: 'spark://capabilities',
-            name: 'Spark 能力说明',
+            name: 'Workbench 能力说明',
             description: '工具清单、OLLVM pass 与混淆预设',
             mimeType: 'text/markdown',
           },
@@ -226,7 +226,7 @@ export function assertLoopback(host) {
     return {
       ok: false,
       host,
-      reason: `拒绝监听 ${host}：Spark MCP 只允许绑定回环地址（127.0.0.1 / ::1）。` +
+      reason: `拒绝监听 ${host}：Workbench MCP 只允许绑定回环地址（127.0.0.1 / ::1）。` +
         '需要远程访问请用 SSH 隧道，不要直接暴露端口。',
     };
   }
@@ -327,7 +327,7 @@ async function handleMessage(msg) {
         capabilities: { tools: { listChanged: false }, resources: { subscribe: false } },
         serverInfo: SERVER_INFO,
         instructions:
-          'Spark 是一个 iOS 编译工具：探测工具链、生成 Theos 构建脚本、生成巨魔注入计划、分析 Mach-O。',
+          'Workbench 是一个 iOS 编译工具：探测工具链、生成 Theos 构建脚本、生成巨魔注入计划、分析 Mach-O。',
       });
     case 'ping':
       return rpcOkObj(id, {});
@@ -343,7 +343,7 @@ async function handleMessage(msg) {
     }
     case 'resources/list':
       return rpcOkObj(id, {
-        resources: [{ uri: 'spark://capabilities', name: 'Spark 能力说明', mimeType: 'text/markdown' }],
+        resources: [{ uri: 'spark://capabilities', name: 'Workbench 能力说明', mimeType: 'text/markdown' }],
       });
     case 'resources/read':
       return rpcOkObj(id, {

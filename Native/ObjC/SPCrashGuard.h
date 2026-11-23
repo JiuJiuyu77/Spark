@@ -1,6 +1,6 @@
 //
 //  SPCrashGuard.h
-//  Spark —— 崩溃兜底
+//  Workbench —— 崩溃兜底
 //
 //  目标不是「吞掉崩溃」，而是：
 //   1. 未捕获的 NSException 先落盘（谁抛的、调用栈、当时在做哪类操作）

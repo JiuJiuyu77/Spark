@@ -1,7 +1,7 @@
 /**
- * mcp-tools.mjs —— Spark 的 MCP 工具定义与处理器（纯逻辑，零依赖）
+ * mcp-tools.mjs —— Workbench 的 MCP 工具定义与处理器（纯逻辑，零依赖）
  *
- * MCP = Model Context Protocol。把 Spark 的能力暴露成一组工具，
+ * MCP = Model Context Protocol。把 Workbench 的能力暴露成一组工具，
  * 任何 MCP 客户端（Claude Desktop、Cursor、Zed、自己写的 agent）
  * 都能直接调用：
  *   · 探测工具链        spark_doctor
@@ -38,7 +38,7 @@ export const SERVER_INFO = { name: 'spark', version: '1.1.0' };
 export const TOOL_DEFINITIONS = [
   {
     name: 'spark_doctor',
-    description: '探测 Spark 的编译能力：Theos、iPhoneOS SDK、OLLVM、逆向工具、巨魔注入工具链。返回哪些可用、哪些缺失以及补救建议。',
+    description: '探测 Workbench 的编译能力：Theos、iPhoneOS SDK、OLLVM、逆向工具、巨魔注入工具链。返回哪些可用、哪些缺失以及补救建议。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -322,7 +322,7 @@ export function describeCapabilities() {
   const presets = Object.entries(OBFUSCATION_PRESETS)
     .map(([k, v]) => `  ${k.padEnd(9)} ${v.join(', ') || '（无）'}`)
     .join('\n');
-  return `Spark MCP 服务（${SERVER_INFO.name} v${SERVER_INFO.version}）
+  return `Workbench MCP 服务（${SERVER_INFO.name} v${SERVER_INFO.version}）
 
 工具：
 ${TOOL_DEFINITIONS.map((t) => `  ${t.name.padEnd(20)} ${t.description.split('\n')[0]}`).join('\n')}

@@ -73,7 +73,7 @@
     if (self.items.count) { self.table.backgroundView = nil; return; }
     if (!self.emptyLabel) {
         UILabel *l = [[UILabel alloc] init];
-        l.text = @"收件箱是空的\n\n在别的 App 里点「分享 → 存入 Spark」，\n或点右上角 ＋ 从「文件」导入。";
+        l.text = @"收件箱是空的\n\n在别的 App 里点「分享 → 存入 Workbench」，\n或点右上角 ＋ 从「文件」导入。";
         l.numberOfLines = 0;
         l.textAlignment = NSTextAlignmentCenter;
         l.font = [SPTheme body];

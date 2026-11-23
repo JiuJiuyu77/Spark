@@ -80,7 +80,7 @@
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
-    if (self.reports.count) return @"点开看结论与调用栈。扫描的是系统 CrashReporter 目录与 Spark 自己的崩溃记录。";
+    if (self.reports.count) return @"点开看结论与调用栈。扫描的是系统 CrashReporter 目录与 Workbench 自己的崩溃记录。";
     return @"没找到崩溃日志。\n\n可以点右上角 ＋ 直接选一个 .ips / .crash 文件。\n"
             "系统的日志通常在 /var/mobile/Library/Logs/CrashReporter。";
 }

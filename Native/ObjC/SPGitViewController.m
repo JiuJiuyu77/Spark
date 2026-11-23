@@ -268,8 +268,8 @@ typedef NS_ENUM(NSInteger, SPGitSection) {
 - (void)doCommit {
     if (!self.files.count) { [self alert:@"没有改动" message:@"先修改文件再提交。"]; return; }
     NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
-    NSString *lastName = [d stringForKey:@"Spark.gitName"] ?: @"Spark";
-    NSString *lastEmail = [d stringForKey:@"Spark.gitEmail"] ?: @"spark@localhost";
+    NSString *lastName = [d stringForKey:@"Workbench.gitName"] ?: @"Workbench";
+    NSString *lastEmail = [d stringForKey:@"Workbench.gitEmail"] ?: @"workbench@localhost";
 
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"提交"
         message:[NSString stringWithFormat:@"将提交 %lu 个改动", (unsigned long)self.files.count]
@@ -281,8 +281,8 @@ typedef NS_ENUM(NSInteger, SPGitSection) {
     [a addAction:[UIAlertAction actionWithTitle:@"提交" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
         NSString *msg = a.textFields[0].text;
         if (!msg.length) return;
-        [d setObject:lastName forKey:@"Spark.gitName"];
-        [d setObject:lastEmail forKey:@"Spark.gitEmail"];
+        [d setObject:lastName forKey:@"Workbench.gitName"];
+        [d setObject:lastEmail forKey:@"Workbench.gitEmail"];
         __weak typeof(self) weakSelf = self;
         dispatch_async([SPGit queue], ^{
             NSError *err = nil;
@@ -347,14 +347,14 @@ typedef NS_ENUM(NSInteger, SPGitSection) {
         message:@"格式 owner/repo（会用 https://github.com/... 拼接）" preferredStyle:UIAlertControllerStyleAlert];
     [a addTextFieldWithConfigurationHandler:^(UITextField *tf) {
         tf.placeholder = @"JiuJiuyu77/MyTweak";
-        tf.text = [d stringForKey:@"Spark.gitRemote"] ?: @"";
+        tf.text = [d stringForKey:@"Workbench.gitRemote"] ?: @"";
         tf.autocapitalizationType = UITextAutocapitalizationTypeNone;
         tf.autocorrectionType = UITextAutocorrectionTypeNo;
     }];
     [a addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
         NSString *repo = a.textFields[0].text;
         if (!repo.length) return;
-        [d setObject:repo forKey:@"Spark.gitRemote"];
+        [d setObject:repo forKey:@"Workbench.gitRemote"];
         NSString *url = [repo hasPrefix:@"http"] ? repo : [@"https://github.com/" stringByAppendingString:repo];
         if (![url hasSuffix:@".git"]) url = [url stringByAppendingString:@".git"];
         __weak typeof(self) weakSelf = self;
@@ -374,7 +374,7 @@ typedef NS_ENUM(NSInteger, SPGitSection) {
 
 - (void)doPush {
     NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
-    NSString *remote = [d stringForKey:@"Spark.gitRemote"];
+    NSString *remote = [d stringForKey:@"Workbench.gitRemote"];
     if (!remote.length) { [self alert:@"还没设置远端" message:@"先点「设置远端…」填 owner/repo。"]; return; }
 
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"推送"

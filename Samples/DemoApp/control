@@ -2,7 +2,7 @@ Package: com.reinbuild.demo.app
 Name: DemoApp
 Version: 1.0.0
 Architecture: iphoneos-arm
-Description: Spark 示例 App
-Maintainer: Spark
-Author: Spark
+Description: Workbench 示例 App
+Maintainer: Workbench
+Author: Workbench
 Section: Applications

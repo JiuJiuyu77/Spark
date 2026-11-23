@@ -1,6 +1,6 @@
 //
 //  SPAnimationKit.h
-//  Spark —— 更细腻的动效（在 SPMotion 之上扩展）
+//  Workbench —— 更细腻的动效（在 SPMotion 之上扩展）
 //
 //  参考点：Swiftgram / iOS 26 的手感
 //   · 交错入场（stagger）：列表项依次淡入，而不是整块出现

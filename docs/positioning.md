@@ -1,8 +1,8 @@
-# 定位修正：Spark = TrollStore 专用的 Rein 类工具
+# 定位修正：Workbench = TrollStore 专用的 Rein 类工具
 
 ## 两个方向的根本差别
 
-| 维度 | Dylix（自签） | Rein / Spark（巨魔） |
+| 维度 | Dylix（自签） | Rein / Workbench（巨魔） |
 |---|---|---|
 | 运行环境 | 普通签名，**必须**在沙盒里想办法 | 有平台权限，**直接**读写全盘 |
 | 编译 | 进程内 LLVM（不能 fork） | **真跑 make**（posix_spawn 起子进程） |
@@ -11,20 +11,20 @@
 | 包管理 | 自己造 deb | 直接 `make package` 出 deb |
 | 权限 | 受限，要各种绕 | 一次给足，什么都不用绕 |
 
-**结论：Spark 应该按「我什么权限都有」来设计，而不是按「我怎么在沙盒里活下来」。**
+**结论：Workbench 应该按「我什么权限都有」来设计，而不是按「我怎么在沙盒里活下来」。**
 
 ## 按 Rein 形态重新校对后的清单
 
 ### 1. 编译：应当真跑 make（已对 ✅）
 
-Spark 走 posix_spawn + /bin/sh → make，这是 Rein 的做法，不是 Dylix 的进程内编译。
-**但缺一点**：Rein 的 boot.js 会「父进程消失就自毁」，Spark 只在取消时 kill 进程组，
+Workbench 走 posix_spawn + /bin/sh → make，这是 Rein 的做法，不是 Dylix 的进程内编译。
+**但缺一点**：Rein 的 boot.js 会「父进程消失就自毁」，Workbench 只在取消时 kill 进程组，
 没有「App 被杀后自动清理」的守护。→ **要补**
 
 ### 2. 工具链：应该直接调用系统工具（已对 ✅）
 
 - Rein 用 `theos-root/usr/bin` 里的一整套 Darwin 工具，通过 PATH 注入
-- Spark 同样通过 PATH + DYLD_LIBRARY_PATH 注入
+- Workbench 同样通过 PATH + DYLD_LIBRARY_PATH 注入
 - **不应当**像 Dylix 那样打包精简 LLVM
 
 ### 3. 注入：这是核心，应当最完整（部分对齐）
@@ -42,7 +42,7 @@ grep -aq 幂等 / PlistBuddy / ldid 覆盖 dylib / 结构化 JSON。
 
 | 我做了什么 | 为什么不该做 |
 |---|---|
-| SPAutofix（日志解析自动改代码） | Dylix 因为在沙盒里没有 shell，才要「改代码重编」；Spark 能直接看日志 + 手动改，自动改源码风险大于收益 |
+| SPAutofix（日志解析自动改代码） | Dylix 因为在沙盒里没有 shell，才要「改代码重编」；Workbench 能直接看日志 + 手动改，自动改源码风险大于收益 |
 | 头文件导出（SPHeaderExport） | 属于「没有调试器时的替代品」，巨魔环境可以直接用 FLEX / radare2 |
 | 存储空间六大分类 | 可以有，但不必像 Dylix 那样细（它有沙盒配额压力，我们没有） |
 

@@ -1,6 +1,6 @@
 //
 //  main.m
-//  Spark
+//  Workbench
 //
 
 #import <UIKit/UIKit.h>

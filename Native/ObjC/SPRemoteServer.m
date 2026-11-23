@@ -251,7 +251,7 @@
     }
 
     if ([path isEqualToString:@"/api/ping"]) {
-        return [self json:@{@"ok": @YES, @"name": @"Spark", @"port": @(self.port)}];
+        return [self json:@{@"ok": @YES, @"name": @"Workbench", @"port": @(self.port)}];
     }
 
     // 列目录
@@ -338,7 +338,7 @@
 /// 读取包内网页（Remote/index.html）；也支持从 Documents 覆盖（方便调试）
 - (nullable NSData *)remoteIndexHTML {
     NSFileManager *fm = NSFileManager.defaultManager;
-    NSString *override = [[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark"]
+    NSString *override = [[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Workbench"]
                           stringByAppendingPathComponent:@"Remote/index.html"];
     if ([fm fileExistsAtPath:override]) return [NSData dataWithContentsOfFile:override];
 

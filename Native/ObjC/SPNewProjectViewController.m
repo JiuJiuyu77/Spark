@@ -1,6 +1,6 @@
 //
 //  SPNewProjectViewController.m
-//  Spark —— 新建工程表单（对齐 dylix 的 StudioCreate）
+//  Workbench —— 新建工程表单（对齐 dylix 的 StudioCreate）
 //
 #import "SPNewProjectViewController.h"
 #import "SPStore.h"
@@ -270,7 +270,7 @@ typedef NS_ENUM(NSInteger, SPNewProjectKind) {
     // ── control（含作者与版本，与 dylix 一致）──
     NSString *control = [NSString stringWithFormat:
         @"Package: %@\nName: %@\nVersion: %@\nArchitecture: iphoneos-arm64\n"
-         "Description: 由 Spark 创建\nMaintainer: %@\nAuthor: %@\nSection: Tweaks\n",
+         "Description: 由 Workbench 创建\nMaintainer: %@\nAuthor: %@\nSection: Tweaks\n",
         bundle, name, version, author, author];
     [control writeToFile:[path stringByAppendingPathComponent:@"control"]
                atomically:YES encoding:NSUTF8StringEncoding error:NULL];
@@ -292,13 +292,13 @@ typedef NS_ENUM(NSInteger, SPNewProjectKind) {
 
     // ── 源码 ──
     if (isLogos) {
-        [@"// Spark 生成的 Logos tweak\n%hook SpringBoard\n\n"
+        [@"// Workbench 生成的 Logos tweak\n%hook SpringBoard\n\n"
           "- (void)applicationDidFinishLaunching:(id)application {\n"
           "    %orig;\n    NSLog(@\"[SPARK] loaded\");\n}\n\n%end\n"
          writeToFile:[path stringByAppendingPathComponent:@"Tweak.x"]
          atomically:YES encoding:NSUTF8StringEncoding error:NULL];
     } else if (isDylib) {
-        [@"// Spark 生成的纯动态库：没有过滤 plist，需要宿主自行加载\n"
+        [@"// Workbench 生成的纯动态库：没有过滤 plist，需要宿主自行加载\n"
           "#import <Foundation/Foundation.h>\n\n"
           "__attribute__((constructor)) static void SparkDylibInit(void) {\n"
           "    NSLog(@\"[SPARK] dylib loaded\");\n}\n"
@@ -310,7 +310,7 @@ typedef NS_ENUM(NSInteger, SPNewProjectKind) {
         //   Xxx = method_getImplementation(m);              ← 却当「变量」赋值
         // 编译直接失败，而且根本没做 class_replaceMethod，等于没 hook。
         // 下面改成能编译、且真的替换实现的最小实现。
-        [@"// Spark 生成的 Objective-C tweak\n"
+        [@"// Workbench 生成的 Objective-C tweak\n"
           "#import <Foundation/Foundation.h>\n"
           "#import <objc/runtime.h>\n\n"
           "/// 原实现的函数指针（不是函数）\n"

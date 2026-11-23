@@ -5,6 +5,7 @@
 
 #import "SPToolchainViewController.h"
 #import "SPSelfTestViewController.h"
+#import "SPHealthViewController.h"
 #import "SPTheme.h"
 #import "SPGlassKit.h"
 #import "SPToolchain.h"
@@ -13,6 +14,7 @@
 #import "SPCompat.h"
 #import "SPEditorViewController.h"
 #import "SPFileBrowserViewController.h"
+#import "SPToolchainDownloader.h"
 
 /// 分组定义，避免一堆 magic number
 typedef NS_ENUM(NSInteger, SPToolSection) {
@@ -90,7 +92,7 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
     NSString *found = [SPToolchain discoverReinRoot];
     if (found.length && ![found isEqualToString:before]) {
         tc.reinRoot = found;
-        [[NSUserDefaults standardUserDefaults] setObject:found forKey:@"Spark.reinRoot"];
+        [[NSUserDefaults standardUserDefaults] setObject:found forKey:@"Workbench.reinRoot"];
         [self toast:[NSString stringWithFormat:@"已发现 Rein：%@", found.lastPathComponent]];
     }
 
@@ -126,7 +128,9 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
         case SPToolSectionStatus: return (NSInteger)self.componentKeys.count;
-        case SPToolSectionSDK: return MAX(1, (NSInteger)[[SPToolchain shared] availableSDKs].count);
+        // SDK 三态：16.5 内置、17.0 / 26.5 按需下载。
+        // 固定 3 行，不随 availableSDKs 数量变化（否则「未安装」的无法展示下载入口）。
+        case SPToolSectionSDK: return 3;
         case SPToolSectionTarget: return 4;
         case SPToolSectionDisplay: return 3;
         case SPToolSectionAbout: return 2;
@@ -161,22 +165,28 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
             break;
         }
         case SPToolSectionSDK: {
-            NSArray *sdks = [[SPToolchain shared] availableSDKs];
-            if (!sdks.count) {
-                cell.textLabel.text = @"尚未安装 SDK";
-                cell.detailTextLabel.text = @"可从 Rein 的 sdks-store 复制一份过来";
-                cell.detailTextLabel.textColor = [SPTheme danger];
-                cell.selectionStyle = UITableViewCellSelectionStyleNone;
-                break;
+            // 固定三个候选（顺序：内置 → 较老 → 最新）。
+            NSArray *cands = @[@"iPhoneOS16.5.sdk", @"iPhoneOS17.0.sdk", @"iPhoneOS26.5.sdk"];
+            NSString *name = cands[ip.row];
+            SPToolchain *tc = [SPToolchain shared];
+            BOOL available = [[tc availableSDKs] containsObject:name];
+            BOOL selected = [SPSettings.shared.defaultSDK isEqualToString:name] ||
+                            (SPSettings.shared.defaultSDK.length == 0 && ip.row == 0);
+
+            cell.textLabel.text = [name stringByDeletingPathExtension];
+            if (available) {
+                cell.imageView.image = [UIImage systemImageNamed:selected ? @"largecircle.fill.circle" : @"circle"];
+                cell.imageView.tintColor = selected ? [SPTheme accent] : [SPTheme textDim];
+                cell.detailTextLabel.text = selected ? @"当前使用" : (ip.row == 0 ? @"内置" : @"已安装");
+                cell.detailTextLabel.textColor = [SPTheme textDim];
+                cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+            } else {
+                cell.imageView.image = [UIImage systemImageNamed:@"icloud.and.arrow.down"];
+                cell.imageView.tintColor = [SPTheme info];
+                cell.detailTextLabel.text = ip.row == 0 ? @"（不完整，点此重下）" : @"未安装 · 点此下载";
+                cell.detailTextLabel.textColor = [SPTheme warn];
+                cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             }
-            NSString *sdk = sdks[ip.row];
-            cell.textLabel.text = [sdk stringByDeletingPathExtension];
-            BOOL selected = ([SPSettings.shared.defaultSDK isEqualToString:sdk] ||
-                            (SPSettings.shared.defaultSDK.length == 0 &&
-                             ip.row == (NSInteger)[[SPToolchain shared] availableSDKs].count - 1));
-            cell.imageView.image = [UIImage systemImageNamed:selected ? @"largecircle.fill.circle" : @"circle"];
-            cell.imageView.tintColor = selected ? [SPTheme accent] : [SPTheme textDim];
-            cell.detailTextLabel.text = selected ? @"当前使用" : nil;
             break;
         }
         case SPToolSectionTarget: {
@@ -200,7 +210,7 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
                 UISwitch *sw = [[UISwitch alloc] init];
                 sw.tag = 3000 + ip.row;
                 sw.on = ip.row == 0 ? SPSettings.shared.keepScreenOn
-                                    : [[NSUserDefaults standardUserDefaults] boolForKey:@"Spark.haptics"];
+                                    : [[NSUserDefaults standardUserDefaults] boolForKey:@"Workbench.haptics"];
                 [sw addTarget:self action:@selector(toggleSetting:) forControlEvents:UIControlEventValueChanged];
                 cell.accessoryView = sw;
                 cell.selectionStyle = UITableViewCellSelectionStyleNone;
@@ -227,7 +237,7 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
         SPSettings.shared.keepScreenOn = sw.isOn;
         [SPSettings.shared save];
     } else {
-        [[NSUserDefaults standardUserDefaults] setBool:sw.isOn forKey:@"Spark.haptics"];
+        [[NSUserDefaults standardUserDefaults] setBool:sw.isOn forKey:@"Workbench.haptics"];
     }
     [SPMotion hapticLight];
 }
@@ -237,12 +247,17 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
     [SPMotion hapticLight];
 
     if (ip.section == SPToolSectionSDK) {
-        NSArray *sdks = [[SPToolchain shared] availableSDKs];
-        if (ip.row < (NSInteger)sdks.count) {
-            SPSettings.shared.defaultSDK = sdks[ip.row];
+        NSArray *cands = @[@"iPhoneOS16.5.sdk", @"iPhoneOS17.0.sdk", @"iPhoneOS26.5.sdk"];
+        NSString *name = cands[ip.row];
+        SPToolchain *tc = [SPToolchain shared];
+        BOOL available = [[tc availableSDKs] containsObject:name];
+        if (available) {
+            SPSettings.shared.defaultSDK = name;
             [SPSettings.shared save];
             [tv reloadSections:[NSIndexSet indexSetWithIndex:SPToolSectionSDK]
              withRowAnimation:UITableViewRowAnimationAutomatic];
+        } else {
+            [self downloadSDK:name];
         }
         return;
     }
@@ -255,11 +270,11 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
         return;
     }
     if (ip.section == SPToolSectionAbout) {
-        // 统一到自检页：以前这里另有一套 runSelfCheck（跑脚本、弹文本），
-        // 与工具页的「测试构建」内容重叠但结论不一致，用户要在两个地方
-        // 看不同的自检结果。现在只用 SPSelfTestViewController 一个入口。
+        // 统一到自检页（页内自带「测试构建」动作）。
+        // 以前这里有 runSelfCheck（跑脚本弹文本）、工具页有「测试构建」、
+        // 我的页有「运行环境自检」—— 三个入口三套结论。
         if (ip.row == 0) {
-            [self.navigationController pushViewController:[SPSelfTestViewController new] animated:YES];
+            [self.navigationController pushViewController:[SPHealthViewController new] animated:YES];
         }
         else {
             SPFileBrowserViewController *b = [[SPFileBrowserViewController alloc]
@@ -267,6 +282,61 @@ typedef NS_ENUM(NSInteger, SPToolSection) {
             [self.navigationController pushViewController:b animated:YES];
         }
     }
+}
+
+#pragma mark - SDK 下载
+
+/// 按需下载 17.0 / 26.5（16.5 若被损坏也允许重下）
+- (void)downloadSDK:(NSString *)sdkName {
+    SPComponent comp;
+    if ([sdkName isEqualToString:@"iPhoneOS17.0.sdk"]) comp = SPComponentSDK17;
+    else if ([sdkName isEqualToString:@"iPhoneOS26.5.sdk"]) comp = SPComponentSDK26;
+    else {
+        [self toast:@"16.5 是内置 SDK，通常无需下载"];
+        return;
+    }
+
+    NSString *msg = [NSString stringWithFormat:@"下载 %@（约几十 MB）？\n\n将解压到内置工具链目录，并立刻可用于编译。",
+                     sdkName];
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"下载 SDK"
+                                                               message:msg
+                                                        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"下载" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
+        [self runSDKDownload:comp];
+    }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
+}
+
+- (void)runSDKDownload:(SPComponent)comp {
+    // 极简进度：导航栏转圈 + toast 结果（不新造进度页，沿用 downloader 进度回调）
+    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    spinner.color = [SPTheme accent];
+    UIBarButtonItem *item = [[UIBarButtonItem alloc] initWithCustomView:spinner];
+    self.navigationItem.rightBarButtonItem = item;
+    [spinner startAnimating];
+
+    __weak typeof(self) weakSelf = self;
+    [[SPToolchainDownloader shared] download:comp progress:^(CGFloat f, NSString *s) {
+        // 进度不弹，只在完成时提示
+    } completion:^(BOOL ok, NSError *err) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf; if (!self) return;
+            [spinner stopAnimating];
+            UIBarButtonItem *refresh = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"arrow.clockwise"]
+                                                                       style:UIBarButtonItemStylePlain
+                                                                      target:self action:@selector(refreshAction)];
+            self.navigationItem.rightBarButtonItem = refresh;
+            [self refresh];
+            if (ok) {
+                [SPMotion hapticSuccess];
+                [self toast:@"SDK 已安装，可在列表里选用"];
+            } else {
+                [SPMotion hapticError];
+                [self toast:err.localizedDescription ?: @"下载失败，请检查网络"];
+            }
+        });
+    }];
 }
 
 #pragma mark - 编辑设置

@@ -1,6 +1,6 @@
 //
 //  SPJITService.h
-//  Spark —— JIT 子进程
+//  Workbench —— JIT 子进程
 //
 //  为什么需要子进程：
 //   · 主 App 即使有 no-sandbox，也未必拿到 CS_DEBUGGED，mmap(PROT_EXEC) 常被拦
@@ -10,7 +10,7 @@
 //
 //  启动方式（按优先级）：
 //   1. 直接 posix_spawn 包内 bin/spark-jitd（TrollStore 下 uid 0 可执行）
-//   2. 已装到 Documents/Spark/Toolchain/bin 的 helper
+//   2. 已装到 Documents/Workbench/Toolchain/bin 的 helper
 //  失败就退回主进程内的 SPJIT（mmap 尝试）。
 //
 

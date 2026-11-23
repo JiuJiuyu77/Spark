@@ -63,13 +63,13 @@
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
     if (s == 1) {
-        return @"开启后，每个挂载点会在「文件」App 的「我的 iPhone → Spark」下出现一个快捷方式（挂载-xxx）。\n"
+        return @"开启后，每个挂载点会在「文件」App 的「我的 iPhone → Workbench」下出现一个快捷方式（挂载-xxx）。\n"
                 "点进去就是本地镜像目录；配合「同步到本地」可以离线查看与编译。";
     }
     if (self.items.count) {
         return @"挂载会出现在「文件」里 Mounts 目录下，能直接当项目目录用。\n凭据保存在钥匙串，不写进配置文件。";
     }
-    return @"将 NAS / Mac 共享 / WebDAV 服务器的目录挂到 Spark 里，\n就能像本地文件夹一样浏览、编译、取产物。\n\n点右上角 ＋ 添加。";
+    return @"将 NAS / Mac 共享 / WebDAV 服务器的目录挂到 Workbench 里，\n就能像本地文件夹一样浏览、编译、取产物。\n\n点右上角 ＋ 添加。";
 }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
@@ -81,7 +81,7 @@
 
     if (ip.section == 1) {
         cell.textLabel.text = @"在「文件」App 中显示挂载";
-        cell.detailTextLabel.text = @"我的 iPhone → Spark → 挂载-xxx";
+        cell.detailTextLabel.text = @"我的 iPhone → Workbench → 挂载-xxx";
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
         UISwitch *sw = [[UISwitch alloc] init];
         sw.on = [SPMountManager shared].exposeToFilesApp;

@@ -198,7 +198,7 @@ export function injectionScript(plan, tools = {}) {
   const exe = `${app}/${q(plan.executableName)}`;
   const lines = [
     '#!/bin/sh',
-    '# Spark 巨魔注入脚本（参考 TrollFools 的注入流程）',
+    '# Workbench 巨魔注入脚本（参考 TrollFools 的注入流程）',
     'set -e',
     'say() { printf "\\033[1;36m==> %s\\033[0m\\n" "$1"; }',
     '',

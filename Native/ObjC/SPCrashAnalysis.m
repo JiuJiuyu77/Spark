@@ -286,7 +286,7 @@
     // 9. 我们的 App 自己
     for (SPCrashFrame *f in r.frames) {
         if ([f.image.lowercaseString containsString:@"spark"]) {
-            add(SPCrashSeverityError, @"崩溃发生在 Spark 自身",
+            add(SPCrashSeverityError, @"崩溃发生在 Workbench 自身",
                 [NSString stringWithFormat:@"第 %lu 帧在 %@ 里：%@",
                  (unsigned long)[r.frames indexOfObject:f], f.image, f.symbol ?: @"(无符号)"],
                 @"带上这份 .ips 提 issue，我会按这个栈定位。");
@@ -324,7 +324,7 @@
         @"/private/var/mobile/Library/Logs/CrashReporter",
         @"/var/mobile/Library/Logs/CrashReporter/DiagnosticLogs",
         @"/var/root/Library/Logs/CrashReporter",
-        [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/crashes"],
+        [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Workbench/crashes"],
         [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Logs/CrashReporter"],
     ]];
 

@@ -311,8 +311,8 @@
     SPSettings *cfg = SPSettings.shared;
     NSString *hash = [self commitRoot:root
                               message:msg
-                                 name:(cfg.gitUserName.length ? cfg.gitUserName : @"Spark")
-                                email:(cfg.gitUserEmail.length ? cfg.gitUserEmail : @"spark@localhost")
+                                 name:(cfg.gitUserName.length ? cfg.gitUserName : @"Workbench")
+                                email:(cfg.gitUserEmail.length ? cfg.gitUserEmail : @"workbench@localhost")
                                 error:&err];
     if (!hash) {
         if (error) *error = err;

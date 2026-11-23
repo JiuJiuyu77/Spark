@@ -132,7 +132,7 @@
         [fm createDirectoryAtPath:outputDir withIntermediateDirectories:YES attributes:nil error:NULL];
 
         NSMutableString *allH = [NSMutableString string];
-        [allH appendString:@"// 由 Spark 从头文件导出\n"];
+        [allH appendString:@"// 由 Workbench 从头文件导出\n"];
         [allH appendString:[NSString stringWithFormat:@"// 来源：%@\n", binary.lastPathComponent]];
         [allH appendString:@"// 注意：仅还原类名与方法名，方法签名按 selector 推断，不保证与原声明一致\n\n"];
 

@@ -1,6 +1,6 @@
 //
 //  SPAppEnumerator.h
-//  Spark —— App 枚举（B1：走 LaunchServices，拿到真实图标与显示名）
+//  Workbench —— App 枚举（B1：走 LaunchServices，拿到真实图标与显示名）
 //
 //  为什么不用文件系统枚举：
 //   · /Applications 与 /var/containers/Bundle/Application 只能列出「装在哪」，
@@ -13,7 +13,7 @@
 //      不引私有头文件，编译期不会报错）
 //   2. 拿不到就回退文件系统枚举（一定有结果，只是没图标缓存）
 //
-//  这样 Spark 不必在编译期链接私有框架。
+//  这样 Workbench 不必在编译期链接私有框架。
 //
 
 #import <Foundation/Foundation.h>

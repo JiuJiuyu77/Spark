@@ -1,6 +1,6 @@
 //
 //  SPHelp.h
-//  Spark —— 内置帮助（参考 Dylix 的 HelpArticle）
+//  Workbench —— 内置帮助（参考 Dylix 的 HelpArticle）
 //
 //  为什么要有：巨魔环境下用户常常没有电脑，装完打开一看不知道从哪下手。
 //  这里把「第一次怎么用」「为什么装不上」「常见报错怎么查」写进 App 内，

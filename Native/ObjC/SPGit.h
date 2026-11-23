@@ -1,6 +1,6 @@
 //
 //  SPGit.h
-//  Spark —— 轻量 Git 面板（参考 Dylix 的 GitService）
+//  Workbench —— 轻量 Git 面板（参考 Dylix 的 GitService）
 //
 //  只调用系统 git（CoreTools 运行时里带了 git 2.39），不引 libgit2：
 //   · 巨魔环境本来就允许 fork 子进程，用 git 命令行最简单可靠

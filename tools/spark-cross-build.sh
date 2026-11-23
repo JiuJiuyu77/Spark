@@ -62,7 +62,7 @@ if [ -n "$SDKROOT" ]; then
   TBDPATH=$(find "$SDKROOT" -name 'libSystem.tbd' 2>/dev/null | head -1 || true)
 fi
 if [ -z "$TBDPATH" ]; then
-  for base in /var/mobile/Documents/Spark/Toolchain/theos/sdks \
+  for base in /var/mobile/Documents/Workbench/Toolchain/theos/sdks \
               /var/mobile/Documents/Rein/tools/theos-full/sdks; do
     [ -d "$base" ] || continue
     TBDPATH=$(find "$base" -name 'libSystem.tbd' 2>/dev/null | head -1 || true)

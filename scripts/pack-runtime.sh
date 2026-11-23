@@ -23,7 +23,7 @@
 #   sh scripts/pack-runtime.sh <Rein目录> <输出目录>
 #
 # 产物：
-#   runtimes/SparkTheosRuntime.tar.gz
+#   runtimes/WorkbenchTheosRuntime.tar.gz
 #   runtimes/manifest.json
 
 set -e
@@ -158,7 +158,7 @@ chmod -R 755 "$PKGROOT/bin" 2>/dev/null || true
 chmod -R 755 "$PKGROOT/usr/bin" 2>/dev/null || true
 
 # ---- 关键：把 shell 脚本「降级」为普通文件 ----
-# TrollStore 用 `ldid -s Payload/Spark.app` 对整个目录签名，
+# TrollStore 用 `ldid -s Payload/Workbench.app` 对整个目录签名，
 # 遇到 #! 开头的脚本会报 "Unknown header magic" 而整体失败。
 # 这些脚本（egrep/fgrep/gunzip/gzexe/dpkg-realpath）都不是编译必需的，
 # 去掉可执行位即可，路径仍在但不会被执行。
@@ -185,7 +185,7 @@ cat > "$PKGROOT/manifest.json" <<EOF
     "theos": "THEOS 根（makefiles + logos.pl + sdks）"
   },
   "sdks": "$SDKLIST",
-  "note": "解压到 Documents/Spark/Toolchain 后，构建脚本会拼 PATH=<root>/usr/bin:<root>/bin，THEOS=<root>/theos，DYLD_LIBRARY_PATH=<root>/usr/lib:<root>/usr/lib/llvm-16/lib，PERL5LIB=<root>/usr/lib/perl5"
+  "note": "解压到 Documents/Workbench/Toolchain 后，构建脚本会拼 PATH=<root>/usr/bin:<root>/bin，THEOS=<root>/theos，DYLD_LIBRARY_PATH=<root>/usr/lib:<root>/usr/lib/llvm-16/lib，PERL5LIB=<root>/usr/lib/perl5"
 }
 EOF
 
@@ -197,7 +197,7 @@ else
 fi
 
 say "5/5 压缩"
-PKG="$OUTDIR/SparkTheosRuntime.tar.gz"
+PKG="$OUTDIR/WorkbenchTheosRuntime.tar.gz"
 rm -f "$PKG"
 # 必须先 tar 再 gzip：busybox 的 `tar czf` 与 `tar | gzip` 在低内存设备上会失败
 tar cf "$WORK/pkg.tar" -C "$WORK" "$OUT_NAME" || die "tar 失败"
@@ -215,7 +215,7 @@ UNPACKED=$(du -sm "$PKGROOT" 2>/dev/null | cut -f1)
 cat > "$OUTDIR/manifest.json" <<EOF
 {
   "id": "theos-runtime",
-  "file": "SparkTheosRuntime.tar.gz",
+  "file": "WorkbenchTheosRuntime.tar.gz",
   "size": $SIZE,
   "unpackedMB": ${UNPACKED:-0},
   "sha256": "$SHA",
@@ -230,4 +230,4 @@ printf '  压缩   %.1f MB\n' "$(awk "BEGIN{print $SIZE/1048576}")"
 printf '  解压   %s MB\n' "${UNPACKED:-?}"
 printf '  sha256 %s\n\n' "$SHA"
 echo "下一步："
-echo "  gh release upload runtime-v1 $PKG --repo JiuJiuyu77/Spark-Runtime --clobber"
+echo "  gh release upload runtime-v1 $PKG --repo JiuJiuyu77/Workbench-Runtime --clobber"

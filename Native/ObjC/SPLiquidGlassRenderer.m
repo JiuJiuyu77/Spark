@@ -1,6 +1,6 @@
 //
 //  SPLiquidGlassRenderer.m
-//  Spark —— 液态玻璃 Metal 渲染器
+//  Workbench —— 液态玻璃 Metal 渲染器
 //
 //  流程完全对照 LiquidGlassKit 的 LiquidGlassView / LiquidGlassRenderer：
 //    1. MTKView + fullscreenQuad 顶点着色器 + liquidGlassEffect 片元着色器

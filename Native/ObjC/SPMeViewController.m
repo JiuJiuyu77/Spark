@@ -6,6 +6,7 @@
 #import "SPTheme.h"
 #import "SPGlassKit.h"
 #import "SPSelfTestViewController.h"
+#import "SPHealthViewController.h"
 #import "SPSettingsViewController.h"
 #import "SPLogsViewController.h"
 #import "SPMountsViewController.h"
@@ -64,7 +65,7 @@
         isRoot ? @"root 权限 · 沙盒外" : @"mobile 权限"];
 
     [header configureWithSymbol:@"sparkles"
-                          title:@"Spark"
+                          title:@"Workbench"
                        subtitle:subtitle
                            tint:[SPTheme accent]];
 
@@ -181,10 +182,11 @@
     [SPMotion hapticLight];
     UIViewController *vc = nil;
 
-    // 「运行环境自检」统一到自检页（以前这里是另弹一段文本，
-    // 与工具页的「测试构建」重复，两处信息还不一致）
+    // 「运行环境自检」统一到自检页（页内自带测试构建）。
+    // 以前这里指向 SPSelfTestViewController，而工具页指向
+    // SPHealthViewController —— 同一个需求两个页面，结论口径还不一致。
     if ([title isEqualToString:@"运行环境自检"]) {
-        [self.navigationController pushViewController:[SPSelfTestViewController new] animated:YES];
+        [self.navigationController pushViewController:[SPHealthViewController new] animated:YES];
         return;
     }
     if ([title isEqualToString:@"设置"]) vc = [SPSettingsViewController new];
@@ -202,9 +204,9 @@
         [self presentViewController:a animated:YES completion:nil];
         return;
     } else if ([title isEqualToString:@"版本信息"]) {
-        NSString *msg = [NSString stringWithFormat:@"Spark %@\n构建 %@\n%@\n\nMIT License",
+        NSString *msg = [NSString stringWithFormat:@"Workbench %@\n构建 %@\n%@\n\nMIT License",
                          SPVersion.shared.semver, SPVersion.shared.gitDescribe, SPVersion.shared.builtAt];
-        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Spark" message:msg
+        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Workbench" message:msg
                                                                preferredStyle:UIAlertControllerStyleAlert];
         [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:a animated:YES completion:nil];

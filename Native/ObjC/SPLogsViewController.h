@@ -1,6 +1,6 @@
 //
 //  SPLogsViewController.h
-//  Spark —— 日志中心：所有构建/注入/自检日志集中查看
+//  Workbench —— 日志中心：所有构建/注入/自检日志集中查看
 //
 
 #import <UIKit/UIKit.h>

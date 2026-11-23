@@ -19,7 +19,7 @@
     static SPSettings *s; static dispatch_once_t once;
     dispatch_once(&once, ^{
         s = [SPSettings new];
-        s.projectsRoot = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/projects"];
+        s.projectsRoot = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Workbench/projects"];
         s.defaultSDK = @"";
         s.defaultTarget = SPBuildTargetDevice;
         s.sshUser = @"mobile";
@@ -30,7 +30,7 @@
         s.maxLogLines = 5000;
         s.showCommandPreview = YES;
         s.autoSnapshotBeforeBuild = YES;
-        s.filePath = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/settings.json"];
+        s.filePath = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Workbench/settings.json"];
         [s load];
     });
     return s;
@@ -89,7 +89,7 @@
     static SPStore *s; static dispatch_once_t once;
     dispatch_once(&once, ^{
         s = [SPStore new];
-        s.base = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark"];
+        s.base = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Workbench"];
         [s prepare];
     });
     return s;

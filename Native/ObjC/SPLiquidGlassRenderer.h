@@ -1,6 +1,6 @@
 //
 //  SPLiquidGlassRenderer.h
-//  Spark —— 液态玻璃渲染器（Metal 实现）
+//  Workbench —— 液态玻璃渲染器（Metal 实现）
 //
 //  这份实现按 LiquidGlassKit 的**渲染流程与着色器**移植：
 //    · MTKView 子类，用 fullscreenQuad 画一个全屏四边形

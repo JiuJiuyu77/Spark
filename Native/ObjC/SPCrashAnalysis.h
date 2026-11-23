@@ -1,6 +1,6 @@
 //
 //  SPCrashAnalysis.h
-//  Spark —— 离线崩溃分析（解析 iOS .ips 报告）
+//  Workbench —— 离线崩溃分析（解析 iOS .ips 报告）
 //
 //  能做的事（不需要 Mac、不需要符号文件）：
 //   · 解析 JSON 格式的 .ips（iOS 15+）与老式文本 .crash

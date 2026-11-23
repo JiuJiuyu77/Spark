@@ -1,6 +1,6 @@
 //
 //  SPOutputNaming.h
-//  Spark —— 产物命名模板（参考 Dylix 的 OutputNaming）
+//  Workbench —— 产物命名模板（参考 Dylix 的 OutputNaming）
 //
 //  默认 Theos 产出的名字是 <name>_<version>_<arch>.deb，但用户常有自己习惯：
 //    com.foo.bar_1.0.0_iphoneos-arm.deb

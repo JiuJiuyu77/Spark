@@ -73,10 +73,10 @@ static NSString *const kSystemApps = @"/Applications";
         if (info && info.bundleId.length) [out addObject:info];
     }
 
-    // 稳定排序：Spark 自己排最前，其余按显示名
+    // 稳定排序：Workbench 自己排最前，其余按显示名
     [out sortUsingComparator:^NSComparisonResult(SPAppInfo *a, SPAppInfo *b) {
-        if ([a.bundleId isEqualToString:@"com.HuQing.Spark"]) return NSOrderedAscending;
-        if ([b.bundleId isEqualToString:@"com.HuQing.Spark"]) return NSOrderedDescending;
+        if ([a.bundleId isEqualToString:@"com.HuQing.Workbench"]) return NSOrderedAscending;
+        if ([b.bundleId isEqualToString:@"com.HuQing.Workbench"]) return NSOrderedDescending;
         return [a.displayName localizedStandardCompare:b.displayName];
     }];
     return out;
@@ -158,8 +158,8 @@ static NSString *const kSystemApps = @"/Applications";
     }
 
     [list sortUsingComparator:^NSComparisonResult(SPAppInfo *a, SPAppInfo *b) {
-        if ([a.bundleId isEqualToString:@"com.HuQing.Spark"]) return NSOrderedAscending;
-        if ([b.bundleId isEqualToString:@"com.HuQing.Spark"]) return NSOrderedDescending;
+        if ([a.bundleId isEqualToString:@"com.HuQing.Workbench"]) return NSOrderedAscending;
+        if ([b.bundleId isEqualToString:@"com.HuQing.Workbench"]) return NSOrderedDescending;
         return [a.displayName localizedStandardCompare:b.displayName];
     }];
     return list;

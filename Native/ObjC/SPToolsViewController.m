@@ -141,19 +141,16 @@
     audit.tint = [SPTheme success];
     audit.controllerClass = SPSignatureViewController.class;
 
+    // 「自检」与「测试构建」已合并成一个入口：
+    // 以前是两个独立的 cell，用户要在两页之间来回看，
+    // 而且两页结论口径不一致（一个报 SDK ✗、另一个报编译失败）。
+    // 现在统一进自检页，页内自带「测试构建」动作。
     SPToolItem *health = [SPToolItem new];
-    health.title = @"自检";
-    health.detail = @"运行时 · 编译链 · 工具链 · 环境，失败给命令与原因";
+    health.title = @"自检与测试构建";
+    health.detail = @"运行时 · 编译链 · 工具链 · 环境，并可端到端编一次";
     health.symbol = @"stethoscope";
     health.tint = [SPTheme gold];
     health.controllerClass = SPHealthViewController.class;
-
-    SPToolItem *selftest = [SPToolItem new];
-    selftest.title = @"测试构建";
-    selftest.detail = @"真的编一个最小 tweak，验证端到端能出包";
-    selftest.symbol = @"checklist";
-    selftest.tint = [SPTheme gold];
-    selftest.controllerClass = SPSelfTestViewController.class;
 
     SPToolItem *cross = [SPToolItem new];
     cross.title = @"快速编译";
@@ -177,7 +174,7 @@
     logs.controllerClass = SPLogsViewController.class;
 
     self.groupTitles = @[@"编译", @"分析与注入", @"文件与记录", @"远程与诊断"];
-    self.groups = @[@[tc], @[health, selftest, cross], @[rev, inj, mount, logs], @[remote, crash, audit]];
+    self.groups = @[@[tc], @[health, cross], @[rev, inj, mount, logs], @[remote, crash, audit]];
 }
 
 #pragma mark - Table

@@ -294,19 +294,34 @@
         }
 
         // ── 4. SDK ──
-        NSString *sdksDir = [theos stringByAppendingPathComponent:@"sdks"];
-        NSMutableArray *sdks = [NSMutableArray array];
-        for (NSString *n in [fm contentsOfDirectoryAtPath:sdksDir error:NULL] ?: @[]) {
-            if (![n hasPrefix:@"iPhoneOS"] || ![n hasSuffix:@".sdk"]) continue;
-            // 空目录（只有 .keep）不算
-            BOOL hasSettings = [fm fileExistsAtPath:
-                [[sdksDir stringByAppendingPathComponent:n] stringByAppendingPathComponent:@"SDKSettings.json"]];
-            if (hasSettings) [sdks addObject:n];
+        // 与 SPToolchain 用同一套目录与同一个完整性标准：
+        //   · 目录：$THEOS/sdks、theos-root/theos/sdks、顶层 sdks/ …
+        //   · 完整：SDKSettings.json + usr/include
+        // 以前只查 $THEOS/sdks 且只判 SDKSettings.json，
+        // 于是运行时里「只有 Frameworks、没有 usr/include」的半成品
+        // 也被算作可用 SDK，测试构建一路跑到编译才失败。
+        SPToolchain *tc = [SPToolchain shared];
+        [tc rescan];
+        NSArray *sdkNames = [tc availableSDKs];
+        NSArray *allSdkNames = [tc availableSDKsIncludingIncomplete:YES];
+        NSMutableArray *incomplete = [NSMutableArray array];
+        for (NSString *n in allSdkNames) {
+            if (![sdkNames containsObject:n]) [incomplete addObject:n];
+        }
+        NSString *sdkDetail = sdkNames.count
+            ? [sdkNames componentsJoinedByString:@", "]
+            : @"无";
+        if (incomplete.count) {
+            sdkDetail = [sdkDetail stringByAppendingFormat:@"（已停用 %lu 个不完整：%@）",
+                         (unsigned long)incomplete.count,
+                         [incomplete componentsJoinedByString:@", "]];
         }
         emit([self step:SPSelfTestStageSDK title:@"可用 SDK"
-                 passed:(sdks.count > 0)
-                 detail:sdks.count ? [sdks componentsJoinedByString:@", "] : @"无"
-                   hint:sdks.count ? nil : @"SDK 缺失或为空：设置 → 工具链 → 重新展开"]);
+                 passed:(sdkNames.count > 0)
+                 detail:sdkDetail
+                   hint:sdkNames.count ? nil
+                        : @"一个完整 SDK 都没有。到「工具」→「工具链 → 默认 SDK」导入完整的 SDK 包"
+                          @"（必须含 usr/include）。"]);
 
         // 前置失败就不用往下跑了
         BOOL preOK = YES;
@@ -338,12 +353,12 @@
                        "- (id)description { return %orig; }\n"
                        "%end\n";
         NSString *ctrl = @"Package: com.huging.spark.selftest\n"
-                          "Name: Spark Self Test\n"
+                          "Name: Workbench Self Test\n"
                           "Version: 0.0.1\n"
                           "Architecture: iphoneos-arm\n"
-                          "Description: Spark 自检用\n"
-                          "Maintainer: Spark\n"
-                          "Author: Spark\n"
+                          "Description: Workbench 自检用\n"
+                          "Maintainer: Workbench\n"
+                          "Author: Workbench\n"
                           "Section: Tweaks\n";
         BOOL wrote = [mk writeToFile:[work stringByAppendingPathComponent:@"Makefile"]
                           atomically:YES encoding:NSUTF8StringEncoding error:NULL]
@@ -378,8 +393,8 @@
              //   平铺: <installRoot>/theos-root
              //   旧版: <installRoot>/Toolchain 或 <installRoot>
              // 之前这里直接把 installRoot 当成 root，拼出
-             //   Spark.app/usr/lib/llvm-16/bin   ← 不存在
-             // 正确的应是 Spark.app/theos-root/usr/lib/llvm-16/bin，
+             //   Workbench.app/usr/lib/llvm-16/bin   ← 不存在
+             // 正确的应是 Workbench.app/theos-root/usr/lib/llvm-16/bin，
              // 所以 clang 一直找不到，make 报 library.mk:37 Error 2。
              "for c in \"%@/theos-root\" \"%@/Toolchain\" \"%@\"; do "
              "  if [ -x \"$c/usr/lib/llvm-16/bin/clang\" ] || [ -x \"$c/usr/bin/clang-16\" ]; "

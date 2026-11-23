@@ -3,7 +3,7 @@
 
 问题
 ----
-TrollStore 安装 ipa 时执行 `ldid -s Payload/Spark.app`。
+TrollStore 安装 ipa 时执行 `ldid -s Payload/Workbench.app`。
 ldid 会遍历 .app 下每个普通文件，按 magic 判断是否 Mach-O：
 
     ldid.cpp  Sign() → folder.Find() → 对每个文件读前 16 字节
@@ -41,7 +41,7 @@ ldid 看到 FAT_MAGIC 认为可以处理，进去取第一个切片，
 
 用法
 ----
-    python3 scripts/strip-non-macho.py <Payload/Spark.app>
+    python3 scripts/strip-non-macho.py <Payload/Workbench.app>
 """
 
 import os
@@ -128,13 +128,13 @@ def check_only(app: str) -> int:
 
 def main() -> int:
     if len(sys.argv) < 2:
-        print('用法: strip-non-macho.py <Payload/Spark.app>', file=sys.stderr)
+        print('用法: strip-non-macho.py <Payload/Workbench.app>', file=sys.stderr)
         return 1
 
     # 支持 --check 放在任意位置
     positional = [a for a in sys.argv[1:] if not a.startswith('--')]
     if not positional:
-        print('用法: strip-non-macho.py [--check] <Payload/Spark.app>', file=sys.stderr)
+        print('用法: strip-non-macho.py [--check] <Payload/Workbench.app>', file=sys.stderr)
         return 1
 
     app = positional[0]

@@ -404,7 +404,7 @@ static NSString *const kAppBundleRoot = @"/private/var/containers/Bundle/Applica
         return cell;
     }
     if (ip.section == 2) {
-        // 选项区：功能照搬 TrollFools，文案与图标按 Spark 的口径重写
+        // 选项区：功能照搬 TrollFools，文案与图标按 Workbench 的口径重写
         NSArray *titles = @[@"弱加载（--weak）",
                             @"CoreTrust 绕过",
                             @"注入后 ldid 补签",

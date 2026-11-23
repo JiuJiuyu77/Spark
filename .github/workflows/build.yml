@@ -1,15 +1,15 @@
 name: build
 
-# Spark —— iOS 原生 App 的云端构建
+# Workbench —— iOS 原生 App 的云端构建
 #
-# 为什么必须 macos runner：Spark 是链接 UIKit 的 iOS 应用，只能由 Xcode 的
+# 为什么必须 macos runner：Workbench 是链接 UIKit 的 iOS 应用，只能由 Xcode 的
 # iPhoneOS SDK + ld64 产出 Mach-O；Linux 跑不了。
 #
 # 触发方式：
 #   · push / PR / tag：自动构建并留档产物
-#   · workflow_dispatch：给手机端 Spark（或 Cloudflare Worker）远程触发
+#   · workflow_dispatch：给手机端 Workbench（或 Cloudflare Worker）远程触发
 #
-# 产物：Spark-<版本>-<arch>.ipa、*.app.zip、SHA256SUMS.txt
+# 产物：Workbench-<版本>-<arch>.ipa、*.app.zip、SHA256SUMS.txt
 
 on:
   push:
@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       job_id:
-        description: 'Spark 任务号（远程触发时由 Worker 传入）'
+        description: 'Workbench 任务号（远程触发时由 Worker 传入）'
         required: false
         default: ''
       note:
@@ -67,10 +67,10 @@ jobs:
         run: node scripts/detect-toolchain.mjs --json | head -c 300
 
   # ---------------------------------------------------------------------------
-  # 2. 真机构建：macOS runner 上用 iPhoneOS SDK 编译 Spark
+  # 2. 真机构建：macOS runner 上用 iPhoneOS SDK 编译 Workbench
   # ---------------------------------------------------------------------------
   build:
-    name: Build Spark (${{ matrix.arch }})
+    name: Build Workbench (${{ matrix.arch }})
     needs: test
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
@@ -86,8 +86,8 @@ jobs:
           - runner: macos-15
             arch: arm64
     env:
-      SCHEME: Spark
-      BUNDLE_ID: com.HuQing.Spark
+      SCHEME: Workbench
+      BUNDLE_ID: com.HuQing.Workbench
     steps:
       - uses: actions/checkout@v4
         with:
@@ -175,8 +175,13 @@ jobs:
             if [ "$FAIL" != "0" ]; then echo "::error::解包失败"; exit 1; fi
             # 解包后立刻自检关键文件 —— helpers/bash 曾出现「包里明明有，
             # 但 $TC/helpers 是空目录」，一路带到设备上才发现。
+            # SDK 现在只内置完整 16.5（17.0 / 26.5 按需下载），
+            # 自检必须看 usr/include，而不仅 SDKSettings.json ——
+            # 史上出过「SDKSettings 在但缺 usr/include」的残缺 SDK，
+            # 一路编译才在 stdio.h 上爆掉。
             echo "  解包后核对:"
             for must in helpers/bash sdks/iPhoneOS16.5.sdk/SDKSettings.json \
+                        sdks/iPhoneOS16.5.sdk/usr/include/stdio.h \
                         theos-root/usr/bin/clang-16 ollvm/bin/clang reverse/bin/mt-macho; do
               if [ -e "$TC/$must" ]; then
                 echo "    ✓ $must"
@@ -208,14 +213,14 @@ jobs:
             exit 0
           fi
 
-          # 默认从 Spark-Runtime 拿 Theos（含 16.5 + 17.0 双 SDK）
+          # 默认从 Workbench-Runtime 拿 Theos（含 16.5 + 17.0 双 SDK）
           # 可用仓库变量 TOOLCHAIN_SOURCE 覆盖为任意直链
           SRC="${{ vars.TOOLCHAIN_SOURCE }}"
           if [ -z "$SRC" ]; then
             # runtime-v3：完整内嵌 + helpers/bash
             # v2 缺 bash，导致 posix_spawn 找不到 shell（退出码 -1）
             # 旧的 runtime-v1 只带 43 个工具、2 个 SDK，已在集成场景下暴露缺口
-            SRC="https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v3/SparkTheosRuntimeV3.tar.gz"
+            SRC="https://github.com/JiuJiuyu77/Workbench-Runtime/releases/download/runtime-v3/SparkTheosRuntimeV3.tar.gz"
             TC_SHA="5e26dbe33a23165131be37ac9c77ea4cf0bcbbcb1411ca054bc255a7d6fd1c7c"
           fi
 
@@ -365,14 +370,14 @@ jobs:
           fi
 
           # 内置运行时：**平铺到 .app 根目录**（与 Rein 的布局一致）
-          #   Spark.app/theos-root/  helpers/  sdks/  ...
-          # 之前放在 Spark.app/Toolchain/ 子目录，与 Rein 不一致，
+          #   Workbench.app/theos-root/  helpers/  sdks/  ...
+          # 之前放在 Workbench.app/Toolchain/ 子目录，与 Rein 不一致，
           # 也导致工具链探测走了更多弯路。
           if [ -d Native/Resources/Toolchain ]; then
             echo "==> 拷入内置运行时（平铺）"
             # 用 ditto 而不是 cp -R：ditto 保留资源分支/扩展属性/符号链接/权限，
             # 而 cp -R 可能把目录处理成空壳 ——
-            # 这正是设备上 Spark.app/helpers/ 为空、bash 找不到的原因。
+            # 这正是设备上 Workbench.app/helpers/ 为空、bash 找不到的原因。
             if command -v ditto >/dev/null 2>&1; then
               ditto Native/Resources/Toolchain/ "$APP/"
             else
@@ -390,7 +395,7 @@ jobs:
               [ -d "$vdir" ] || continue
               if [ ! -e "$vdir/.git" ]; then
                 mkdir -p "$vdir/.git" 2>/dev/null || true
-                printf 'packed by Spark\n' > "$vdir/.git/HEAD" 2>/dev/null || true
+                printf 'packed by Workbench\n' > "$vdir/.git/HEAD" 2>/dev/null || true
                 echo "  + $(basename $(dirname $vdir))/$(basename $vdir)/.git"
               fi
             done
@@ -525,7 +530,7 @@ jobs:
             -o "$APP/$SCHEME"
 
           # ------------------------------------------------------------------
-          # 关键：TrollStore 用 `ldid -s Payload/Spark.app` 对整个目录签名，
+          # 关键：TrollStore 用 `ldid -s Payload/Workbench.app` 对整个目录签名，
           # 遇到 #! 开头的 shell 脚本会报 "Unknown header magic" 并整体失败。
           # 工具链里 egrep/fgrep/gunzip/gzexe/dpkg-realpath 都是脚本，
           # 去掉可执行位（编译不需要它们）。
@@ -626,7 +631,7 @@ jobs:
           # ------------------------------------------------------------------
           # 注意：GITHUB_ENV 里写的 APP_PATH 在同一步内可用，但 $APP 是上一步的局部变量，
           # 这里重新算一遍，避免 unbound variable
-          EXT="$APP/PlugIns/SparkShare.appex"
+          EXT="$APP/PlugIns/WorkbenchShare.appex"
           rm -rf "$EXT" && mkdir -p "$EXT"
 
           cp ShareExtension/Info.plist "$EXT/"
@@ -650,7 +655,7 @@ jobs:
           xcrun clang "${FLAGS[@]}" \
             -bundle -fapplication-extension \
             -framework UIKit -framework Foundation -framework UniformTypeIdentifiers \
-            -o "$EXT/SparkShare" \
+            -o "$EXT/WorkbenchShare" \
             ShareExtension/main.m ShareExtension/SPShareViewController.m
 
           echo "==> 签名扩展（带 App Group）"
@@ -661,7 +666,7 @@ jobs:
           else
             codesign --force --sign - --timestamp=none "$EXT" || true
           fi
-          file "$EXT/SparkShare"
+          file "$EXT/WorkbenchShare"
           du -sh "$EXT"
 
           # ------------------------------------------------------------------
@@ -785,7 +790,7 @@ jobs:
 
       # -----------------------------------------------------------------------
       # Share Extension：编译并塞进 .app/PlugIns/
-      # 有了它，Spark 才会出现在其它 App 的「分享」菜单里
+      # 有了它，Workbench 才会出现在其它 App 的「分享」菜单里
       # -----------------------------------------------------------------------
       - name: Package artifacts
         run: |
@@ -821,9 +826,9 @@ jobs:
           unzip -l "out/${SCHEME}-${V}-${A}.ipa" | grep -q "Payload/${SCHEME}.app/bin/spark-jitd" \
             && echo "JIT helper 已包含 ✓" \
             || echo "::warning::JIT helper 没进包"
-          unzip -l "out/${SCHEME}-${V}-${A}.ipa" | grep -q "Payload/${SCHEME}.app/PlugIns/SparkShare.appex/SparkShare" \
+          unzip -l "out/${SCHEME}-${V}-${A}.ipa" | grep -q "Payload/${SCHEME}.app/PlugIns/WorkbenchShare.appex/WorkbenchShare" \
             && echo "Share Extension 已包含 ✓" \
-            || echo "::warning::Share Extension 没进包，分享菜单里不会出现 Spark"
+            || echo "::warning::Share Extension 没进包，分享菜单里不会出现 Workbench"
           # 最终自检：ipa 里不能有 #! 可执行文件（否则用户装不上）
           chmod -R u+w /tmp/vfy 2>/dev/null || true
           rm -rf /tmp/vfy 2>/dev/null || true
@@ -849,7 +854,7 @@ jobs:
             exit 1
           fi
           # 每个 Mach-O 都必须有 LC_CODE_SIGNATURE，否则 TrollStore 的 ldid -s 会失败
-          if ! python3 scripts/strip-non-macho.py --check /tmp/vfy/Payload/Spark.app; then
+          if ! python3 scripts/strip-non-macho.py --check /tmp/vfy/Payload/Workbench.app; then
             echo "::error::ipa 里仍有 ldid 处理不了的二进制"
             exit 1
           fi
@@ -867,7 +872,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Spark-${{ steps.info.outputs.version }}-${{ matrix.arch }}
+          name: Workbench-${{ steps.info.outputs.version }}-${{ matrix.arch }}
           path: out/*
           if-no-files-found: error
           retention-days: 30
@@ -875,13 +880,13 @@ jobs:
       - name: Write job summary
         run: |
           {
-            echo "## Spark 构建完成 :sparkles:"
+            echo "## Workbench 构建完成 :sparkles:"
             echo ""
             echo "| 项目 | 值 |"
             echo "|---|---|"
             echo "| 版本 | \`${{ steps.info.outputs.version }}\` |"
             echo "| git | \`${{ steps.info.outputs.git }}\` |"
-            echo "| Bundle ID | \`com.HuQing.Spark\` |"
+            echo "| Bundle ID | \`com.HuQing.Workbench\` |"
             echo "| 架构 | ${{ matrix.arch }} |"
             echo "| 触发任务 | \`${{ inputs.job_id }}\` |"
             echo "| runner | $(sw_vers -productName) $(sw_vers -productVersion) |"
@@ -909,4 +914,4 @@ jobs:
         with:
           files: artifacts/*
           generate_release_notes: true
-          name: Spark ${{ github.ref_name }}
+          name: Workbench ${{ github.ref_name }}

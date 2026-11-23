@@ -5,7 +5,7 @@
 ----------
 TrollStore 安装 ipa 时执行：
 
-    ldid -s Payload/Spark.app
+    ldid -s Payload/Workbench.app
 
 它会递归遍历 .app，对每个 Mach-O 重新签名。
 遇到**没有签名段的 Mach-O**（例如我们用 clang 直接编出来、

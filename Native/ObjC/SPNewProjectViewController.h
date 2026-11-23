@@ -1,6 +1,6 @@
 //
 //  SPNewProjectViewController.h
-//  Spark —— 新建工程表单（对齐 dylix 的 StudioCreate）
+//  Workbench —— 新建工程表单（对齐 dylix 的 StudioCreate）
 //
 //  与旧版 Alert 输入框的区别：
 //  · 独立的表单页，模板分区选择（Objective-C / Logos / 纯动态库）

@@ -3,7 +3,7 @@
 
 为什么需要
 ----------
-TrollStore 安装时执行 `ldid -s Payload/Spark.app`，它逐个处理 Mach-O。
+TrollStore 安装时执行 `ldid -s Payload/Workbench.app`，它逐个处理 Mach-O。
 两种损坏都会导致安装失败：
 
 1. **未签名**（没有 LC_CODE_SIGNATURE）

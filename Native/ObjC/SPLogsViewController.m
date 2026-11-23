@@ -136,7 +136,7 @@
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
-    return self.logs.count ? @"左滑可删除。日志默认保留在 Documents/Spark/logs。" : nil;
+    return self.logs.count ? @"左滑可删除。日志默认保留在 Documents/Workbench/logs。" : nil;
 }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s { return (NSInteger)self.logs.count; }
@@ -195,8 +195,8 @@
     NSString *logsDir = [[SPStore shared] logsDirectory];
     NSMutableArray<NSURL *> *items = [NSMutableArray array];
 
-    // 1) 主日志 spark.log —— 构建、注入、自检、崩溃都写在这里
-    NSString *main = [logsDir stringByAppendingPathComponent:@"spark.log"];
+    // 1) 主日志 workbench.log —— 构建、注入、自检、崩溃都写在这里
+    NSString *main = [logsDir stringByAppendingPathComponent:@"workbench.log"];
     if ([fm fileExistsAtPath:main]) {
         // 复制一份带时间戳的，避免分享面板里名字看不出是哪次
         NSString *tmp = [NSTemporaryDirectory() stringByAppendingPathComponent:

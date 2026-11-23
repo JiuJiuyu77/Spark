@@ -1,5 +1,5 @@
 /**
- * Spark 共享模型 —— 这是 App / Worker / CI 三端唯一的一份「真相」。
+ * Workbench 共享模型 —— 这是 App / Worker / CI 三端唯一的一份「真相」。
  *
  * 为什么要单独一份 JS：iOS 原生 App 里跑的是 Node 环境的逻辑（判断项目类型、
  * 拼 make 参数、解析错误），GitHub Actions 和 Cloudflare Worker 也要用同一套
@@ -336,7 +336,7 @@ export function buildScript(project, options = {}, profile = {}) {
   const q = shellQuote;
   const lines = [
     '#!/bin/sh',
-    '# Spark 生成的构建脚本',
+    '# Workbench 生成的构建脚本',
     'set -o pipefail 2>/dev/null || true',
     'export LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8',
     'say() { printf "\\033[1;36m==> %s\\033[0m\\n" "$1"; }',
@@ -391,8 +391,8 @@ export function buildScript(project, options = {}, profile = {}) {
   lines.push('U=$(id -u)');
   lines.push('if [ "$U" != "0" ]; then ' +
              '{ warn "子进程没有 root 权限（当前 uid=$U）"; ' +
-             'warn "原因：Spark 以 mobile 身份启动，或提权失败"; ' +
-             'warn "处理：用 TrollStore 重新安装 Spark（需要 platform-application 权限）"; ' +
+             'warn "原因：Workbench 以 mobile 身份启动，或提权失败"; ' +
+             'warn "处理：用 TrollStore 重新安装 Workbench（需要 platform-application 权限）"; ' +
              'warn "自查：设置 → 运行环境自检，看「子进程身份」一项"; ' +
              'exit 9; }; fi');
   lines.push('ok "子进程以 root 运行"');
@@ -447,7 +447,7 @@ export function buildScript(project, options = {}, profile = {}) {
   lines.push(`trap 'write_report $?' EXIT`);
   lines.push('');
   // .x 预展开：设备上的 perl 缺 libperl.dylib 跑不起来，
-  // 所以在 make 之前用 Spark 自带预处理器把 .x 展开成 .m。
+  // 所以在 make 之前用 Workbench 自带预处理器把 .x 展开成 .m。
   // perl 可用时不干预（保持原生 Logos 行为）。
   // Swift 前置检查：设备上没有 swiftc 时直接说明，
   // 而不是让用户看 make 报 "swiftc: not found" 一头雾水。

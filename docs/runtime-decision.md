@@ -54,7 +54,7 @@ Codex 的 Theos 唯一优势是「自带完整工具链」，但那 278MB 我们
 
 **决定：**
 - 主线用 **Codex 23.1.1**（LLVM 更新、arm64e 已验证、pass 更多）
-- Spark 的 pass 名要跟着换：`cff` → `fla`，并新增 `cie` / `cfe`
+- Workbench 的 pass 名要跟着换：`cff` → `fla`，并新增 `cie` / `cfe`
 - **兼容处理**：设置页里同时提供两套 pass 名，选择编译器时自动切换
   （如果用户自己换了 OLLVM 包，也能用）
 

@@ -1,6 +1,6 @@
 //
 //  SPTrollViewController.h
-//  Spark —— 巨魔（TrollStore）注入器
+//  Workbench —— 巨魔（TrollStore）注入器
 //  交互照搬 TrollFools：App 列表 → 注入面板
 //
 

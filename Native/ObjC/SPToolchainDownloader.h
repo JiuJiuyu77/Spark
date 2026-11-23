@@ -1,6 +1,6 @@
 //
 //  SPToolchainDownloader.h
-//  Spark —— 可选工具组件的按需下载
+//  Workbench —— 可选工具组件的按需下载
 //
 //  ipa 只内置 CORE（Theos + 最小编译链）。
 //  OLLVM / radare2 / 完整工具集 太大，放进 Release 附件，用户点一下再下。
@@ -18,8 +18,10 @@ typedef NS_ENUM(NSInteger, SPComponent) {
     SPComponentNode,            // Node 24.5.0
     SPComponentBuildTools,      // CMake + Ninja
     SPComponentPython,          // Python 3.13
-    SPComponentTheos,           // 完整 Theos（双 SDK）
+    SPComponentTheos,           // 完整 Theos（不再含 SDK）
     SPComponentOLLVM,           // Arkari LLVM 23.1.1
+    SPComponentSDK17,           // iPhoneOS17.0.sdk（按需下载）
+    SPComponentSDK26,           // iPhoneOS26.5.sdk（按需下载）
     SPComponentCount,
 };
 
@@ -50,7 +52,7 @@ typedef NS_ENUM(NSInteger, SPComponent) {
 /// 删除已下载组件
 - (void)remove:(SPComponent)component;
 
-/// 组件安装目录：Documents/Spark/Toolchain/<子目录>
+/// 组件安装目录：Documents/Workbench/Toolchain/<子目录>
 - (NSString *)directoryFor:(SPComponent)component;
 
 /// 下载源（默认 GitHub Release，可在设置里覆盖）

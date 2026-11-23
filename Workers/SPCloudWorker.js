@@ -1,9 +1,9 @@
 /**
- * Spark 远程构建 Worker（Cloudflare Workers）
+ * Workbench 远程构建 Worker（Cloudflare Workers）
  *
- * 作用：把「云端构建」这件麻烦事收成一个 HTTP 接口 —— 手机上的 Spark
+ * 作用：把「云端构建」这件麻烦事收成一个 HTTP 接口 —— 手机上的 Workbench
  * 把项目 zip 传上来，Worker 存进 R2，然后用 GitHub `workflow_dispatch`
- * 触发 Spark 的 Actions 工作流；构建完成后手机轮询状态即可拿产物链接。
+ * 触发 Workbench 的 Actions 工作流；构建完成后手机轮询状态即可拿产物链接。
  *
  * 设计取舍：
  *   · 不在 Worker 里跑编译（Workers 没有 Xcode/clang，也没法跑 macOS）。
@@ -58,7 +58,7 @@ function githubApi(env, path, init = {}) {
       accept: 'application/vnd.github+json',
       authorization: `Bearer ${env.GH_TOKEN}`,
       'x-github-api-version': '2022-11-28',
-      'user-agent': 'Spark-Worker',
+      'user-agent': 'Workbench-Worker',
       ...(init.headers || {}),
     },
   });
@@ -181,7 +181,7 @@ async function handleDispatch(request, env) {
   const result = await dispatch(env, {
     job_id: jobId,
     // workflow 里会以此作为 display_title，方便回查
-    note: `Spark ${payload.project?.name || ''}`.trim().slice(0, 60),
+    note: `Workbench ${payload.project?.name || ''}`.trim().slice(0, 60),
     options_json: JSON.stringify(payload.options || {}).slice(0, 3000),
   });
 

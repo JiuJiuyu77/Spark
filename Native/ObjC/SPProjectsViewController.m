@@ -138,7 +138,7 @@ NSString *const SPProjectCreatedNotification = @"SPProjectCreated";
 
 /// 允许左滑删除。
 /// 之前列表完全没有删除入口 —— 导入的项目只能去「文件」App 里手动删，
-/// 而且删完 Spark 这边的 recent 记录还在，列表里会留一条打不开的空项。
+/// 而且删完 Workbench 这边的 recent 记录还在，列表里会留一条打不开的空项。
 - (BOOL)tableView:(UITableView *)tv canEditRowAtIndexPath:(NSIndexPath *)ip {
     // 编辑态交给多选，不在编辑态下一次删一个
     if (self.selecting) return NO;
@@ -314,7 +314,7 @@ forRowAtIndexPath:(NSIndexPath *)ip {
     if (st != SPTrollStoreStateOK) {
         // 直接给出修复路径，而不是让用户去猜。
         return (st == SPTrollStoreStateNotRoot)
-            ? @"⚠️ Spark 正以非 root 运行 —— 编译会失败。\n"
+            ? @"⚠️ Workbench 正以非 root 运行 —— 编译会失败。\n"
                "ipa 签名是对的，问题出在安装方式：\n"
                "TrollStore 覆盖安装时没重新赋予 root 能力。\n\n"
                "修复：设置 → 工具链 → 运行身份 → 按引导重新安装"
@@ -1135,8 +1135,8 @@ forRowAtIndexPath:(NSIndexPath *)ip {
 #pragma mark - 回收站
 
 - (NSString *)trashDirectory {
-    // projectsDirectory 形如 .../Documents/Spark/projects，
-    // 回收站放同级 Spark/trash
+    // projectsDirectory 形如 .../Documents/Workbench/projects，
+    // 回收站放同级 Workbench/trash
     NSString *projects = [SPStore shared].projectsDirectory;
     return [[projects stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"trash"];
 }
@@ -1364,7 +1364,7 @@ forRowAtIndexPath:(NSIndexPath *)ip {
 
     NSString *control = [NSString stringWithFormat:
         @"Package: %@\nName: %@\nVersion: 1.0.0\nArchitecture: iphoneos-arm\n"
-         "Description: 由 Spark 创建\nMaintainer: Spark\nAuthor: Spark\nSection: %@\n",
+         "Description: 由 Workbench 创建\nMaintainer: Workbench\nAuthor: Workbench\nSection: %@\n",
         identifier, name, isApp ? @"Applications" : @"Tweaks"];
     [control writeToFile:[path stringByAppendingPathComponent:@"control"] atomically:YES
                 encoding:NSUTF8StringEncoding error:NULL];
@@ -1390,7 +1390,7 @@ forRowAtIndexPath:(NSIndexPath *)ip {
           "    self.title = @\"Hello\";\n"
           "    self.view.backgroundColor = [UIColor systemBackgroundColor];\n\n"
           "    UILabel *label = [[UILabel alloc] init];\n"
-          "    label.text = @\"Hello Spark\";\n"
+          "    label.text = @\"Hello Workbench\";\n"
           "    label.font = [UIFont preferredFontForTextStyle:UIFontTextStyleLargeTitle];\n"
           "    label.translatesAutoresizingMaskIntoConstraints = NO;\n"
           "    [self.view addSubview:label];\n"
@@ -1401,7 +1401,7 @@ forRowAtIndexPath:(NSIndexPath *)ip {
          writeToFile:[path stringByAppendingPathComponent:@"RootViewController.m"] atomically:YES
          encoding:NSUTF8StringEncoding error:NULL];
     } else {
-        [@"// Spark 生成的 tweak：最简单的 SpringBoard hook\n%hook SpringBoard\n\n"
+        [@"// Workbench 生成的 tweak：最简单的 SpringBoard hook\n%hook SpringBoard\n\n"
           "- (void)applicationDidFinishLaunching:(id)application {\n"
           "    %orig;\n    NSLog(@\"[%@] loaded\");\n}\n\n%end\n"
          writeToFile:[path stringByAppendingPathComponent:@"Tweak.x"] atomically:YES

@@ -52,7 +52,7 @@ void SPSetFloatBarHidden(BOOL hidden, BOOL animated) {
 
     // 提权失败要让用户知道：否则表现是「编译时报一堆 Permission denied」，
     // 看不出是身份问题，而原因其实在启动时就已确定。
-    [[NSUserDefaults standardUserDefaults] setBool:!isRoot forKey:@"Spark.notRoot"];
+    [[NSUserDefaults standardUserDefaults] setBool:!isRoot forKey:@"Workbench.notRoot"];
 
     // 崩溃兜底：尽早装，才能捕获启动期异常
     [[SPCrashGuard shared] install];
@@ -102,7 +102,7 @@ void SPSetFloatBarHidden(BOOL hidden, BOOL animated) {
         [[SPCrashGuard shared] consumePendingReport];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             UIAlertController *a = [UIAlertController alertControllerWithTitle:@"上次意外退出"
-                message:@"Spark 检测到上次是异常退出的，已保存崩溃报告。要看吗？"
+                message:@"Workbench 检测到上次是异常退出的，已保存崩溃报告。要看吗？"
                 preferredStyle:UIAlertControllerStyleAlert];
             [a addAction:[UIAlertAction actionWithTitle:@"查看" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
                 SPEditorViewController *e = [[SPEditorViewController alloc] initWithFilePath:crashReport];
@@ -115,8 +115,8 @@ void SPSetFloatBarHidden(BOOL hidden, BOOL animated) {
     }
 
     // 首次启动的「一句话说明」，别让用户面对空列表发懵
-    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"Spark.onboarded"]) {
-        [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"Spark.onboarded"];
+    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"Workbench.onboarded"]) {
+        [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"Workbench.onboarded"];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             [self showWelcome];
         });
@@ -149,7 +149,7 @@ void SPSetFloatBarHidden(BOOL hidden, BOOL animated) {
 - (void)setupDefaults {
     // 触感反馈默认开启（用户可在「工具链 → 日志/显示」里关）
     NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
-    if ([d objectForKey:@"Spark.haptics"] == nil) [d setBool:YES forKey:@"Spark.haptics"];
+    if ([d objectForKey:@"Workbench.haptics"] == nil) [d setBool:YES forKey:@"Workbench.haptics"];
 }
 
 #pragma mark - 标签页
@@ -247,7 +247,7 @@ void SPSetFloatBarHidden(BOOL hidden, BOOL animated) {
 
 - (void)showWelcome {
     UIAlertController *a = [UIAlertController
-        alertControllerWithTitle:@"欢迎使用 Spark"
+        alertControllerWithTitle:@"欢迎使用 Workbench"
                          message:@"参考 Rein 的可视化编译工具：\n"
                                  @"• 一键编译 Theos / Logos 工程\n"
                                  @"• OLLVM 混淆与逆向工具\n"
@@ -304,7 +304,7 @@ void SPSetFloatBarHidden(BOOL hidden, BOOL animated) {
             }
         }
     }
-    // 「用 Spark 打开」传来的文件
+    // 「用 Workbench 打开」传来的文件
     if (url.isFileURL) {
         NSURL *copy = url;
         if ([copy startAccessingSecurityScopedResource]) {

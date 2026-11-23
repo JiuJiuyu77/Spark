@@ -3,7 +3,7 @@
  * gen-build-script.mjs —— 把「项目 + 选项 + 工具链」翻译成一段可直接执行的构建脚本。
  *
  * 用途：
- *   · CLI 里想看一眼 Spark 到底会执行什么
+ *   · CLI 里想看一眼 Workbench 到底会执行什么
  *   · CI 里生成构建脚本给 sh 跑
  *   · 把脚本贴给别人复现问题
  *
@@ -28,7 +28,7 @@ function arg(name, fallback = null) {
 const HOME = process.env.HOME || os.homedir();
 const demo = arg('demo');
 
-const projectPath = demo ? '/var/mobile/Documents/Spark/projects/DemoTweak' : arg('path', process.cwd());
+const projectPath = demo ? '/var/mobile/Documents/Workbench/projects/DemoTweak' : arg('path', process.cwd());
 const options = {
   ...defaultOptions(),
   arch: arg('arch', 'arm64'),

@@ -1,6 +1,6 @@
 //
 //  SPRemoteServer.h
-//  Spark —— 局域网工作台（手机起 HTTP 服务，电脑浏览器直接用）
+//  Workbench —— 局域网工作台（手机起 HTTP 服务，电脑浏览器直接用）
 //
 //  参考 Dylix Remote，但按巨魔环境重做：
 //   · 自带极简 HTTP 服务（BSD socket + GCD，不引第三方库）

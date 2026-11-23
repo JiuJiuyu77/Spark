@@ -1,6 +1,6 @@
 //
 //  SPInstall.h
-//  Spark —— 产物一键安装（TrollStore / dpkg）
+//  Workbench —— 产物一键安装（TrollStore / dpkg）
 //
 //  这是巨魔环境独有的能力（自签 App 做不到）：
 //   · 编出来的 deb 直接 dpkg -i 装到本机
@@ -47,7 +47,7 @@ typedef NS_ENUM(NSInteger, SPInstallKind) {
 - (void)uninstallPackageId:(NSString *)packageId
                 completion:(void (^)(BOOL ok, NSString *log))completion;
 
-/// 列出本机已装的 Spark 相关包（文件名匹配 given 前缀）
+/// 列出本机已装的 Workbench 相关包（文件名匹配 given 前缀）
 - (NSArray<NSString *> *)installedPackageIds;
 
 @end

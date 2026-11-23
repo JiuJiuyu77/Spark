@@ -127,7 +127,7 @@
 }
 
 - (NSString *)cachePath {
-    NSString *p = [NSTemporaryDirectory() stringByAppendingPathComponent:@"Spark"];
+    NSString *p = [NSTemporaryDirectory() stringByAppendingPathComponent:@"Workbench"];
     [NSFileManager.defaultManager createDirectoryAtPath:p withIntermediateDirectories:YES attributes:nil error:NULL];
     return p;
 }

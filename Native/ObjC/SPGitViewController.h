@@ -1,6 +1,6 @@
 //
 //  SPGitViewController.h
-//  Spark —— Git 面板（状态 / 暂存 / 提交 / 历史 / 推送）
+//  Workbench —— Git 面板（状态 / 暂存 / 提交 / 历史 / 推送）
 //
 
 #import <UIKit/UIKit.h>

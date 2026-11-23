@@ -6,6 +6,7 @@
 #import "SPCompat.h"
 #import "SPToolchainInstaller.h"
 #import "SPSession.h"
+#import "SPToolchain.h"
 
 #pragma mark - 结果模型
 
@@ -98,7 +99,7 @@
 
     // 找不到命令
     if ([low containsString:@"command not found"] || [low containsString:@"not found"]) {
-        NSArray *tokens = [o componentsSeparatedByString:@"\\n"];
+        NSArray *tokens = [o componentsSeparatedByString:@"\n"];
         NSString *which = nil;
         for (NSString *ln in tokens) {
             NSRange r = [ln rangeOfString:@"command not found"];
@@ -183,7 +184,7 @@
     // 通用兜底
     if (exitCode != 0) {
         NSString *first = nil;
-        for (NSString *ln in [o componentsSeparatedByString:@"\\n"]) {
+        for (NSString *ln in [o componentsSeparatedByString:@"\n"]) {
             NSString *t = [ln stringByTrimmingCharactersInSet:
                            [NSCharacterSet whitespaceCharacterSet]];
             if (!t.length) continue;
@@ -220,7 +221,7 @@
     item.command = script;
 
     NSMutableString *full = [NSMutableString string];
-    if (envPrefix.length) [full appendFormat:@"%@\\n", envPrefix];
+    if (envPrefix.length) [full appendFormat:@"%@\n", envPrefix];
     [full appendString:script];
 
     NSDate *t0 = [NSDate date];
@@ -234,7 +235,7 @@
     NSString *out = r.stdoutText ?: @"";
     NSString *err = r.stderrText ?: @"";
     NSString *merged = out.length && err.length
-        ? [NSString stringWithFormat:@"%@\\n%@", out, err]
+        ? [NSString stringWithFormat:@"%@\n%@", out, err]
         : (out.length ? out : err);
 
     // 截断：保留头尾各 4000 字符，中间省略。
@@ -244,7 +245,7 @@
         NSString *head = [merged substringToIndex:4000];
         NSString *tail = [merged substringFromIndex:merged.length - 3000];
         item.output = [NSString stringWithFormat:
-                       @"%@\\n\\n… 省略 %lu 字符 …\\n\\n%@",
+                       @"%@\n\n… 省略 %lu 字符 …\n\n%@",
                        head, (unsigned long)(merged.length - 7000), tail];
     } else {
         item.output = merged;
@@ -254,7 +255,7 @@
         item.status = SPHealthStatusFail;
         item.summary = @"子进程启动失败";
         item.diagnosis = [NSString stringWithFormat:
-                          @"无法启动子进程：%@\\n\\n"
+                          @"无法启动子进程：%@\n\n"
                            "下一步：到「工具」→「工具链」确认运行时已展开，"
                            "且 helpers/bash 存在。",
                           r.launchError.localizedDescription ?: @"未知原因"];
@@ -271,14 +272,14 @@
 
     if (r.exitCode != 0) {
         item.status = SPHealthStatusFail;
-        NSString *firstLine = [[out componentsSeparatedByString:@"\\n"] firstObject] ?: @"";
+        NSString *firstLine = [[out componentsSeparatedByString:@"\n"] firstObject] ?: @"";
         item.summary = firstLine.length ? firstLine : [NSString stringWithFormat:@"返回 %ld", (long)r.exitCode];
         item.diagnosis = [SPHealthCheck humanizeOutput:merged exitCode:r.exitCode intent:intent];
         return;
     }
 
     item.status = SPHealthStatusPass;
-    item.summary = [[out componentsSeparatedByString:@"\\n"] firstObject] ?: @"通过";
+    item.summary = [[out componentsSeparatedByString:@"\n"] firstObject] ?: @"通过";
     // 去掉首尾空白，避免 cell 里出现空行
     item.summary = [item.summary stringByTrimmingCharactersInSet:
                     [NSCharacterSet whitespaceAndNewlineCharacterSet]];
@@ -450,22 +451,32 @@
         SPHealthItem *it = [SPHealthItem new];
         it.category = SPHealthCategoryRuntime;
         it.title = @"可用磁盘空间";
-        // 注意：ObjC 字符串里不能再出现未转义的 "，
-        // 所以 awk 只输出数字，单位在下面拼。
-        [self run:@"df -Pm . 2>/dev/null | awk 'NR==2{print $4}'"
-              item:it intent:@"检查剩余空间" envPrefix:nil timeout:15];
-        if (it.status == SPHealthStatusPass) {
-            // awk 现在只输出数字（没有单位），直接取值
-            NSInteger mb = it.summary.integerValue;
-            if (mb > 0 && mb < 200) {
+        // 不用 df + awk：
+        //   ① 运行时的 helpers 里**没有 awk**（只有 grep/sed/sort/uname 等），
+        //      管道给 awk 直接返回 127，这一项永远「未通过」；
+        //   ② 就算有 awk，df 的列数在不同文件系统上也不稳定。
+        // 直接用 Foundation 拿剩余字节数，零外部依赖、零解析。
+        NSError *aerr = nil;
+        NSDictionary *attrs = [fm attributesOfFileSystemForPath:NSHomeDirectory() error:&aerr];
+        NSNumber *freeNum = attrs[NSFileSystemFreeSize];
+        if (!freeNum) {
+            it.status = SPHealthStatusWarn;
+            it.summary = aerr.localizedDescription ?: @"读取不到剩余空间";
+            it.diagnosis = @"无法读取文件系统剩余空间。\n\n"
+                            "这不影响编译，只是无法提前预警空间不足。";
+        } else {
+            NSInteger mb = (NSInteger)(freeNum.unsignedLongLongValue / (1024ULL * 1024ULL));
+            it.status = SPHealthStatusPass;
+            it.summary = [NSString stringWithFormat:@"%ld MB 可用", (long)mb];
+            if (mb < 500) {
                 it.status = SPHealthStatusWarn;
                 it.summary = [NSString stringWithFormat:@"仅剩 %ld MB", (long)mb];
                 it.diagnosis = @"空间偏少。\n\n"
                                 "编译 iOS 工程加上 SDK 需要数百 MB 临时空间，"
-                                "空间不足会导致链接阶段莫名失败。";
-            } else if (mb > 0) {
-                it.summary = [NSString stringWithFormat:@"%ld MB 可用", (long)mb];
+                                "空间不足会导致链接阶段莫名失败。\n"
+                                "下一步：到「我的 → 存储空间」清理旧构建产物。";
             }
+            it.output = NSHomeDirectory();
         }
         emit(it);
     }
@@ -682,31 +693,35 @@
         emit(it);
     }
 
-    // 4. SDK —— 两处都查：$THEOS/sdks 和运行时顶层 sdks/
+    // 4. SDK —— 多处都查：$THEOS/sdks、运行时顶层 sdks/、theos-root/theos/sdks
     {
         SPHealthItem *it = [SPHealthItem new];
         it.category = SPHealthCategoryToolchain;
         it.title = @"iPhoneOS SDK";
 
-        NSMutableArray *found = [NSMutableArray array];
-        NSMutableArray *broken = [NSMutableArray array];
-        NSArray *dirs = @[
-            [theos stringByAppendingPathComponent:@"sdks"],
-            [inst.installRoot stringByAppendingPathComponent:@"sdks"],
-        ];
+        NSMutableArray *found = [NSMutableArray array];      // 完整可用
+        NSMutableArray *broken = [NSMutableArray array];     // 半成品（已停用）
+        NSArray *dirs = [[SPToolchain shared] sdkDirectories] ?: @[];
+        NSMutableArray *scannedDirs = [NSMutableArray array];
         for (NSString *d in dirs) {
+            BOOL isDir = NO;
+            if (![fm fileExistsAtPath:d isDirectory:&isDir] || !isDir) continue;
+            if (![scannedDirs containsObject:d]) [scannedDirs addObject:d];
             for (NSString *n in [fm contentsOfDirectoryAtPath:d error:NULL] ?: @[]) {
                 if (![n hasPrefix:@"iPhoneOS"] || ![n hasSuffix:@".sdk"]) continue;
                 NSString *sd = [d stringByAppendingPathComponent:n];
-                // 完整性：三件套都在才算完整
+                // 完整性 = SDKSettings.json + usr/include。
+                // 以前只看 SDKSettings.json，于是运行时里那两个
+                // 「只有 Frameworks、没有 usr/include」的半成品也算「完整」，
+                // 被选成默认 SDK，编译时找不到 stdio.h 报一堆 file not found。
                 BOOL settings = [fm fileExistsAtPath:[sd stringByAppendingPathComponent:@"SDKSettings.json"]];
                 BOOL inc = [fm fileExistsAtPath:[sd stringByAppendingPathComponent:@"usr/include"]];
-                BOOL fw = [fm fileExistsAtPath:[sd stringByAppendingPathComponent:@"System/Library/Frameworks"]];
-                if (settings && inc && fw) {
+                if (settings && inc) {
                     if (![found containsObject:n]) [found addObject:n];
                 } else {
-                    NSString *miss = settings ? (inc ? @"Frameworks" : @"usr/include") : @"SDKSettings.json";
-                    [broken addObject:[NSString stringWithFormat:@"%@（缺 %@）", n, miss]];
+                    NSString *missPart = settings ? @"usr/include" : @"SDKSettings.json";
+                    NSString *entry = [NSString stringWithFormat:@"%@（缺 %@）", n, missPart];
+                    if (![broken containsObject:entry]) [broken addObject:entry];
                 }
             }
         }
@@ -715,28 +730,30 @@
             it.status = broken.count ? SPHealthStatusWarn : SPHealthStatusPass;
             it.summary = [found componentsJoinedByString:@", "];
             if (broken.count) {
-                it.summary = [NSString stringWithFormat:@"%@（另有 %lu 个不完整）",
+                it.summary = [NSString stringWithFormat:@"%@（另有 %lu 个已停用）",
                               it.summary, (unsigned long)broken.count];
             }
         } else {
             it.status = SPHealthStatusFail;
             it.summary = broken.count ? @"只有不完整的 SDK" : @"一个都没有";
         }
-        it.output = [[dirs componentsJoinedByString:@"\n"] stringByAppendingFormat:@"\n\n完整：%@\n不完整：%@",
+        it.output = [[scannedDirs componentsJoinedByString:@"\n"]
+                     stringByAppendingFormat:@"\n\n完整：%@\n不完整：%@",
                      [found componentsJoinedByString:@"、"] ?: @"无",
-                     [broken componentsJoinedByString:@"、"]];
+                     [broken componentsJoinedByString:@"、"] ?: @"无"];
 
         if (it.status == SPHealthStatusFail) {
-            it.diagnosis = @"Theos 只认 `$THEOS/sdks/iPhoneOS*.sdk`，而且要求：\n"
-                            " · SDKSettings.json 在\n"
-                            " · usr/include 在\n"
-                            " · System/Library/Frameworks 非空\n\n"
-                            "只有 SDKSettings.json 的半成品不算（复制中途失败会留下这种）。\n"
-                            "下一步：到「工具」→「工具链」重新展开。";
+            it.diagnosis = @"一个可用 SDK 都没有，编译会直接失败。\n\n"
+                            "Theos 只认 `$THEOS/sdks/iPhoneOS*.sdk`。\n"
+                            "下一步：到「工具」→「工具链 → 默认 SDK」导入完整的 SDK 包。";
         } else if (broken.count) {
             it.diagnosis = [NSString stringWithFormat:
-                            @"这些 SDK 目录不完整，编译时会被跳过或直接报错：\n%@\n\n"
-                             "下一步：到「工具」→「工具链」重新展开，会自动清理残件并重拷。",
+                            @"这些 SDK 缺 usr/include，已**自动停用**，"
+                             "不会再被选成默认 SDK：\n%@\n\n"
+                             "缺 usr/include 时 clang 连 stdio.h 都找不到，"
+                             "编译必然失败。\n"
+                             "现有完整 SDK 可以正常编译；确实需要这些版本时，"
+                             "到「工具链 → 默认 SDK」重新导入完整包。",
                             [broken componentsJoinedByString:@"\n"]];
         }
         emit(it);
@@ -820,47 +837,85 @@
     }
 
     // 3. PATH 是否包含关键目录
+    // 3. PATH 是否包含关键目录
     {
         SPHealthItem *it = [SPHealthItem new];
         it.category = SPHealthCategoryEnvironment;
         it.title = @"PATH 关键目录";
+        // 运行时是**平铺**布局：Workbench.app/theos-root/usr/bin。
+        // 以前这里查 installRoot/usr/lib/llvm-16/bin（少了 theos-root 前缀），
+        // 目录必然不存在 → 误报「2 个目录不存在」。
+        // 现在按真实布局核对，并把 runtimeEnvironment 实际拼出的 PATH 一并展示。
+        NSFileManager *envFM = NSFileManager.defaultManager;
+        NSString *root = inst.installRoot;
         NSArray *need = @[
-            [inst.installRoot stringByAppendingPathComponent:@"usr/lib/llvm-16/bin"],
-            [inst.installRoot stringByAppendingPathComponent:@"usr/bin"],
-            [inst.installRoot stringByAppendingPathComponent:@"helpers"],
+            [root stringByAppendingPathComponent:@"theos-root/usr/lib/llvm-16/bin"],
+            [root stringByAppendingPathComponent:@"theos-root/usr/bin"],
+            [root stringByAppendingPathComponent:@"helpers"],
+            [root stringByAppendingPathComponent:@"bin"],
         ];
+        NSMutableArray *present = [NSMutableArray array];
         NSMutableArray *miss = [NSMutableArray array];
         for (NSString *d in need) {
-            if (![NSFileManager.defaultManager fileExistsAtPath:d]) [miss addObject:d];
+            BOOL isDir = NO;
+            if ([envFM fileExistsAtPath:d isDirectory:&isDir] && isDir) [present addObject:d];
+            else [miss addObject:d];
         }
-        it.status = miss.count ? SPHealthStatusWarn : SPHealthStatusPass;
-        it.summary = miss.count ? [NSString stringWithFormat:@"%lu 个目录不存在", (unsigned long)miss.count]
-                                : @"3/3 目录就绪";
-        it.output = [need componentsJoinedByString:@"\n"];
-        if (miss.count) {
-            it.diagnosis = [NSString stringWithFormat:
-                            @"这些目录不存在：\n%@\n\n"
-                             "编译时会把它们拼进 PATH，不存在本身不报错，"
-                             "但里面本该有的工具就找不到了。\n"
-                             "下一步：到「工具」→「工具链」重新展开。",
-                            [miss componentsJoinedByString:@"\n"]];
+        NSString *pathEnv = [[inst runtimeEnvironment] objectForKey:@"PATH"] ?: @"";
+        BOOL helpersInPath = [pathEnv containsString:@"/helpers"];
+        BOOL clangInPath = ([pathEnv containsString:@"/llvm-16/bin"] ||
+                            [pathEnv containsString:@"/theos-root/usr/bin"]);
+        if (!present.count) {
+            it.status = SPHealthStatusFail;
+        } else {
+            it.status = (helpersInPath && clangInPath) ? SPHealthStatusPass : SPHealthStatusWarn;
+        }
+        it.summary = [NSString stringWithFormat:@"%lu/%lu 目录就绪%@%@",
+                      (unsigned long)present.count, (unsigned long)need.count,
+                      helpersInPath ? @" · helpers 已入 PATH" : @" · helpers 未入 PATH",
+                      clangInPath ? @"" : @" · 缺编译目录"];
+        it.output = [NSString stringWithFormat:@"PATH=%@\n\n存在：\n%@\n\n不存在：\n%@",
+                     pathEnv,
+                     [present componentsJoinedByString:@"\n"] ?: @"无",
+                     [miss componentsJoinedByString:@"\n"] ?: @"无"];
+        if (it.status == SPHealthStatusFail) {
+            it.diagnosis = @"运行时目录一个都没找到。\n\n"
+                            "下一步：到「工具」→「工具链」重新展开内置工具链。";
+        } else if (it.status == SPHealthStatusWarn) {
+            it.diagnosis = @"运行时目录在，但 PATH 没拼全。\n\n"
+                            "编译时 clang / make 会找不到彼此。\n"
+                            "下一步：退出重进本页再测；仍不行就到「工具链」重新展开。";
         }
         emit(it);
     }
 
     // 4. 架构
+    // 4. 架构
     {
         SPHealthItem *it = [SPHealthItem new];
         it.category = SPHealthCategoryEnvironment;
         it.title = @"本机架构";
-        [self run:@"uname -m" item:it intent:@"确认架构" envPrefix:nil timeout:10];
-        if (it.status == SPHealthStatusPass) {
-            if (![it.summary containsString:@"arm64"]) {
-                it.status = SPHealthStatusWarn;
-                it.diagnosis = @"不是 arm64。\n\n"
-                                "工具链里的二进制都是 arm64，架构不符时"
-                                "子进程会以「exec format error」失败。";
-            }
+        // 不用 `uname -m`：iOS 上它返回的是**硬件型号**（iPhone14,2），
+        // 永远不含 arm64，于是这一项被误判成「不是 arm64」。
+        // App 能跑起来就说明它的 CPU 架构可用；工具链里的二进制是 arm64，
+        // arm64e 设备同样能执行 arm64（指针认证只是附加检查）。
+        // 用编译期常量判断，100% 准确，还省掉一次子进程启动。
+#if defined(__arm64e__)
+        NSString *arch = @"arm64e（可运行 arm64 二进制）";
+        BOOL archOK = YES;
+#elif defined(__arm64__)
+        NSString *arch = @"arm64";
+        BOOL archOK = YES;
+#else
+        NSString *arch = @"非 arm64";
+        BOOL archOK = NO;
+#endif
+        it.status = archOK ? SPHealthStatusPass : SPHealthStatusFail;
+        it.summary = arch;
+        if (!archOK) {
+            it.diagnosis = @"当前进程不是 arm64 架构。\n\n"
+                            "工具链里的二进制都是 arm64，架构不符时"
+                            "子进程会以「exec format error」失败。";
         }
         emit(it);
     }

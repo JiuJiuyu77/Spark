@@ -1,6 +1,6 @@
 //
 //  SPProjectsViewController.h
-//  Spark —— 项目列表（最近项目 + 新建 + 扫描）
+//  Workbench —— 项目列表（最近项目 + 新建 + 扫描）
 //
 
 #import <UIKit/UIKit.h>

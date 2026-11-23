@@ -1,6 +1,6 @@
 //
 //  SPSelfTest.h
-//  Spark —— 测试构建（参考 Rein 的自检思路）
+//  Workbench —— 测试构建（参考 Rein 的自检思路）
 //
 //  为什么需要
 //  ---------

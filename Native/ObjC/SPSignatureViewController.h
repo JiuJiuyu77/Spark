@@ -1,6 +1,6 @@
 //
 //  SPSignatureViewController.h
-//  Spark —— 签名审计：检查 ipa / .app 装不上的原因
+//  Workbench —— 签名审计：检查 ipa / .app 装不上的原因
 //
 
 #import <UIKit/UIKit.h>

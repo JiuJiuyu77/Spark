@@ -1,6 +1,6 @@
 //
 //  SPLogosPreprocessor.h
-//  Spark —— 内置 Logos 预处理器
+//  Workbench —— 内置 Logos 预处理器
 //
 //  为什么需要它
 //  -----------

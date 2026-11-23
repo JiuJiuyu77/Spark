@@ -1,11 +1,11 @@
 //
 //  SPMount.h
-//  Spark —— 外部文件夹挂载（WebDAV / SMB）
+//  Workbench —— 外部文件夹挂载（WebDAV / SMB）
 //
 //  设计：
 //   · 不依赖 iSH 或任何系统挂载命令，协议由 App 自己实现（TrollStore 环境下
 //     有完整文件权限，可以直接读写任意路径）
-//   · 「挂载」= 在 Documents/Spark/Mounts/<名字>/ 下放一个 .sparkmount 描述文件，
+//   · 「挂载」= 在 Documents/Workbench/Mounts/<名字>/ 下放一个 .sparkmount 描述文件，
 //     文件浏览器看到它就走远端列目录，读写也是转成协议请求
 //   · 凭据存 Keychain（不落 JSON）
 //
@@ -52,7 +52,7 @@ typedef NS_ENUM(NSInteger, SPMountKind) {
 - (NSDictionary *)dictionaryRepresentation;
 - (NSString *)kindString;
 
-/// 本地根目录：Documents/Spark/Mounts/<displayName>
+/// 本地根目录：Documents/Workbench/Mounts/<displayName>
 - (NSString *)localRootPath;
 
 /// 描述文件路径（<root>/.sparkmount）
@@ -68,7 +68,7 @@ typedef NS_ENUM(NSInteger, SPMountKind) {
 @property (nonatomic, readonly) NSArray<SPMount *> *mounts;
 
 /// 是否把挂载点暴露到「文件」App（Documents 根下的软链接）
-/// 默认开启：文件 App 的「我的 iPhone → Spark」里能直接看到挂载的网络磁盘
+/// 默认开启：文件 App 的「我的 iPhone → Workbench」里能直接看到挂载的网络磁盘
 @property (nonatomic, assign) BOOL exposeToFilesApp;
 
 /// 刷新文件 App 可见性（新增/删除挂载、开关切换后调用）

@@ -1,6 +1,6 @@
 //
 //  SPToolchain.h
-//  Spark —— 工具链发现与构建环境组装。
+//  Workbench —— 工具链发现与构建环境组装。
 //
 //  行为完全对齐 Rein：按「用户设置 → 安装目录 → 设备上的 Rein 目录」优先级探测，
 //  找到什么就用什么，找不到的来源在 UI 里标红并给出修复建议。
@@ -89,8 +89,16 @@ typedef NS_ENUM(NSInteger, SPBuildTarget) {
 
 @property (nonatomic, readonly) SPToolchainScan *scan;
 
-/// 可用 SDK 名列表（"iPhoneOS16.5.sdk" ...）
+/// 可用 SDK 名列表（"iPhoneOS16.5.sdk" ...）。默认只返回**完整**的。
 - (NSArray<NSString *> *)availableSDKs;
+/// 同上，可选择是否带上不完整的（界面需要展示「已停用」时用）
+- (NSArray<NSString *> *)availableSDKsIncludingIncomplete:(BOOL)includeIncomplete;
+/// 所有候选 SDK 目录（优先级从高到低）
+- (NSArray<NSString *> *)sdkDirectories;
+/// SDK 是否完整可用（SDKSettings.json + usr/include）
+- (BOOL)sdkDirectoryIsComplete:(NSString *)sdkPath;
+/// 按名字解析 SDK 绝对路径
+- (nullable NSString *)sdkPathForName:(nullable NSString *)name;
 
 /// 组装本机 profile。sdkName 为 nil 时择优；失败返回 nil 并填充 error。
 - (nullable SPToolchainProfile *)localProfileWithSDK:(nullable NSString *)sdkName

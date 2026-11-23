@@ -396,8 +396,8 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
         NSMutableArray<NSString *> *cands = [NSMutableArray array];
 
         // App 包内的 helpers。
-        // **平铺布局优先**（与 Rein 一致）：Spark.app/helpers/bash。
-        // 旧布局是 Spark.app/Toolchain/helpers/bash，一并保留兼容。
+        // **平铺布局优先**（与 Rein 一致）：Workbench.app/helpers/bash。
+        // 旧布局是 Workbench.app/Toolchain/helpers/bash，一并保留兼容。
         NSString *bundle = [[NSBundle mainBundle] bundlePath];
         [cands addObject:[bundle stringByAppendingPathComponent:@"helpers/bash"]];
         [cands addObject:[bundle stringByAppendingPathComponent:@"helpers/sh"]];

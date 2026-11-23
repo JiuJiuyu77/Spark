@@ -6,7 +6,7 @@
 #import "SPCompat.h"
 #import <Security/Security.h>
 
-static NSString *const kMountIndexFile = @"Spark.mounts";
+static NSString *const kMountIndexFile = @"Workbench.mounts";
 static NSString *const kKeychainService = @"com.huging.spark.mount";
 
 #pragma mark - SPMountEntry
@@ -33,7 +33,7 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
 }
 
 - (NSString *)localRootPath {
-    NSString *base = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/Mounts"];
+    NSString *base = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Workbench/Mounts"];
     // 名字里可能有 / 等非法字符，做一下清洗
     NSString *safe = [self.displayName stringByReplacingOccurrencesOfString:@"/" withString:@"_"];
     return [base stringByAppendingPathComponent:safe];
@@ -102,8 +102,8 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
         cfg.WaitsForConnectivity = NO;
         m.session = [NSURLSession sessionWithConfiguration:cfg];
         NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
-        m->_exposeFilesApp = [d objectForKey:@"Spark.exposeMountsToFiles"] == nil
-            ? YES : [d boolForKey:@"Spark.exposeMountsToFiles"];
+        m->_exposeFilesApp = [d objectForKey:@"Workbench.exposeMountsToFiles"] == nil
+            ? YES : [d boolForKey:@"Workbench.exposeMountsToFiles"];
         [m reload];
         [m refreshFilesAppLinks];
     });
@@ -115,7 +115,7 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
 #pragma mark 索引
 
 - (NSString *)indexPath {
-    NSString *dir = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark"];
+    NSString *dir = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Workbench"];
     [NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:NULL];
     return [dir stringByAppendingPathComponent:kMountIndexFile];
 }
@@ -132,7 +132,7 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
     [self refreshFilesAppLinks];
 
     // 同时把根目录里的 .sparkmount 描述文件也扫一遍（手工拷进来的挂载也能识别）
-    NSString *root = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Spark/Mounts"];
+    NSString *root = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Workbench/Mounts"];
     for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:NULL] ?: @[]) {
         NSString *desc = [[root stringByAppendingPathComponent:name] stringByAppendingPathComponent:@".sparkmount"];
         NSData *dd = [NSData dataWithContentsOfFile:desc];
@@ -417,13 +417,13 @@ static NSString *const kKeychainService = @"com.huging.spark.mount";
 - (void)setExposeToFilesApp:(BOOL)exposeToFilesApp {
     _exposeFilesApp = exposeToFilesApp;
     [[NSUserDefaults standardUserDefaults] setBool:exposeToFilesApp
-                                            forKey:@"Spark.exposeMountsToFiles"];
+                                            forKey:@"Workbench.exposeMountsToFiles"];
     [self refreshFilesAppLinks];
 }
 
 /// 为什么用软链接而不是直接放挂载点：
-///   文件 App（「我的 iPhone → Spark」）显示的是沙盒 Documents 根目录。
-///   挂载点原本在 Documents/Spark/Mounts/<名字>，
+///   文件 App（「我的 iPhone → Workbench」）显示的是沙盒 Documents 根目录。
+///   挂载点原本在 Documents/Workbench/Mounts/<名字>，
 ///   用户要一层层点进去才找得到，体验很割裂。
 ///   这里在每个挂载点的同级再建一个软链接到 Documents 根，
 ///   文件 App 里就能一眼看到「WebDAV-我的NAS」这样的条目。

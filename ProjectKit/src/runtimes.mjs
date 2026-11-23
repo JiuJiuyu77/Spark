@@ -24,9 +24,9 @@ export const RUNTIME_PROXY_PREFIXES = [
 ];
 
 // 选型依据见 docs/runtime-decision.md：
-//  · Theos 用自己的仓库（Rein 本地打包，多一个 SDK 17.0、体积小一半）
+//  · Theos 用自己的仓库（Rein 本地打包；SDK 16.5 内置、17.0/26.5 按需）
 //  · 其余全部用 Codex 仓库（Node 24.5.0 有 node-gyp iOS 适配、OLLVM 23.1.1 更新）
-const SELF_BASE = 'https://github.com/JiuJiuyu77/Spark-Runtime/releases/download/runtime-v1';
+const SELF_BASE = 'https://github.com/JiuJiuyu77/Workbench-Runtime/releases/download/runtime-v3';
 const CODEX_BASE = 'https://github.com/susu123oss/CodexApp-Runtime/releases/download';
 
 export const RUNTIMES = [
@@ -103,8 +103,8 @@ export const RUNTIMES = [
   {
     id: 'theos',
     name: 'Theos 完整版',
-    components: { theos: 'Rein 本地', sdks: 'iPhoneOS16.5 + 17.0' },
-    archive: `${SELF_BASE}/SparkTheosRuntime.tar.gz`,
+    components: { theos: 'Rein 本地', sdks: 'SDK 单独下载' },
+    archive: `${SELF_BASE}/SparkTheosRuntimeV3.tar.gz`,
     file: 'TheosRuntime.tar.gz',
     size: 114 * 1024 * 1024,
     order: 25,
@@ -112,7 +112,7 @@ export const RUNTIMES = [
     pathEntries: ['theos/bin'],
     probe: { executable: 'theos/bin/logos.pl', arguments: [], contains: '' },
     iosMin: '15.0',
-    detail: '完整 Theos（含 16.5 / 17.0 两个 SDK），内置版不够用时安装',
+    detail: '完整 Theos 本体（SDK 单独按需下载），内置版不够用时安装',
   },
   {
     id: 'ollvm',
@@ -145,7 +145,7 @@ export function proxiedURLs(url) {
   return [url, ...RUNTIME_PROXY_PREFIXES.map((p) => p + url)];
 }
 
-/** 安装子目录名（与 Spark-Runtime 的包 id 一致） */
+/** 安装子目录名（与 Workbench-Runtime 的包 id 一致） */
 export function sdkSubdirFor(runtimeId) {
   return runtimeId;
 }
