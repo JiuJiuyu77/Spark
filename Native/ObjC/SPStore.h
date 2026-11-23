@@ -72,6 +72,17 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSString *)inboxDirectory;
 /// 用户导入的 iPhoneOS SDK 存放处
 - (NSString *)sdksDirectory;
+/// 编辑快照：<base>/snapshots/<文件名哈希>/<时间戳>.bak
+- (NSString *)snapshotsDirectory;
+
+/// 为即将写入的文本做一次快照（返回快照路径；同内容不重复备份，返回 nil）
+- (nullable NSString *)snapshotFileAtPath:(NSString *)path newText:(nullable NSString *)newText;
+/// 某文件的快照列表（新→旧）：@{@"path":…, @"date":…, @"size":…}
+- (NSArray<NSDictionary *> *)snapshotsForFile:(NSString *)path;
+/// 读回某个快照的文本
+- (nullable NSString *)readSnapshotAtPath:(NSString *)snapshotPath;
+/// 清掉某文件的全部快照（可选保留最近 keep 个）
+- (void)pruneSnapshotsForFile:(NSString *)path keep:(NSInteger)keep;
 
 /// 把字符串写进日志文件，返回路径
 - (nullable NSString *)persistLogText:(NSString *)text jobId:(NSString *)jobId;

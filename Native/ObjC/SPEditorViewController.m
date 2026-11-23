@@ -6,6 +6,7 @@
 #import "SPEditorViewController.h"
 #import "SPTheme.h"
 #import "SPSyntax.h"
+#import "SPStore.h"
 #import "SPCompat.h"
 
 @interface SPEditorViewController () <UITextViewDelegate, UIScrollViewDelegate>
@@ -49,7 +50,11 @@
                                                              style:UIBarButtonItemStylePlain
                                                             target:self action:@selector(toggleFind)];
     find.accessibilityLabel = @"查找";
-    self.navigationItem.rightBarButtonItem = find;
+    UIBarButtonItem *history = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"clock.arrow.circlepath"]
+                                                                style:UIBarButtonItemStylePlain
+                                                               target:self action:@selector(showHistory)];
+    history.accessibilityLabel = @"历史版本";
+    self.navigationItem.rightBarButtonItems = @[history, find];
 
     [self buildTextView];
     [self buildGutter];
@@ -186,6 +191,11 @@
 
 - (void)save {
     NSString *text = self.textView.text;
+
+    // 保存前自动快照旧内容（同内容不备份；新建文件无旧版）
+    NSString *snap = [[SPStore shared] snapshotFileAtPath:self.filePath newText:text];
+    if (snap) SPLog(@"[编辑器] 已快照 %@", snap.lastPathComponent);
+
     NSError *err = nil;
     if (![text writeToFile:self.filePath atomically:YES encoding:NSUTF8StringEncoding error:&err]) {
         UIAlertController *a = [UIAlertController alertControllerWithTitle:@"保存失败"
@@ -205,6 +215,72 @@
     [self loadFile];
     [SPMotion hapticSuccess];
     if (self.onSave) self.onSave(self.filePath, text);
+}
+
+#pragma mark - 历史版本
+
+- (void)showHistory {
+    NSArray<NSDictionary *> *snaps = [[SPStore shared] snapshotsForFile:self.filePath];
+    if (!snaps.count) {
+        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"暂无历史版本"
+            message:@"每次保存前会自动备份旧内容，最多保留最近 20 份。"
+            preferredStyle:UIAlertControllerStyleAlert];
+        [a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:a animated:YES completion:nil];
+        return;
+    }
+
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"历史版本"
+        message:@"选一份恢复（当前内容会先被快照）"
+        preferredStyle:UIAlertControllerStyleActionSheet];
+
+    NSDateFormatter *df = [NSDateFormatter new];
+    df.dateFormat = @"MM-dd HH:mm:ss";
+    NSInteger shown = 0;
+    for (NSDictionary *d in snaps) {
+        if (shown >= 8) break;   // 菜单别太长
+        NSString *title = [NSString stringWithFormat:@"%@   %@",
+                           [df stringFromDate:d[@"date"]],
+                           [SPUtil formatBytes:[d[@"size"] unsignedLongLongValue]]];
+        NSString *path = d[@"path"];
+        [sheet addAction:[UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault
+            handler:^(UIAlertAction *_) { [self restoreSnapshot:path]; }]];
+        shown++;
+    }
+    [sheet addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+
+    // iPad 上 ActionSheet 需要锚点
+    if (sheet.popoverPresentationController) {
+        sheet.popoverPresentationController.barButtonItem = self.navigationItem.rightBarButtonItems.firstObject;
+    }
+    [self presentViewController:sheet animated:YES completion:nil];
+}
+
+- (void)restoreSnapshot:(NSString *)snapPath {
+    NSString *text = [[SPStore shared] readSnapshotAtPath:snapPath];
+    if (!text) {
+        [SPMotion hapticError];
+        return;
+    }
+    UIAlertController *confirm = [UIAlertController alertControllerWithTitle:@"恢复这个版本？"
+        message:@"当前内容会先自动备份，可再撤回。"
+        preferredStyle:UIAlertControllerStyleAlert];
+    [confirm addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [confirm addAction:[UIAlertAction actionWithTitle:@"恢复" style:UIAlertActionStyleDestructive
+        handler:^(UIAlertAction *_) {
+            // 先给当前内容留一份快照，恢复也能撤回
+            [[SPStore shared] snapshotFileAtPath:self.filePath newText:text];
+            NSError *err = nil;
+            if (![text writeToFile:self.filePath atomically:YES encoding:NSUTF8StringEncoding error:&err]) {
+                SPLog(@"[编辑器] 恢复失败 %@", err);
+                [SPMotion hapticError];
+                return;
+            }
+            [self loadFile];
+            [SPMotion hapticSuccess];
+            SPLog(@"[编辑器] 已恢复到 %@", snapPath.lastPathComponent);
+        }]];
+    [self presentViewController:confirm animated:YES completion:nil];
 }
 
 - (void)textViewDidChange:(UITextView *)textView {

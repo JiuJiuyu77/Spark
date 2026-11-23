@@ -81,6 +81,8 @@
 
 @interface SPStore ()
 @property (nonatomic, copy) NSString *base;
+- (NSString *)hashOfPath:(NSString *)path;
+- (NSString *)snapshotDirForFile:(NSString *)path;
 @end
 
 @implementation SPStore
@@ -111,6 +113,85 @@
 - (NSString *)archivesDirectory { return [self.base stringByAppendingPathComponent:@"archives"]; }
 - (NSString *)inboxDirectory { return [self.base stringByAppendingPathComponent:@"inbox"]; }
 - (NSString *)sdksDirectory { return [self.base stringByAppendingPathComponent:@"SDKs"]; }
+
+#pragma mark 编辑快照（保存前自动备份，可回滚）
+
+- (NSString *)snapshotsDirectory {
+    return [self.base stringByAppendingPathComponent:@"snapshots"];
+}
+
+/// 每个文件一个子目录：snapshots/<路径哈希>/<时间戳>.bak
+- (NSString *)snapshotDirForFile:(NSString *)path {
+    NSString *h = [self hashOfPath:path];
+    return [[self snapshotsDirectory] stringByAppendingPathComponent:h];
+}
+
+- (NSString *)snapshotFileAtPath:(NSString *)path newText:(NSString *)newText {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    // 目标文件尚不存在（新建）→ 没有「旧版本」可备份
+    if (![fm fileExistsAtPath:path]) return nil;
+
+    NSString *old = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:NULL];
+    if (!old) return nil;
+    // 内容没变就不备份，避免点一次保存塞一条
+    if (newText && [old isEqualToString:newText]) return nil;
+
+    NSString *dir = [self snapshotDirForFile:path];
+    [fm createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:NULL];
+
+    NSString *stamp = [SPUtil timestampSlug];
+    NSString *out = [dir stringByAppendingPathComponent:[stamp stringByAppendingString:@".bak"]];
+    // 同名（同一秒内多次保存）加序号，绝不覆盖已有快照
+    NSInteger n = 1;
+    while ([fm fileExistsAtPath:out]) {
+        out = [dir stringByAppendingPathComponent:
+               [NSString stringWithFormat:@"%@-%ld.bak", stamp, (long)n++]];
+    }
+    if (![old writeToFile:out atomically:YES encoding:NSUTF8StringEncoding error:NULL]) return nil;
+
+    // 同时写一份元信息，记录原文件路径（哈希不可逆，列表要用）
+    NSString *meta = [dir stringByAppendingPathComponent:@"origin.txt"];
+    if (![fm fileExistsAtPath:meta]) {
+        [path writeToFile:meta atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+    }
+
+    // 保留最近 20 份，避免无限增长
+    [self pruneSnapshotsForFile:path keep:20];
+    return out;
+}
+
+- (NSArray<NSDictionary *> *)snapshotsForFile:(NSString *)path {
+    NSString *dir = [self snapshotDirForFile:path];
+    NSArray *names = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:dir error:NULL] ?: @[];
+    NSMutableArray *out = [NSMutableArray array];
+    for (NSString *n in names) {
+        if (![n hasSuffix:@".bak"]) continue;
+        NSString *full = [dir stringByAppendingPathComponent:n];
+        NSDictionary *attr = [[NSFileManager defaultManager] attributesOfItemAtPath:full error:NULL];
+        [out addObject:@{@"path": full,
+                         @"name": n,
+                         @"date": attr[NSFileModificationDate] ?: [NSDate date],
+                         @"size": attr[NSFileSize] ?: @0}];
+    }
+    [out sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+        return [b[@"date"] compare:a[@"date"]];   // 新 → 旧
+    }];
+    return out;
+}
+
+- (NSString *)readSnapshotAtPath:(NSString *)snapshotPath {
+    return [NSString stringWithContentsOfFile:snapshotPath encoding:NSUTF8StringEncoding error:NULL];
+}
+
+- (void)pruneSnapshotsForFile:(NSString *)path keep:(NSInteger)keep {
+    if (keep <= 0) keep = 20;
+    NSArray *list = [self snapshotsForFile:path];
+    if ((NSInteger)list.count <= keep) return;
+    NSFileManager *fm = NSFileManager.defaultManager;
+    for (NSInteger i = keep; i < (NSInteger)list.count; i++) {
+        [fm removeItemAtPath:list[i][@"path"] error:NULL];
+    }
+}
 
 #pragma mark JSON 读写小工具
 

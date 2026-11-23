@@ -20,9 +20,11 @@ typedef NS_ENUM(NSInteger, SPRevAction) {
     SPRevActionStrings,
     SPRevActionImports,
     SPRevActionSections,
+    SPRevActionDisasm,
     SPRevActionEntropy,
     SPRevActionInject,
     SPRevActionResign,
+    SPRevActionDebUnpack,
     SPRevActionExportHeaders,
     SPRevActionCount,
 };
@@ -58,14 +60,16 @@ typedef NS_ENUM(NSInteger, SPRevAction) {
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
 
     self.titles = @[@"架构与头信息", @"导出符号与入口", @"字符串与 ObjC 类",
-                    @"导入的库与符号", @"段与节", @"熵值（加壳检测）",
-                    @"注入动态库", @"重新签名", @"导出 ObjC 头文件", @"打开原始输出"];
+                    @"导入的库与符号", @"段与节", @"ARM64 反汇编",
+                    @"熵值（加壳检测）",
+                    @"注入动态库", @"重新签名", @"Deb 解包浏览", @"导出 ObjC 头文件", @"打开原始输出"];
     self.subtitles = @[@"rabin2 -I", @"rabin2 -s", @"rabin2 -zz / ic", @"rabin2 -i",
-                       @"rabin2 -S", @"rabin2 -e", @"mt-inject-dylib", @"ldid -S",
+                       @"rabin2 -S", @"otool -tvV（按方法/地址）", @"rabin2 -e",
+                       @"mt-inject-dylib", @"ldid -S", @"dpkg-deb -x，可浏览包内文件",
                        @"类名 + 方法名 → .h", @"完整文本"];
     self.symbols = @[@"info.circle", @"list.bullet.indent", @"text.magnifyingglass", @"link",
-                     @"square.stack.3d.up", @"chart.bar.xaxis", @"syringe", @"signature",
-                     @"doc.badge.plus", @"doc.text"];
+                     @"square.stack.3d.up", @"cpu", @"chart.bar.xaxis", @"syringe", @"signature",
+                     @"shippingbox", @"doc.badge.plus", @"doc.text"];
 
     [self buildHeader];
     [self buildTable];
@@ -226,9 +230,11 @@ typedef NS_ENUM(NSInteger, SPRevAction) {
         case SPRevActionStrings: [self runMode:@"strings"]; break;
         case SPRevActionImports: [self runMode:@"imports"]; break;
         case SPRevActionSections: [self runMode:@"sections"]; break;
+        case SPRevActionDisasm: [self promptDisasm]; break;
         case SPRevActionEntropy: [self runMode:@"entropy"]; break;
         case SPRevActionInject: [self injectDylib]; break;
         case SPRevActionResign: [self resign]; break;
+        case SPRevActionDebUnpack: [self pickDebAndUnpack]; break;
         case SPRevActionExportHeaders: [self exportHeaders]; break;
         default: [self openFullOutput]; break;
     }
@@ -267,6 +273,20 @@ typedef NS_ENUM(NSInteger, SPRevAction) {
         [script appendString:@"\"$R2\" -i \"$F\" 2>&1 | head -2000\n"];
     } else if ([mode isEqualToString:@"sections"]) {
         [script appendString:@"\"$R2\" -S \"$F\" 2>&1\n"];
+    } else if ([mode hasPrefix:@"disasm"]) {
+        // mode 形如 disasm|方法名 或 disasm|0x地址；用运行时自带 otool -tvV
+        NSString *sel = [[mode componentsSeparatedByString:@"|"] lastObject] ?: @"";
+        NSString *otool = profile.darwinBinDir.length ? [profile.darwinBinDir stringByAppendingPathComponent:@"otool"] : @"otool";
+        [script appendString:[NSString stringWithFormat:@"OT=%@\n", [SPUtil shellQuote:otool]]];
+        [script appendString:@"{ command -v \"$OT\" >/dev/null 2>&1 || [ -x \"$OT\" ]; } || OT=otool\n"];
+        [script appendString:@"command -v \"$OT\" >/dev/null 2>&1 || { echo '找不到 otool：请确认编译工具链已安装'; exit 1; }\n"];
+        if (sel.length) {
+            // 按方法名/地址过滤（大小写不敏感，带后文上下文）
+            [script appendString:[NSString stringWithFormat:@"\"$OT\" -arch arm64 -tvV \"$F\" 2>&1 | grep -i -A 60 -- %@ | head -600\n",
+                [SPUtil shellQuote:sel]]];
+        } else {
+            [script appendString:@"\"$OT\" -arch arm64 -tvV \"$F\" 2>&1 | head -4000\n"];
+        }
     } else if ([mode isEqualToString:@"entropy"]) {
         [script appendString:@"\"$R2\" -e \"$F\" 2>&1\n"];
         [script appendString:@"echo; echo '== 段熵值（越高越可能被加壳/加密） =='\n"];
@@ -282,6 +302,117 @@ typedef NS_ENUM(NSInteger, SPRevAction) {
     if (r.stderrText.length) out = [out stringByAppendingFormat:@"\n[stderr]\n%@", r.stderrText];
     if (!out.length) out = [NSString stringWithFormat:@"（没有输出，退出码 %ld）", (long)r.exitCode];
     return out;
+}
+
+#pragma mark - Deb 解包
+
+- (void)pickDebAndUnpack {
+    SPFileBrowserViewController *b = [[SPFileBrowserViewController alloc]
+        initWithRootPath:[[SPStore shared] inboxDirectory]
+                pickMode:YES
+             fileFilters:@[@"deb"]
+                  onPick:^(NSString *path, BOOL isDir) {
+        if (isDir || ![path.pathExtension.lowercaseString isEqualToString:@"deb"]) return;
+        [self unpackDebAtPath:path];
+    }];
+    [self.navigationController pushViewController:b animated:YES];
+}
+
+- (void)unpackDebAtPath:(NSString *)debPath {
+    [self.spinner startAnimating];
+    self.segment.selectedSegmentIndex = 1;
+    [self segmentChanged];
+    self.outputView.text = @"解包中…";
+
+    SPToolchainProfile *profile = self.profile ?: [[SPToolchain shared] localProfileWithSDK:nil error:NULL];
+    NSString *name = [debPath.lastPathComponent stringByDeletingPathExtension];
+    NSString *dest = [[[SPStore shared] baseDirectory]
+                      stringByAppendingPathComponent:[@"deb" stringByAppendingPathComponent:name]];
+
+    NSMutableString *script = [NSMutableString string];
+    [script appendString:@"export LC_ALL=en_US.UTF-8\n"];
+    [script appendString:[NSString stringWithFormat:@"F=%@; D=%@\n",
+                          [SPUtil shellQuote:debPath], [SPUtil shellQuote:dest]]];
+    [script appendString:@"[ -f \"$F\" ] || { echo \"文件不存在: $F\"; exit 1; }\n"];
+    [script appendString:@"rm -rf \"$D\"; mkdir -p \"$D\"\n"];
+    // 优先 dpkg-deb，没有就用 ar + tar（Debian 包是 ar 归档 + data.tar.*）
+    [script appendString:@"if command -v dpkg-deb >/dev/null 2>&1; then\n"];
+    [script appendString:@"  dpkg-deb -x \"$F\" \"$D\" && echo '用 dpkg-deb 解包成功'\n"];
+    [script appendString:@"else\n"];
+    [script appendString:@"  T=$(mktemp -d) || exit 1\n"];
+    [script appendString:@"  ( cd \"$T\" && ar x \"$F\" ) || { echo 'ar 解包失败'; exit 1; }\n"];
+    [script appendString:@"  DATA=$(ls \"$T\"/data.tar.* 2>/dev/null | head -1)\n"];
+    [script appendString:@"  [ -n \"$DATA\" ] || { echo '包内没有 data.tar.*'; exit 1; }\n"];
+    [script appendString:@"  case \"$DATA\" in\n"];
+    [script appendString:@"    *.xz) tar -xJf \"$DATA\" -C \"$D\" ;;\n"];
+    [script appendString:@"    *.zst) zstd -dc \"$DATA\" | tar -xf - -C \"$D\" ;;\n"];
+    [script appendString:@"    *.gz) tar -xzf \"$DATA\" -C \"$D\" ;;\n"];
+    [script appendString:@"    *) tar -xf \"$DATA\" -C \"$D\" ;;\n"];
+    [script appendString:@"  esac || { echo 'data.tar 展开失败'; exit 1; }\n"];
+    [script appendString:@"  [ -f \"$T/control.tar.xz\" ] && mkdir -p \"$D/DEBIAN\" && tar -xJf \"$T/control.tar.xz\" -C \"$D/DEBIAN\" 2>/dev/null\n"];
+    [script appendString:@"  rm -rf \"$T\"\n"];
+    [script appendString:@"  echo '用 ar + tar 解包成功'\n"];
+    [script appendString:@"fi\n"];
+    [script appendString:@"echo; echo \"== 包内结构 ==\"\n"];
+    [script appendString:@"find \"$D\" -maxdepth 3 | head -200\n"];
+    [script appendString:@"echo; echo \"== 文件数 ==\"; find \"$D\" -type f | wc -l\n"];
+    [script appendString:@"[ -f \"$D/DEBIAN/control\" ] && { echo; echo '== control =='; cat \"$D/DEBIAN/control\"; }\n"];
+
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        SPCommandResult *r = [SPSession runSyncShell:script
+            environment:@{@"PATH": [[SPToolchain shared] pathPrefixForProfile:profile] ?: @""}
+                                              cwd:NSHomeDirectory() timeout:180];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf; if (!self) return;
+            [self.spinner stopAnimating];
+            NSString *out = r.stdoutText.length ? r.stdoutText : @"";
+            if (r.stderrText.length) out = [out stringByAppendingFormat:@"\n[stderr]\n%@", r.stderrText];
+            self.outputView.text = out.length ? out : [NSString stringWithFormat:@"（无输出，退出码 %ld）", (long)r.exitCode];
+
+            if (r.exitCode == 0) {
+                UIAlertController *a = [UIAlertController alertControllerWithTitle:@"解包完成"
+                    message:@"现在浏览包内文件？" preferredStyle:UIAlertControllerStyleAlert];
+                [a addAction:[UIAlertAction actionWithTitle:@"稍后" style:UIAlertActionStyleCancel handler:nil]];
+                [a addAction:[UIAlertAction actionWithTitle:@"浏览" style:UIAlertActionStyleDefault
+                    handler:^(UIAlertAction *_) {
+                        SPFileBrowserViewController *fb = [[SPFileBrowserViewController alloc]
+                            initWithRootPath:dest pickMode:NO fileFilters:nil onPick:nil];
+                        [self.navigationController pushViewController:fb animated:YES];
+                    }]];
+                [self presentViewController:a animated:YES completion:nil];
+            }
+            [SPMotion hapticSuccess];
+        });
+    });
+}
+
+- (void)promptDisasm {
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"ARM64 反汇编"
+        message:@"直接看全量反汇编，或输入方法名 / 地址只取该段。"
+        preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"全量" style:UIAlertActionStyleDefault
+        handler:^(UIAlertAction *_) { [self runMode:@"disasm|"]; }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"按方法/地址" style:UIAlertActionStyleDefault
+        handler:^(UIAlertAction *_) {
+            UIAlertController *b = [UIAlertController alertControllerWithTitle:@"方法名或地址"
+                message:@"例如 -[Foo bar] 或 0x100004a20" preferredStyle:UIAlertControllerStyleAlert];
+            [b addTextFieldWithConfigurationHandler:^(UITextField *tf) {
+                tf.placeholder = @"-[Foo bar] / 0x100004a20";
+                tf.autocapitalizationType = UITextAutocapitalizationTypeNone;
+                tf.autocorrectionType = UITextAutocorrectionTypeNo;
+            }];
+            [b addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+            [b addAction:[UIAlertAction actionWithTitle:@"分析" style:UIAlertActionStyleDefault
+                handler:^(UIAlertAction *_) {
+                    NSString *q = b.textFields.firstObject.text ?: @"";
+                    if (!q.length) return;
+                    [self runMode:[@"disasm|" stringByAppendingString:q]];
+                }]];
+            [self presentViewController:b animated:YES completion:nil];
+        }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
 }
 
 - (void)runMode:(NSString *)mode {
