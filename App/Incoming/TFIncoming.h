@@ -12,6 +12,6 @@ UIViewController *TFIncomingImportAnchor(UIViewController *source);
 UIViewController *TFIncomingImportPresentation(UIViewController *source);
 UIViewController *TFBinaryWorkbench(NSDictionary *entry);
 void TFStudioImportReceived(UIViewController *host,NSURL *url,BOOL archive);
-void TFStudioReceiveAttachments(UIViewController *host,NSArray *entries,NSDictionary *session);
+
 void TFStudioOpenReceivedProject(UIViewController *host,NSString *root);
 #endif

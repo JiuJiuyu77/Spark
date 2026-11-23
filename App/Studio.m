@@ -22,7 +22,6 @@
 #import "AI/AIV2Contracts.h"
 #import "AI/UI/AIUI.h"
 #import "AI/UI/TFAIUsageUI.h"
-extern UIViewController *TFAIOptimizationSettingsController(void);
 #import "AI/UI/TFAIPersonaUI.h"
 #import "AI/Persona/TFAIPersona.h"
 #import "CompilerController.h"
@@ -46,9 +45,6 @@ extern UIViewController *TFAIOptimizationSettingsController(void);
 #import <ImageIO/ImageIO.h>
 #import <CommonCrypto/CommonDigest.h>
 
-extern void TFAIFlushOpenSession(NSString *,NSString *);
-static void OpenAISession(UINavigationController *,NSDictionary *,id);
-static void AssociateAISession(UINavigationController *,NSDictionary *,NSDictionary *);
 static UIColor *Gold(void) { return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *t){return t.userInterfaceStyle==UIUserInterfaceStyleDark?[UIColor colorWithRed:.93 green:.77 blue:.52 alpha:1]:[UIColor colorWithRed:.43 green:.31 blue:.13 alpha:1];}]; }
 static NSString *Docs(void) { return NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject; }
 static NSString *Projects(void) { NSString *p=[Docs() stringByAppendingPathComponent:@"Projects"]; [NSFileManager.defaultManager createDirectoryAtPath:p withIntermediateDirectories:YES attributes:nil error:nil]; return p; }
@@ -392,7 +388,6 @@ static NSString *OptimizationName(NSString *value){return @{@"release-speed":@"�
 @interface StudioSettings : UITableViewController
 @end
 static NSArray *StudioSettingSections(void){return @[
- @{@"title":@"AI 对话",@"rows":@[@[@"ai",@"模型与连接",@"sparkles",@"服务商、模型与能力测试"],@[@"persona",@"人设与提示词",@"person.crop.square",@"本地人设与提示词"],@[@"answer",@"执行与回答",@"slider.horizontal.3",@"回答风格、工具加载与缓存"],@[@"usage",@"用量统计",@"chart.bar",@"按时间、会话与模型查看"]]},
  @{@"title":@"插件开发",@"rows":@[@[@"build",@"默认构建设置",@"hammer",@"SDK、最低系统与产物"],@[@"optimization",@"优化方案",@"speedometer",@""],@[@"git",@"Git 与源代码管理",@"point.3.connected.trianglepath.dotted",@"身份、服务账号与自动存档"],@[@"remote",@"局域网远程",@"network",@"浏览器工作台与本机连接"]]},
  @{@"title":@"终端与逆向",@"rows":@[@[@"terminal",@"终端",@"terminal",@"打开独立 Linux 沙盒"],@[@"tools",@"安装工具",@"shippingbox",@"按需安装、查看状态与卸载"],@[@"headers",@"IPA 头文件导出",@"doc.text.magnifyingglass",@"本机分析与 ZIP 分享"],@[@"crash",@"离线崩溃分析",@"waveform.path.ecg",@"导入 .ips 与符号档案"]]},
  @{@"title":@"数据与工具",@"rows":@[@[@"mounts",@"挂载文件夹",@"externaldrive",@"管理外部文件夹授权"],@[@"backup",@"备份与恢复",@"archivebox",@"项目、会话、附件与软件配置"],@[@"storage",@"存储空间",@"internaldrive",@"查看占用与清理缓存"]]},
@@ -424,11 +419,7 @@ static NSArray *StudioSettingSections(void){return @[
  if(links[key]){[UIApplication.sharedApplication openURL:[NSURL URLWithString:links[key]] options:@{} completionHandler:^(BOOL ok){if(!ok)dispatch_async(dispatch_get_main_queue(),^{Message(self,@"打开失败",@"请检查浏览器设置后重试。");});}];return;}
  if([key isEqual:@"license"]){NSString *file=[NSBundle.mainBundle pathForResource:@"Workbench-LICENSE" ofType:@"txt"];page=TMCHelpTextArticle(@"软件许可证",[NSString stringWithContentsOfFile:file encoding:NSUTF8StringEncoding error:nil]?:@"GPL-3.0-or-later；请查看项目开源地址。");[self.navigationController pushViewController:page animated:YES];return;}
 
- if([key isEqual:@"ai"])page=TFAISettingsController(nil);
- else if([key isEqual:@"persona"])page=TFAIPersonaController();
- else if([key isEqual:@"answer"])page=TFAIOptimizationSettingsController();
- else if([key isEqual:@"usage"])page=TFAIUsageController(nil,nil);
- else if([key isEqual:@"build"])page=[[StudioBuildPreferences alloc]initWithStyle:UITableViewStyleInsetGrouped];
+ if([key isEqual:@"build"])page=[[StudioBuildPreferences alloc]initWithStyle:UITableViewStyleInsetGrouped];
  else if([key isEqual:@"git"])page=TMCGitSettingsController(nil);
  else if([key isEqual:@"remote"])page=DXRemoteSettingsController();
  else if([key isEqual:@"terminal"])page=TFAIISHTerminalController(nil);
@@ -1005,40 +996,6 @@ static void OpenLinuxProjectTerminal(UIViewController *host,NSString *root){
 - (void)sourceControl{if(self.busy){Message(self,@"构建进行中",@"请等待构建结束后再执行 Git 操作。");return;}[self.editor resignFirstResponder];if(![self save])return;__weak typeof(self) weak=self;UIViewController *v=TMCGitController(self.root,^{StudioEditor *editor=weak;if(!editor)return;editor.diagnosticsStamp=nil;editor.cachedDiagnostics=nil;if(editor.editorVisible){if(editor.filename&&![NSFileManager.defaultManager fileExistsAtPath:Child(editor.root,editor.filename)])[editor showEmptyEditor];else[editor recheckDisk];editor.title=ProjectName(editor.root);}});[self.navigationController pushViewController:v animated:YES];}
 - (UIBarButtonItem *)makeTerminalButton{UIBarButtonItem *button=[[UIBarButtonItem alloc]initWithImage:[UIImage systemImageNamed:@"terminal"] style:UIBarButtonItemStylePlain target:self action:@selector(openLinuxTerminal)];button.accessibilityLabel=@"项目 Linux 终端";button.accessibilityIdentifier=@"project-linux-terminal";return button;}
 - (void)openLinuxTerminal {[self endEditing];if(![self save])return;OpenLinuxProjectTerminal(self,self.root);}
-- (void)aiAssistant {
- [self endEditing];if(![self save])return;NSString *scope=TFAIProjectID(self.root);if(!scope)return;
- __weak typeof(self) weak=self;
- UIViewController *home=TFAISessionHomeController(scope,^NSArray *{return TFAIInternalProjects();},^(NSDictionary *record){OpenAISession(weak.navigationController,record,weak);},^(NSDictionary *record,NSDictionary *project){AssociateAISession(weak.aiNavigation?:weak.navigationController,record,project);});
- [self.navigationController pushViewController:home animated:YES];
-}
-- (void)openAIRecord:(NSDictionary *)record {
- [self endEditing];if(![self save])return;
- NSString *projectID=record[@"storageProjectID"]?:TFAIProjectID(self.root);if(!projectID){Message(self,@"项目正在处理",@"请稍后重试 AI 助手；尚未创建会话。");return;}
- TFAIProjectWorkspace *workspace=[TFAIProjectWorkspace new];workspace.editor=self;__block __weak TFAIProjectWorkspace *weakWorkspace=workspace;
- __weak typeof(self) weak=self;
- id<TFAIRuntime> runtime=TFAICreateRuntime(self.root,projectID,^(NSString *name,NSDictionary *arguments,TFAIResult completion){
-  dispatch_async(dispatch_get_main_queue(),^{StudioEditor *e=weak;if(!e){completion(nil,[NSError errorWithDomain:@"AI.Bridge" code:1 userInfo:@{NSLocalizedDescriptionKey:@"项目编辑器已关闭"}]);return;}[e aiTool:name arguments:arguments completion:completion];});
- });
- UIViewController *chat=TFAIChatController(self.root,projectID,runtime,^(NSString *file,NSUInteger line){StudioEditor *e=weak;if(!e||!Child(e.root,file))return;[weakWorkspace showEditor];void (^jump)(void)=^{[e jumpToDiagnostic:@{@"file":file,@"line":@(MAX(1,line)),@"column":@1,@"message":@"AI 引用位置",@"severity":@"note"}];};id<UIViewControllerTransitionCoordinator> transition=e.navigationController.transitionCoordinator;if(transition)[transition animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> c){jump();}];else jump();});
- TFAISetContextProvider(chat,^(NSString *kind,TFAIResult completion){StudioEditor *e=weak;if(!e){completion(nil,[NSError errorWithDomain:@"AI.Context" code:1 userInfo:@{NSLocalizedDescriptionKey:@"项目已关闭"}]);return;}completion([e aiAttachmentContext:kind],nil);});
- // Opening/reopening a chat is navigation, not consent to attach the editor selection.
- // The explicit + attachment menu still offers the current selection.
- chat=TFAIConfigureChat(chat,record,NO,^(NSDictionary *project){AssociateAISession(weak.aiNavigation?:weak.navigationController,record,project);});TFAISetSessionOpener(chat,^(NSDictionary *r){OpenAISession(weak.navigationController,r,weak);});
- TFAISetProjectContext(chat,self,^(NSString *name,NSDictionary *arguments,TFAIResult completion){dispatch_async(dispatch_get_main_queue(),^{StudioEditor *e=weak;if(!e){completion(nil,[NSError errorWithDomain:@"AI.Bridge" code:1 userInfo:@{NSLocalizedDescriptionKey:@"项目编辑器已关闭"}]);return;}[e aiTool:name arguments:arguments completion:completion];});});
- UINavigationController *navigation=self.aiNavigation?:self.navigationController;
- if([chat.parentViewController isKindOfClass:TFAIProjectWorkspace.class]){workspace=(TFAIProjectWorkspace *)chat.parentViewController;weakWorkspace=workspace;if(workspace.editor!=self){TFDetachWorkspaceEditor(self);if(workspace.editor.parentViewController==workspace){[workspace.editor willMoveToParentViewController:nil];[workspace.editor.view removeFromSuperview];[workspace.editor removeFromParentViewController];}workspace.editor=self;}workspace.switcher.selectedSegmentIndex=0;[workspace changePage];if([navigation.viewControllers containsObject:workspace]){[navigation popToViewController:workspace animated:YES];return;}}
- workspace.chat=chat;TFDetachWorkspaceEditor(self);[navigation pushViewController:workspace animated:YES];
-}
-// Attachment content is separate from the tool's structured build-result response.
-- (NSDictionary *)aiAttachmentContext:(NSString *)kind {
- NSString *path=self.engine.lastBuild.length?[self.engine.lastBuild stringByAppendingPathComponent:@"build.log"]:nil;
- if([kind isEqual:@"availability"]){NSDictionary *attrs=path?[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil]:nil;return @{@"selection":@(self.editor.selectedRange.length>0&&NSMaxRange(self.editor.selectedRange)<=self.editor.text.length),@"build_log":@([attrs[NSFileSize] unsignedLongLongValue]>0),@"diagnostics":@([self diagnosticItems].count>0)};}
- if([kind isEqual:@"selection"]){NSRange range=self.editor.selectedRange;BOOL available=range.length>0&&range.location!=NSNotFound&&NSMaxRange(range)<=self.editor.text.length;return @{@"available":@(available),@"title":[NSString stringWithFormat:@"%@:%lu 所选代码",self.filename?:@"文件",(unsigned long)[self.gutter.index lineAt:MIN(range.location,self.editor.text.length)]],@"text":available?[self.editor.text substringWithRange:range]:@""};}
- if([kind isEqual:@"build_log"]){NSString *log=path?[NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil]:nil;return @{@"title":@"当前构建日志",@"text":log?:@"",@"available":@(log.length>0)};}
- if([kind isEqual:@"diagnostics"]){NSArray *items=[self diagnosticItems];NSMutableString *text=[NSMutableString new];NSDictionary *labels=@{@"fatal error":@"致命错误",@"error":@"错误",@"warning":@"警告",@"note":@"说明"};for(NSDictionary *item in items){NSString *severity=item[@"severity"]?:@"note",*file=item[@"file"]?:item[@"path"]?:@"构建阶段";NSUInteger line=[item[@"line"] unsignedIntegerValue],column=[item[@"column"] unsignedIntegerValue];NSString *location=line?[NSString stringWithFormat:@"%@:%lu:%lu",file,(unsigned long)line,(unsigned long)MAX(1,column)]:file;if(text.length)[text appendString:@"\n\n"];[text appendFormat:@"%@ · %@\n%@",location,labels[severity]?:severity,item[@"message"]?:@""];}
- return @{@"title":@"当前构建诊断",@"text":text,@"available":@(items.count>0),@"count":@(items.count)};}
- return @{@"available":@NO,@"text":@""};
-}
 - (NSDictionary *)aiBuildResult {
  NSString *dir=self.engine.lastBuild;if(!dir.length)return @{@"success":@NO,@"diagnostics":@[],@"artifacts":@[],@"note":@"尚未构建"};
  NSData *bytes=dir?[NSData dataWithContentsOfFile:[dir stringByAppendingPathComponent:@"report.json"]]:nil;
@@ -1060,7 +1017,7 @@ static void OpenLinuxProjectTerminal(UIViewController *host,NSString *root){
  NSString *session=[arguments[@"_workbenchBuildSession"] isKindOfClass:NSString.class]?arguments[@"_workbenchBuildSession"]:nil;
  [self enqueueBuild:completion session:session];
 }
-- (void)menu{[self endEditing];UIAlertController *a=[UIAlertController alertControllerWithTitle:@"工程操作" message:self.filename preferredStyle:UIAlertControllerStyleActionSheet];NSArray *titles=@[@"新建文件",@"重命名当前文件",@"项目设置",@"构建诊断",@"查找与替换",@"分享当前源码",@"分享构建结果",@"AI 开发助手",@"源代码管理 Git"];for(NSUInteger n=0;n<titles.count;n++)[a addAction:[UIAlertAction actionWithTitle:titles[n] style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){if(n<2)[self fileDialog:n==1];if(n==2)[self projectSettings];if(n==3)[self diagnostics];if(n==4)[self search];if(n==5)[self shareSource];if(n==6)[self shareBuild];if(n==8)[self sourceControl];if(n==7)[self aiAssistant];}]];[a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];a.popoverPresentationController.barButtonItem=self.navigationItem.rightBarButtonItems.lastObject;[self presentViewController:a animated:YES completion:nil];}
+- (void)menu{[self endEditing];UIAlertController *a=[UIAlertController alertControllerWithTitle:@"工程操作" message:self.filename preferredStyle:UIAlertControllerStyleActionSheet];NSArray *titles=@[@"新建文件",@"重命名当前文件",@"项目设置",@"构建诊断",@"查找与替换",@"分享当前源码",@"分享构建结果",@"源代码管理 Git"];for(NSUInteger n=0;n<titles.count;n++)[a addAction:[UIAlertAction actionWithTitle:titles[n] style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){if(n<2)[self fileDialog:n==1];if(n==2)[self projectSettings];if(n==3)[self diagnostics];if(n==4)[self search];if(n==5)[self shareSource];if(n==6)[self shareBuild];if(n==7)[self sourceControl];}]];[a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];a.popoverPresentationController.barButtonItem=self.navigationItem.rightBarButtonItems.lastObject;[self presentViewController:a animated:YES completion:nil];}
 - (void)highlight {
  if(!self.filename)return;
  if(!self.editor.font||self.highlighting||self.editor.markedTextRange)return;
@@ -1468,24 +1425,6 @@ NSDictionary *DXStudioWorkspaceState(NSMutableDictionary *owner){
  return @{@"busy":@(editor.busy),@"log":log,@"buildID":editor.engine.lastBuild.lastPathComponent?:@"",@"result":[editor aiBuildResult]};
 }
 
-static void OpenAISession(UINavigationController *nav,NSDictionary *record,id sourceEditor) {
- if(!nav)return;NSString *scope=record[@"storageProjectID"]?:@"general",*identifier=record[@"id"];TFAIFlushOpenSession(scope,identifier);
- __weak UINavigationController *weakNav=nav;
- dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NSMutableDictionary *session=[TFAISessions loadSession:identifier project:scope];dispatch_async(dispatch_get_main_queue(),^{UINavigationController *n=weakNav;if(!n||!session)return;if([record[@"incomingAttachments"] isKindOfClass:NSArray.class]){NSMutableArray *pending=[session[@"pendingAttachments"] mutableCopy]?:[NSMutableArray new];for(NSDictionary *entry in record[@"incomingAttachments"])if(![pending containsObject:entry])[pending addObject:entry];session[@"pendingAttachments"]=pending;[TFAISessions saveMetadata:@{@"pendingAttachments":pending} identifier:identifier project:scope error:nil];}
-  if(![scope isEqual:@"general"]){NSDictionary *project=nil;for(NSDictionary *p in TFAIInternalProjects())if([p[@"id"] isEqual:(session[@"associatedProjectID"]?:session[@"workspaceID"]?:scope)]){project=p;break;}if(!project){Message(n.topViewController,@"关联项目已不在本机",@"会话历史仍保留。请从会话列表重新关联可用项目；不会自动使用旧路径。");return;}StudioEditor *editor=nil;if(![editor.root isEqual:project[@"root"]]){editor=[StudioEditor new];editor.root=project[@"root"];[editor loadViewIfNeeded];}editor.aiNavigation=n;session[@"projectName"]=project[@"name"];session[@"projectRoot"]=project[@"root"];[editor openAIRecord:session];return;}
-  NSMutableDictionary *owner=[NSMutableDictionary new];NSString *workspaceRoot=@"";for(NSDictionary *p in TFAIInternalProjects())if([p[@"id"] isEqual:(session[@"associatedProjectID"]?:session[@"workspaceID"])]){workspaceRoot=p[@"root"];StudioEditor *editor=[StudioEditor new];editor.root=workspaceRoot;[editor loadViewIfNeeded];owner[@"editor"]=editor;session[@"projectName"]=p[@"name"];session[@"projectRoot"]=workspaceRoot;break;}
-  void (^bridge)(NSString *,NSDictionary *,TFAIResult)=^(NSString *tool,NSDictionary *arguments,TFAIResult completion){AIWorkspaceTool(owner,tool,arguments,completion);};
-  id<TFAIRuntime> runtime=TFAICreateRuntime(workspaceRoot,@"general",bridge);UIViewController *chat=TFAIChatController(workspaceRoot,@"general",runtime,^(NSString *path,NSUInteger line){StudioEditor *editor=owner[@"editor"];if(editor){[weakNav pushViewController:editor animated:YES];}});chat=TFAIConfigureChat(chat,session,!workspaceRoot.length,^(NSDictionary *project){AssociateAISession(weakNav,session,project);});TFAISetProjectContext(chat,owner,bridge);TFAISetSessionOpener(chat,^(NSDictionary *r){OpenAISession(weakNav,r,nil);});if([n.viewControllers containsObject:chat])[n popToViewController:chat animated:YES];else{UINavigationController *old=chat.navigationController;if(old){NSMutableArray *stack=[old.viewControllers mutableCopy];[stack removeObject:chat];[old setViewControllers:stack animated:NO];}[n pushViewController:chat animated:YES];}
- });});
-}
-static void AssociateAISession(UINavigationController *nav,NSDictionary *record,NSDictionary *project) {
- if(!nav||![record isKindOfClass:NSDictionary.class]||![project isKindOfClass:NSDictionary.class])return;NSDictionary *actual=nil;for(NSDictionary *p in TFAIInternalProjects())if([p[@"id"] isEqual:project[@"id"]]){actual=p;break;}if(!actual)return;
- NSString *scope=record[@"storageProjectID"]?:@"general";
- UIAlertController *confirm=[UIAlertController alertControllerWithTitle:@"关联到当前会话？" message:[NSString stringWithFormat:@"目标：%@\n将更新当前会话的项目上下文，不创建新会话；原聊天、附件、砸壳/头文件结果和工具记录都会保留。",actual[@"name"]] preferredStyle:UIAlertControllerStyleAlert];
- [confirm addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
- [confirm addAction:[UIAlertAction actionWithTitle:@"关联当前会话" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){if(TFAISessionHasLiveRun(scope,record[@"id"])){Message(nav.topViewController,@"请先停止当前任务",@"任务结束后即可关联项目，当前会话会保留。");return;}TFAIFlushOpenSession(scope,record[@"id"]);dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NSMutableDictionary *current=[TFAISessions loadSession:record[@"id"] project:scope];NSError *error=nil;BOOL ok=NO;if(current){NSDictionary *metadata=@{@"projectName":actual[@"name"]?:@"项目",@"projectRoot":actual[@"root"]?:@"",@"associatedProjectID":actual[@"id"]?:@"",@"workspaceID":actual[@"id"]?:@""};ok=[TFAISessions saveMetadata:metadata identifier:record[@"id"] project:scope error:&error];if(ok)current=[TFAISessions loadSession:record[@"id"] project:scope];}else error=[NSError errorWithDomain:@"TFAISessions" code:404 userInfo:@{NSLocalizedDescriptionKey:@"当前会话已不存在，请刷新会话列表。"}];dispatch_async(dispatch_get_main_queue(),^{if(!ok){Message(nav.topViewController,@"关联失败",error.localizedDescription?:@"当前会话未更新");return;}if(current)OpenAISession(nav,current,nil);else Message(nav.topViewController,@"关联完成",@"当前会话已更新");});});}]];
- [nav.topViewController presentViewController:confirm animated:YES completion:nil];
-}
 #include "WorkspaceSplit.inc"
 @interface TFStudioTabs : UITabBarController <UITabBarControllerDelegate>
 @property BOOL tabUpdateScheduled;
@@ -1516,11 +1455,9 @@ static void AssociateAISession(UINavigationController *nav,NSDictionary *record,
 @end
 UIViewController *TMCStudioRoot(void) {
  TFStudioTabs *tabs=[TFStudioTabs new];TFWorkspaceListNavigation *projects=[[TFWorkspaceListNavigation alloc] initWithRootViewController:[[StudioHome alloc] initWithStyle:UITableViewStyleGrouped]];
- __block __weak UINavigationController *weakAI=nil;UIViewController *home=TFAISessionHomeController(nil,^NSArray *{return TFAIInternalProjects();},^(NSDictionary *record){OpenAISession(weakAI,record,nil);},^(NSDictionary *record,NSDictionary *project){AssociateAISession(weakAI,record,project);});
- TFWorkspaceListNavigation *ai=[[TFWorkspaceListNavigation alloc] initWithRootViewController:home];weakAI=ai;TMCNavigationController *settings=[[TMCNavigationController alloc] initWithRootViewController:[[StudioSettings alloc] initWithStyle:UITableViewStyleInsetGrouped]];
- [projects.topViewController loadViewIfNeeded];[home loadViewIfNeeded];[settings.topViewController loadViewIfNeeded];projects.tabBarItem=[[UITabBarItem alloc] initWithTitle:@"项目" image:[UIImage systemImageNamed:@"square.stack.3d.up"] tag:0];ai.tabBarItem=[[UITabBarItem alloc] initWithTitle:@"AI 会话" image:[UIImage systemImageNamed:@"bubble.left.and.bubble.right"] tag:1];settings.tabBarItem=[[UITabBarItem alloc] initWithTitle:@"设置" image:[UIImage systemImageNamed:@"slider.horizontal.3"] tag:2];tabs.viewControllers=@[TFAdaptiveWorkspace(projects),TFAdaptiveWorkspace(ai),settings];return tabs;
+ TMCNavigationController *settings=[[TMCNavigationController alloc] initWithRootViewController:[[StudioSettings alloc] initWithStyle:UITableViewStyleInsetGrouped]];
+ [projects.topViewController loadViewIfNeeded];[settings.topViewController loadViewIfNeeded];projects.tabBarItem=[[UITabBarItem alloc] initWithTitle:@"项目" image:[UIImage systemImageNamed:@"square.stack.3d.up"] tag:0];settings.tabBarItem=[[UITabBarItem alloc] initWithTitle:@"设置" image:[UIImage systemImageNamed:@"slider.horizontal.3"] tag:1];tabs.viewControllers=@[TFAdaptiveWorkspace(projects),settings];return tabs;
 }
-void TMCOpenAIConversation(UIViewController *root,NSString *sessionID,NSString *projectID){if(![root isKindOfClass:UITabBarController.class])return;UITabBarController *tabs=(id)root;if(tabs.viewControllers.count<2)return;tabs.selectedIndex=1;UINavigationController *nav=TFWorkspaceNavigation(tabs.viewControllers[1]);if(![nav isKindOfClass:UINavigationController.class])return;if(sessionID.length)OpenAISession(nav,@{@"id":sessionID,@"storageProjectID":projectID?:@"general"},nil);}
 UIViewController *TMCStudioHome(void){return [[StudioHome alloc] initWithStyle:UITableViewStyleGrouped];}
 #if TARGET_OS_SIMULATOR
 #include "../tests/DataSettings237.inc"
@@ -1646,7 +1583,6 @@ UIViewController *TFAIV2Regression(void){UITabBarController *tabs=(id)TMCStudioR
 static UINavigationController *TFReceiveNavigation(UIViewController *host){UIViewController *v=host;while(v.presentingViewController)v=v.presentingViewController;if([v isKindOfClass:UITabBarController.class])v=((UITabBarController *)v).selectedViewController;return TFWorkspaceNavigation(v);}
 void TFStudioOpenReceivedProject(UIViewController *host,NSString *root){UINavigationController *nav=TFReceiveNavigation(host);StudioEditor *editor=[StudioEditor new];editor.root=root;[nav pushViewController:editor animated:YES];}
 void TFStudioImportReceived(UIViewController *host,NSURL *url,BOOL archive){if(!host||!url.isFileURL)return;UIViewController *owner=host.navigationController?:host;CompilerController *active=objc_getAssociatedObject(owner,@selector(TF_receivedImporter));if(active.importInProgress){Message(host,@"项目正在导入",@"请等待当前导入完成后再试。");return;}CompilerController *importer=[CompilerController new];importer.presentationHost=host;objc_setAssociatedObject(owner,@selector(TF_receivedImporter),importer,OBJC_ASSOCIATION_RETAIN_NONATOMIC);__weak UIViewController *weakHost=host,*weakOwner=owner;importer.importCompletion=^(NSString *root){UIViewController *target=weakHost,*anchor=weakOwner;if(target)TFStudioOpenReceivedProject(target,root);if(anchor)objc_setAssociatedObject(anchor,@selector(TF_receivedImporter),nil,OBJC_ASSOCIATION_RETAIN_NONATOMIC);};if(archive)[importer importArchiveURL:url];else[importer importURLs:@[url]];}
-void TFStudioReceiveAttachments(UIViewController *host,NSArray *entries,NSDictionary *record){if(!entries.count)return;UINavigationController *nav=TFReceiveNavigation(host);NSString *scope=record[@"storageProjectID"]?:@"general";if(record)TFAIFlushOpenSession(scope,record[@"id"]);dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NSMutableDictionary *session=record?[TFAISessions loadSession:record[@"id"] project:scope]:[TFAISessions create:scope title:@"新会话"];NSError *error=nil;BOOL ok=NO;if(session){NSMutableArray *pending=[session[@"pendingAttachments"] isKindOfClass:NSArray.class]?[session[@"pendingAttachments"] mutableCopy]:[NSMutableArray new];if(pending.count+entries.count<=80){[pending addObjectsFromArray:entries];ok=[TFAISessions saveMetadata:@{@"pendingAttachments":pending} identifier:session[@"id"] project:scope error:&error];}else error=[NSError errorWithDomain:@"Incoming" code:1 userInfo:@{NSLocalizedDescriptionKey:@"会话待发送附件超过 80 项，请先清理部分附件。"}];}dispatch_async(dispatch_get_main_queue(),^{if(!ok){Message(host,@"会话附件未保存",error.localizedDescription?:@"会话已删除，请重新选择。");return;}UIViewController *presenter=host;while(presenter.parentViewController)presenter=presenter.parentViewController;void(^open)(void)=^{NSMutableDictionary *target=[session mutableCopy];target[@"incomingAttachments"]=entries;OpenAISession(nav,target,nil);};if(presenter.presentingViewController)[presenter dismissViewControllerAnimated:YES completion:open];else open();});});}
 
 #if TARGET_OS_SIMULATOR
 #include "../tests/AIShare114Regression.inc"

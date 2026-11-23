@@ -37,7 +37,7 @@ UIViewController *TFAIAudio110Regression(void);
 UIViewController *TFAIAttachments108Regression(void);
 #endif
 
-void TMCOpenAIConversation(UIViewController *root,NSString *sessionID,NSString *projectID);
+
 
 UIViewController *TMCStudioSDKRegression(void);
 

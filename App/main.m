@@ -899,8 +899,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 @end
 @implementation AppDelegate
 - (void)openBuildQueueFromNotification:(NSNotification *)note{UIViewController *root=self.window.rootViewController;if(root.presentedViewController)return;if([root isKindOfClass:UITabBarController.class])root=[(UITabBarController *)root selectedViewController];if([root isKindOfClass:UINavigationController.class])[(UINavigationController *)root pushViewController:TFAIBuildQueueController() animated:YES];}
-- (void)openAIFromNotification:(NSNotification *)note{TMCOpenAIConversation(self.window.rootViewController,note.userInfo[@"sessionID"],note.userInfo[@"projectID"]);}
-- (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {if(self.restoringData){self.pendingRestoreURL=url;return YES;}if(url.isFileURL){TFIncomingReceive(self.window.rootViewController,url);return YES;}if(([url.scheme isEqual:@"workbench"]||[url.scheme isEqual:@"workbench"])&&[url.host isEqual:@"ai"]){TMCOpenAIConversation(self.window.rootViewController,nil,nil);return YES;}if(([url.scheme isEqual:@"workbench"]||[url.scheme isEqual:@"workbench"])&&[url.host isEqual:@"incoming"]){TFIncomingDrain(self.window.rootViewController);return YES;}return NO;}
+- (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {if(self.restoringData){self.pendingRestoreURL=url;return YES;}if(url.isFileURL){TFIncomingReceive(self.window.rootViewController,url);return YES;}if(([url.scheme isEqual:@"workbench"]||[url.scheme isEqual:@"workbench"])&&[url.host isEqual:@"incoming"]){TFIncomingDrain(self.window.rootViewController);return YES;}return NO;}
 - (void)applicationDidBecomeActive:(UIApplication *)application {if(!self.restoringData)TFIncomingDrain(self.window.rootViewController);}
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
     // BGTask handlers must be registered before this method returns, before scene connection.
@@ -926,7 +925,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 }
 - (BOOL)finishLaunching:(NSDictionary *)options {
     [DXRemoteService shared];
-    TFAINotificationsRegister();[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openBuildQueueFromNotification:) name:@"TFAIOpenBuildQueue" object:nil];[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openAIFromNotification:) name:@"TFAIOpenConversation" object:nil];
+    TFAINotificationsRegister();[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openBuildQueueFromNotification:) name:@"TFAIOpenBuildQueue" object:nil];
     [NSUserDefaults.standardUserDefaults registerDefaults:@{@"StudioTheme":@1, @"StudioFont":@14, @"StudioSDKVersion":@"16.4", @"StudioDeploymentTarget":@"15.0"}];
     NSAssert(self.window.windowScene, @"A connected UIWindowScene is required before startup");
     self.window.tintColor=[UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *trait){return trait.userInterfaceStyle==UIUserInterfaceStyleDark?[UIColor colorWithRed:.93 green:.77 blue:.52 alpha:1]:[UIColor colorWithRed:.45 green:.30 blue:.10 alpha:1];}];
@@ -945,48 +944,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
     if([NSProcessInfo.processInfo.arguments containsObject:@"--session239"]){extern UIViewController *TMCSessionArchive239Regression(void);self.window.rootViewController=TMCSessionArchive239Regression();}
     if([NSProcessInfo.processInfo.arguments containsObject:@"--data-settings237"]){extern UIViewController *TMCData237SettingsRegression(void);self.window.rootViewController=TMCData237SettingsRegression();}
     if([NSProcessInfo.processInfo.arguments containsObject:@"--ui235-tests"]){extern UIViewController *TMCChatNavigation235Regression(void);self.window.rootViewController=TMCChatNavigation235Regression();}
-    extern UIViewController *TFAIAgent163Regression(void);
-    extern UIViewController *TFAIToolRegistry164Regression(void);
-    if([NSProcessInfo.processInfo.arguments containsObject:@"--registry164-tests"])self.window.rootViewController=[[TMCNavigationController alloc]initWithRootViewController:TFAIToolRegistry164Regression()];
-    if([NSProcessInfo.processInfo.arguments containsObject:@"--agent163-tests"])self.window.rootViewController=[[TMCNavigationController alloc]initWithRootViewController:TFAIAgent163Regression()];
-    if([NSProcessInfo.processInfo.arguments containsObject:@"--persona-test"]){extern UIViewController *TFAIPersonaController(void);self.window.rootViewController=[[TMCNavigationController alloc]initWithRootViewController:TFAIPersonaController()];}
-    if([NSProcessInfo.processInfo.arguments containsObject:@"--remote-test"])self.window.rootViewController=[[TMCNavigationController alloc]initWithRootViewController:DXRemoteSettingsController()];
-    if([NSProcessInfo.processInfo.arguments containsObject:@"--remote-regression"])self.window.rootViewController=[[TMCNavigationController alloc]initWithRootViewController:DXRemoteRegressionController()];
-    if([NSProcessInfo.processInfo.arguments containsObject:@"--flex-sync-test"]){extern UIViewController *TMCFlexSessionSyncRegression(void);self.window.rootViewController=TMCFlexSessionSyncRegression();}
-    extern UIViewController *TFAIShare114Regression(void);
-    extern UIViewController *TFAIFile135Regression(void);
-    if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-files135-test"])self.window.rootViewController=[[TMCNavigationController alloc]initWithRootViewController:TFAIFile135Regression()];
-    extern UIViewController *TFAIWorkspace133Regression(void);
-    if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-workspace133-test"])self.window.rootViewController=[[TMCNavigationController alloc]initWithRootViewController:TFAIWorkspace133Regression()];
-    extern UIViewController *TFAIRender122Regression(void);
-    if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-render122-test"])
-        self.window.rootViewController=[[TMCNavigationController alloc]initWithRootViewController:TFAIRender122Regression()];
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-share144-test"]){extern UIViewController *TFAIShare144Regression(void);self.window.rootViewController=TFAIShare144Regression();}
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-share114-test"])
-        self.window.rootViewController=TFAIShare114Regression();
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-audio110-test"])
-        self.window.rootViewController=TFAIAudio110Regression();
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-recovery110-test"])
-        self.window.rootViewController=TFAIRecovery110Regression();
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-attachments108-test"])
-        self.window.rootViewController=TFAIAttachments108Regression();
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-composer209-test"])
-        self.window.rootViewController=TFAIComposer209Regression();
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-v2-test"])
-        self.window.rootViewController=TFAIV2Regression();
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-controls-visual-test"])
-        self.window.rootViewController=[[TMCNavigationController alloc] initWithRootViewController:TFAIControlsVisualRegression()];
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-probe-visual-test"])
-        self.window.rootViewController=[[TMCNavigationController alloc] initWithRootViewController:TFAIProbeVisualRegression()];
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-chat93-test"])
-        self.window.rootViewController=[[TMCNavigationController alloc] initWithRootViewController:TFAIChat93Regression()];
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-visual-test"])
-        self.window.rootViewController=[[TMCNavigationController alloc] initWithRootViewController:TFAIVisualRegression()];
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-approval-visual-test"])
-        self.window.rootViewController=[[TMCNavigationController alloc] initWithRootViewController:TFAIApprovalVisualRegression()];
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--ai-integration-test"])
-        self.window.rootViewController=[[TMCNavigationController alloc] initWithRootViewController:TFAIIntegrationRegression()];
-    else if([NSProcessInfo.processInfo.arguments containsObject:@"--maintenance-test"])
+    if([NSProcessInfo.processInfo.arguments containsObject:@"--maintenance-test"])
         self.window.rootViewController=[[TMCNavigationController alloc] initWithRootViewController:TMCMaintenanceRegression()];
     else if([NSProcessInfo.processInfo.arguments containsObject:@"--storage258-test"])
         self.window.rootViewController=TMCStorageBackup258Regression();
