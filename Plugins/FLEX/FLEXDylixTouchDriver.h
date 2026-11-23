@@ -2,7 +2,7 @@
 
 // In-process UIKit event delivery. Never invokes arbitrary gesture targets.
 // Call on main; callers retain normal FLEX control approval and app scope.
-@interface FLEXDylixTouchDriver : NSObject
+@interface FLEXWorkbenchTouchDriver : NSObject
 @property (nonatomic, readonly) BOOL running;
 + (NSDictionary *)backendCapabilities;
 - (void)performPaths:(NSArray<NSArray<NSValue *> *> *)paths

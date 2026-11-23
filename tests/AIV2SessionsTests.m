@@ -2,7 +2,7 @@
 static int checks=0,failures=0;
 static void Check(BOOL pass,NSString *name){checks++;if(!pass)failures++;printf("%s %s\n",pass?"PASS":"FAIL",name.UTF8String);}
 int main(){@autoreleasepool{
- NSString *scope=[@"v2-fixture-" stringByAppendingString:NSUUID.UUID.UUIDString];NSString *root=[[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"TweakForgeAI/Sessions"] stringByAppendingPathComponent:scope];NSFileManager *fm=NSFileManager.defaultManager;
+ NSString *scope=[@"v2-fixture-" stringByAppendingString:NSUUID.UUID.UUIDString];NSString *root=[[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"WorkbenchAI/Sessions"] stringByAppendingPathComponent:scope];NSFileManager *fm=NSFileManager.defaultManager;
  NSMutableDictionary *a=[TFAISessions create:scope title:@"Alpha"],*b=[TFAISessions create:scope title:@"Beta"];
  Check([TFAISessions summaries:scope].count==2,@"two explicit sessions");
  a[@"messages"]=@[@{@"role":@"user",@"content":@"Explain message dispatch"},@{@"role":@"assistant",@"content":@"A lightweight searchable answer"}];a[@"draftText"]=@"unfinished";a[@"pendingAttachments"]=@[@{@"id":@"fixture",@"kind":@"reference",@"path":@"Other Project/Main.m"}];a[@"scrollOffset"]=@144;a[@"folds"]=@{@"tool-one":@YES};a[@"mode"]=@"ask";a[@"state"]=@"waitingApproval";a[@"grants"]=@[@"write"];[TFAISessions save:a project:scope error:nil];

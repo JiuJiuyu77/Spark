@@ -23,7 +23,7 @@ with tempfile.TemporaryDirectory(prefix='flex-connection-') as folder:
     binary=Path(folder)/'test'
     subprocess.run(['xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk',
                     '-fobjc-arc','-Wall','-Werror','-I',str(args.flex),
-                    str(Path(__file__).with_name('FlexConnectionTests.m')),str(args.flex/'FLEXDylixConnection.m'),str(args.flex/'FLEXDylixAddress.m'),
+                    str(Path(__file__).with_name('FlexConnectionTests.m')),str(args.flex/'FLEXWorkbenchConnection.m'),str(args.flex/'FLEXWorkbenchAddress.m'),
                     '-framework','Foundation','-o',str(binary)],check=True)
     for name,ok in json.loads(subprocess.check_output([str(binary),'--scopes'])).items():check(ok,name)
     def run(port,path='/api/v1/pair',timeout=.4):
@@ -56,12 +56,12 @@ with tempfile.TemporaryDirectory(prefix='flex-connection-') as folder:
         body=payload if isinstance(payload,bytes) else json.dumps(payload).encode()
         return b'HTTP/1.1 '+str(status).encode()+b' Test\r\nContent-Length: '+str(len(body) if length is None else length).encode()+b'\r\n'+extra+b'\r\n'+body
 
-    port,received=serve(response({'data':{'state':'approved'}},extra=b'Set-Cookie: DylixRemoteSession=fixture-session; HttpOnly\r\n'),hold=1)
+    port,received=serve(response({'data':{'state':'approved'}},extra=b'Set-Cookie: WorkbenchRemoteSession=fixture-session; HttpOnly\r\n'),hold=1)
     r=run(port)
     check(r['ok'] and r['token']=='fixture-session','pair response and exact cookie parsing')
     check(r['elapsed']<.35,'Content-Length completes without waiting for server to close')
     head,body=received[0]
-    check(b'POST /api/v1/pair HTTP/1.1' in head and b'Cookie: DylixRemoteSession=fixture-token-never-log' in head and b'x-dylix-csrf: fixture-csrf-never-log' in head,'existing POST and authentication headers preserved')
+    check(b'POST /api/v1/pair HTTP/1.1' in head and b'Cookie: WorkbenchRemoteSession=fixture-token-never-log' in head and b'x-workbench-csrf: fixture-csrf-never-log' in head,'existing POST and authentication headers preserved')
     check(json.loads(body)['code']=='fixture-code-never-log','pairing request JSON preserved')
     port,received=serve(response({'data':{'state':'running'},'session':{'csrf':'fixture-csrf'}}),chunk=3)
     r=run(port,'/api/v1/status',1)
@@ -70,7 +70,7 @@ with tempfile.TemporaryDirectory(prefix='flex-connection-') as folder:
 
     port,_=serve(response({'error':{'code':'invalid_code','message':'response-secret-never-log'},'data':{}},403))
     r=run(port)
-    check(not r['ok'] and r['code']==403 and r['domain']=='FLEX.Dylix.HTTP' and '配对码无效' in r['description'],'wrong code distinguished from TCP failure without echoing server body')
+    check(not r['ok'] and r['code']==403 and r['domain']=='FLEX.Workbench.HTTP' and '配对码无效' in r['description'],'wrong code distinguished from TCP failure without echoing server body')
     for status in [401,404,423,429,503,302]:
         port,_=serve(response({'data':{},'error':None},status,extra=b'Location: http://127.0.0.1:1/secret\r\n'))
         r=run(port)

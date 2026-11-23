@@ -19,7 +19,7 @@ static NSString *WiFiAddress(void){
 #if TARGET_OS_SIMULATOR
  if([NSProcessInfo.processInfo.arguments containsObject:@"--remote-regression"])return @"127.0.0.1";
 #endif
- NSString *mode=DXRemoteSelectedMode([NSUserDefaults.standardUserDefaults stringForKey:@"DylixRemoteNetworkMode"]);if([mode isEqual:@"local"])return @"127.0.0.1";
+ NSString *mode=DXRemoteSelectedMode([NSUserDefaults.standardUserDefaults stringForKey:@"WorkbenchRemoteNetworkMode"]);if([mode isEqual:@"local"])return @"127.0.0.1";
  struct ifaddrs *interfaces=NULL;if(getifaddrs(&interfaces))return nil;NSString *result=nil;
  for(struct ifaddrs *p=interfaces;p;p=p->ifa_next)if(p->ifa_addr&&p->ifa_addr->sa_family==AF_INET){
   struct sockaddr_in *address=(void *)p->ifa_addr;char buf[INET_ADDRSTRLEN];if(!inet_ntop(AF_INET,&address->sin_addr,buf,sizeof(buf)))continue;NSString *candidate=[NSString stringWithUTF8String:buf];
@@ -55,8 +55,8 @@ static NSDictionary *Error(NSInteger status,NSString *code,NSString *message){re
 @implementation DXRemoteService
 + (instancetype)shared{static DXRemoteService *service;static dispatch_once_t once;dispatch_once(&once,^{service=[DXRemoteService new];});return service;}
 - (instancetype)init{
- if((self=[super init])){_queue=dispatch_queue_create("com.xuegao.dylix.remote",DISPATCH_QUEUE_SERIAL);_state=@"stopped";_cookieName=@"DylixRemoteSession";_port=[NSUserDefaults.standardUserDefaults integerForKey:@"DylixRemotePort"]?:8787;_localState=@{};_snapshot=@{};_backgroundTask=UIBackgroundTaskInvalid;_lifecycle=@"foreground";
-  NSString *support=NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject;NSString *store=[support stringByAppendingPathComponent:@"DylixRemote/devices.json"];
+ if((self=[super init])){_queue=dispatch_queue_create("com.xuegao.workbench.remote",DISPATCH_QUEUE_SERIAL);_state=@"stopped";_cookieName=@"WorkbenchRemoteSession";_port=[NSUserDefaults.standardUserDefaults integerForKey:@"WorkbenchRemotePort"]?:8787;_localState=@{};_snapshot=@{};_backgroundTask=UIBackgroundTaskInvalid;_lifecycle=@"foreground";
+  NSString *support=NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject;NSString *store=[support stringByAppendingPathComponent:@"WorkbenchRemote/devices.json"];
 #if TARGET_OS_SIMULATOR
   if([NSProcessInfo.processInfo.arguments containsObject:@"--remote-regression"])store=[NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"RemoteRegression-%@/devices.json",NSUUID.UUID.UUIDString]];
 #endif
@@ -64,7 +64,7 @@ static NSDictionary *Error(NSInteger status,NSString *code,NSString *message){re
 #if TARGET_OS_SIMULATOR
   if([NSProcessInfo.processInfo.arguments containsObject:@"--remote-regression"])_fixedAccount=[@"test.fixed." stringByAppendingString:DXRemoteHash(store)];
 #endif
-  _davState=@"stopped";_davPort=[NSUserDefaults.standardUserDefaults integerForKey:@"DylixRemoteDAVPort"]?:8788;_dav=[DXRemoteWebDAV new];_davServer=[[DXRemoteHTTP alloc]initWithQueue:_queue];
+  _davState=@"stopped";_davPort=[NSUserDefaults.standardUserDefaults integerForKey:@"WorkbenchRemoteDAVPort"]?:8788;_dav=[DXRemoteWebDAV new];_davServer=[[DXRemoteHTTP alloc]initWithQueue:_queue];
   _workspace=[[DXRemoteWorkspace alloc]initWithQueue:_queue];
   NSMutableSet *assetPaths=[NSMutableSet new];NSString *web=[NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:@"RemoteWeb"];for(NSString *name in [NSFileManager.defaultManager enumeratorAtPath:web]){NSDictionary *attributes=[NSFileManager.defaultManager attributesOfItemAtPath:[web stringByAppendingPathComponent:name] error:nil];if([attributes[NSFileType] isEqual:NSFileTypeRegular])[assetPaths addObject:[@"/" stringByAppendingString:name]];}_assetPaths=assetPaths.copy;
   _access=[[DXRemoteAccess alloc]initWithStore:store];_server=[[DXRemoteHTTP alloc]initWithQueue:_queue];
@@ -72,11 +72,11 @@ static NSDictionary *Error(NSInteger status,NSString *code,NSString *message){re
   _davServer.stateChanged=^(NSString *state){DXRemoteService *s=weak;if(!s)return;s.davState=state;if([state isEqual:@"failed"])s.davError=@"WebDAV 端口监听失败";[s.access record:[@"webdav_" stringByAppendingString:state]];[s publish];};
   _davServer.asyncHandler=^(NSDictionary *request,void(^complete)(NSDictionary *)){
    DXRemoteService *s=weak;if(!s){complete(Error(503,@"stopped",@"服务已停止"));return;}
-   NSString *authorization=request[@"headers"][@"authorization"],*token=nil;if([authorization hasPrefix:@"Basic "]){NSData *data=[[NSData alloc]initWithBase64EncodedString:[authorization substringFromIndex:6] options:0];NSString *plain=[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding];if([plain hasPrefix:@"dylix:"])token=[plain substringFromIndex:6];}
-   NSDictionary *device=token?[s.access authenticateCookie:[@"DylixRemoteSession=" stringByAppendingString:token] name:@"DylixRemoteSession"]:nil;
-   if(![device[@"permission"] isEqual:@"webdav"]||![device[@"projectID"] isEqual:s.davProject]){complete(@{@"status":@401,@"type":@"text/plain",@"body":NSData.data,@"headers":@{@"WWW-Authenticate":@"Basic realm=\"Dylix WebDAV\", charset=\"UTF-8\""}});return;}
+   NSString *authorization=request[@"headers"][@"authorization"],*token=nil;if([authorization hasPrefix:@"Basic "]){NSData *data=[[NSData alloc]initWithBase64EncodedString:[authorization substringFromIndex:6] options:0];NSString *plain=[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding];if([plain hasPrefix:@"workbench:"])token=[plain substringFromIndex:6];}
+   NSDictionary *device=token?[s.access authenticateCookie:[@"WorkbenchRemoteSession=" stringByAppendingString:token] name:@"WorkbenchRemoteSession"]:nil;
+   if(![device[@"permission"] isEqual:@"webdav"]||![device[@"projectID"] isEqual:s.davProject]){complete(@{@"status":@401,@"type":@"text/plain",@"body":NSData.data,@"headers":@{@"WWW-Authenticate":@"Basic realm=\"Workbench WebDAV\", charset=\"UTF-8\""}});return;}
    if(![s.snapshot[@"protectedDataAvailable"] boolValue]){complete(Error(423,@"device_locked",@"请先解锁手机"));return;}NSString *root=s.davRoot,*origin=s.davServer.origin;BOOL readOnly=s.davReadOnly||[device[@"readOnly"] boolValue];[s publish];
-   dispatch_async(TMCGitService.queue,^{__block BOOL valid=NO;dispatch_sync(s.queue,^{valid=[s.davState isEqual:@"running"]&&[s.davProject isEqual:device[@"projectID"]]&&[s.access authenticateCookie:[@"DylixRemoteSession=" stringByAppendingString:token] name:@"DylixRemoteSession"]!=nil;});if(!valid){complete(Error(403,@"revoked",@"授权已撤销"));return;}complete([s.dav respond:request root:root readOnly:readOnly origin:origin]);});
+   dispatch_async(TMCGitService.queue,^{__block BOOL valid=NO;dispatch_sync(s.queue,^{valid=[s.davState isEqual:@"running"]&&[s.davProject isEqual:device[@"projectID"]]&&[s.access authenticateCookie:[@"WorkbenchRemoteSession=" stringByAppendingString:token] name:@"WorkbenchRemoteSession"]!=nil;});if(!valid){complete(Error(403,@"revoked",@"授权已撤销"));return;}complete([s.dav respond:request root:root readOnly:readOnly origin:origin]);});
   };
   _server.handler=^NSDictionary *(NSDictionary *r){return [weak handle:r]?:Error(503,@"stopped",@"服务已停止");};
   _server.stateChanged=^(NSString *state){DXRemoteService *s=weak;if(!s)return;s.state=state;if([state isEqual:@"failed"]){s.failure=@"监听失败，请检查端口占用及本地网络权限";[s.access resetEphemeral];}[s.access record:[@"server_" stringByAppendingString:state]];[s publish];};
@@ -113,7 +113,7 @@ static NSDictionary *Error(NSInteger status,NSString *code,NSString *message){re
  if(![@[@"running",@"starting",@"suspended"] containsObject:self.localState[@"state"]]&&![@[@"running",@"starting",@"suspended"] containsObject:self.localState[@"davState"]])return;
  TFAIAudioBackgroundAcquire(@"remote");
  [self endBackgroundGrace];NSUInteger generation=++self.backgroundGeneration;__weak typeof(self) weak=self;
- self.backgroundTask=[UIApplication.sharedApplication beginBackgroundTaskWithName:@"Dylix Remote transfer" expirationHandler:^{dispatch_async(dispatch_get_main_queue(),^{DXRemoteService *s=weak;if(!s||generation!=s.backgroundGeneration)return;[s backgroundExpired];});}];
+ self.backgroundTask=[UIApplication.sharedApplication beginBackgroundTaskWithName:@"Workbench Remote transfer" expirationHandler:^{dispatch_async(dispatch_get_main_queue(),^{DXRemoteService *s=weak;if(!s||generation!=s.backgroundGeneration)return;[s backgroundExpired];});}];
  BOOL granted=self.backgroundTask!=UIBackgroundTaskInvalid,audio=TFAIAudioBackgroundPlaying();dispatch_async(self.queue,^{self.lifecycle=audio?@"background_audio":(granted?@"background_grace":@"background_system");[self.access record:@"entered_background"];[self publish];});[self refresh];
 }
 - (void)foreground{
@@ -129,7 +129,7 @@ static NSDictionary *Error(NSInteger status,NSString *code,NSString *message){re
  NSDictionary *info=NSBundle.mainBundle.infoDictionary;
  NSMutableArray *sdks=[NSMutableArray new];for(NSString *stem in @[@"SDK",@"SDK26"]){NSDictionary *manifest=[NSDictionary dictionaryWithContentsOfFile:[NSBundle.mainBundle pathForResource:[stem stringByAppendingString:@"Resource"] ofType:@"plist"]];if([manifest[@"version"] isKindOfClass:NSString.class])[sdks addObject:manifest[@"version"]];}
  NSDictionary *settings=TMCSDKBuildSettings(@{},NSUserDefaults.standardUserDefaults,nil);
- NSDictionary *snapshot=@{@"deviceName":UIDevice.currentDevice.name?:@"Dylix",@"system":UIDevice.currentDevice.systemName,@"systemVersion":UIDevice.currentDevice.systemVersion,@"version":info[@"CFBundleShortVersionString"]?:@"dev",@"build":info[@"CFBundleVersion"]?:@"dev",@"theme":@([NSUserDefaults.standardUserDefaults integerForKey:@"StudioTheme"]),@"sdk":sdks.copy,@"defaultSDK":settings[@"sdkVersion"]?:@"配置无效",@"minimumOS":settings[@"deploymentTarget"]?:@"配置无效",@"buildRunning":@(TMCBuildIsRunning()),@"foreground":@(UIApplication.sharedApplication.applicationState==UIApplicationStateActive),@"protectedDataAvailable":@(!self.protectedDataLocked&&UIApplication.sharedApplication.isProtectedDataAvailable),@"capabilities":@[@"overview:read",@"workspace"],@"phase":@5};
+ NSDictionary *snapshot=@{@"deviceName":UIDevice.currentDevice.name?:@"Workbench",@"system":UIDevice.currentDevice.systemName,@"systemVersion":UIDevice.currentDevice.systemVersion,@"version":info[@"CFBundleShortVersionString"]?:@"dev",@"build":info[@"CFBundleVersion"]?:@"dev",@"theme":@([NSUserDefaults.standardUserDefaults integerForKey:@"StudioTheme"]),@"sdk":sdks.copy,@"defaultSDK":settings[@"sdkVersion"]?:@"配置无效",@"minimumOS":settings[@"deploymentTarget"]?:@"配置无效",@"buildRunning":@(TMCBuildIsRunning()),@"foreground":@(UIApplication.sharedApplication.applicationState==UIApplicationStateActive),@"protectedDataAvailable":@(!self.protectedDataLocked&&UIApplication.sharedApplication.isProtectedDataAvailable),@"capabilities":@[@"overview:read",@"workspace"],@"phase":@5};
  NSString *address=WiFiAddress();
 #if TARGET_OS_SIMULATOR
  if([NSProcessInfo.processInfo.arguments containsObject:@"--remote-test"])address=@"127.0.0.1";
@@ -143,7 +143,7 @@ static NSDictionary *Error(NSInteger status,NSString *code,NSString *message){re
 - (void)publish{
  NSArray *devices=self.access.devices;NSUInteger online=0;for(NSDictionary *device in devices)if([device[@"online"] boolValue])online++;
  NSDictionary *state=@{@"state":self.state?:@"stopped",@"address":self.address?:@"",@"url":[self.state isEqual:@"running"]?(self.server.origin?:@""):@"",@"port":@(self.port),@"enabled":@(self.wantsHTTP||self.wantsDAV),@"httpEnabled":@(self.wantsHTTP),@"davEnabled":@(self.wantsDAV),@"tls":@NO,@"lifecycle":self.lifecycle?:@"foreground",@"codeMode":self.access.fixedCode?@"fixed":@"random",@"code":self.access.pairingCode?:@"",@"codeExpiry":@(self.access.codeExpiry),@"pending":self.access.pending,@"devices":devices,@"online":@(online),@"logs":self.access.events,@"error":self.failure?:@"",@"webdav":@([self.davState isEqual:@"running"]),@"davState":self.davState?:@"stopped",@"davPort":@(self.davPort),@"davURL":[self.davState isEqual:@"running"]?self.davServer.origin?:@"":@"",@"davProject":self.davProject?:@"",@"davCredential":self.davCredential?:@{},@"davError":self.davError?:@""};
- NSMutableDictionary *published=[state mutableCopy];published[@"networkMode"]=DXRemoteSelectedMode([NSUserDefaults.standardUserDefaults stringForKey:@"DylixRemoteNetworkMode"]);
+ NSMutableDictionary *published=[state mutableCopy];published[@"networkMode"]=DXRemoteSelectedMode([NSUserDefaults.standardUserDefaults stringForKey:@"WorkbenchRemoteNetworkMode"]);
  dispatch_async(dispatch_get_main_queue(),^{self.localState=published;if(![@[@"running",@"starting",@"suspended"] containsObject:state[@"state"]]&&![@[@"running",@"starting",@"suspended"] containsObject:state[@"davState"]])TFAIAudioBackgroundRelease(@"remote");TFScreenAwakeSet(@"remote",[@[@"running",@"starting"] containsObject:state[@"state"]]||[@[@"running",@"starting"] containsObject:state[@"davState"]]);});
 }
 - (void)start{
@@ -160,14 +160,14 @@ static NSDictionary *Error(NSInteger status,NSString *code,NSString *message){re
 - (void)stop{[self endBackgroundGrace];dispatch_async(self.queue,^{self.wantsHTTP=NO;self.wantsDAV=NO;[self.davServer stop];self.davState=@"stopped";self.davCredential=nil;[self.workspace stop];[self.server stop];[self.access resetEphemeral];self.state=@"stopped";[self.access record:@"server_stopped"];[self publish];});}
 - (void)setNetworkMode:(NSString *)mode{
  if(![@[@"wifi",@"local"] containsObject:mode])return;
- dispatch_async(self.queue,^{if(self.wantsHTTP||self.wantsDAV){self.failure=@"请先关闭 HTTP 与 WebDAV，再切换连接方式";[self publish];return;}[NSUserDefaults.standardUserDefaults setObject:mode forKey:@"DylixRemoteNetworkMode"];self.failure=nil;dispatch_async(dispatch_get_main_queue(),^{[self refresh];});});
+ dispatch_async(self.queue,^{if(self.wantsHTTP||self.wantsDAV){self.failure=@"请先关闭 HTTP 与 WebDAV，再切换连接方式";[self publish];return;}[NSUserDefaults.standardUserDefaults setObject:mode forKey:@"WorkbenchRemoteNetworkMode"];self.failure=nil;dispatch_async(dispatch_get_main_queue(),^{[self refresh];});});
 }
 - (void)setPort:(NSUInteger)port{if(port<1024||port>65535)return;dispatch_async(self.queue,^{if([@[@"running",@"starting"] containsObject:self.state])return;self->_port=port;
 #if TARGET_OS_SIMULATOR
  if(![NSProcessInfo.processInfo.arguments containsObject:@"--remote-regression"])
 #endif
- [NSUserDefaults.standardUserDefaults setInteger:port forKey:@"DylixRemotePort"];[self publish];});}
-- (void)setWebDAVPort:(NSUInteger)port{if(port<1024||port>65535)return;dispatch_async(self.queue,^{if([@[@"running",@"starting"] containsObject:self.davState])return;self.davPort=port;[NSUserDefaults.standardUserDefaults setInteger:port forKey:@"DylixRemoteDAVPort"];[self publish];});}
+ [NSUserDefaults.standardUserDefaults setInteger:port forKey:@"WorkbenchRemotePort"];[self publish];});}
+- (void)setWebDAVPort:(NSUInteger)port{if(port<1024||port>65535)return;dispatch_async(self.queue,^{if([@[@"running",@"starting"] containsObject:self.davState])return;self.davPort=port;[NSUserDefaults.standardUserDefaults setInteger:port forKey:@"WorkbenchRemoteDAVPort"];[self publish];});}
 - (void)stopWebDAV{dispatch_async(self.queue,^{self.wantsDAV=NO;if(self.davCredential[@"id"])[self.access revoke:self.davCredential[@"id"] error:nil];[self.davServer stop];self.davState=@"stopped";self.davCredential=nil;[self.access record:@"webdav_stopped"];[self publish];});}
 - (void)startWebDAVProject:(NSString *)project readOnly:(BOOL)readOnly{
  if(UIApplication.sharedApplication.applicationState!=UIApplicationStateActive)return;NSString *root=nil;for(NSDictionary *p in TFAIInternalProjects())if([p[@"id"] isEqual:project])root=p[@"root"];
@@ -200,7 +200,7 @@ static NSDictionary *Error(NSInteger status,NSString *code,NSString *message){re
  if([self.assetPaths containsObject:path]&&[path hasPrefix:@"/monaco/"]&&[@[@"GET",@"HEAD"] containsObject:method]){
   NSString *relative=[path substringFromIndex:1],*ext=relative.pathExtension.lowercaseString;NSDictionary *types=@{@"js":@"text/javascript",@"css":@"text/css",@"json":@"application/json",@"ttf":@"font/ttf",@"svg":@"image/svg+xml"};NSString *file=[[NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:@"RemoteWeb"] stringByAppendingPathComponent:relative];BOOL gzip=NO;for(NSString *encoding in [headers[@"accept-encoding"] componentsSeparatedByString:@","]){NSString *value=[encoding stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];if([value isEqual:@"gzip"])gzip=YES;}NSData *compressed=gzip?[NSData dataWithContentsOfFile:[file stringByAppendingString:@".gz"]]:nil;NSData *bytes=compressed?:[NSData dataWithContentsOfFile:file];if(!bytes)return Error(503,@"missing_resource",@"编辑器资源缺失");return @{@"status":@200,@"type":types[ext]?:@"application/octet-stream",@"body":bytes,@"headers":compressed?@{@"Content-Encoding":@"gzip",@"Vary":@"Accept-Encoding"}:@{@"Vary":@"Accept-Encoding"}};
  }
- if([path isEqual:@"/health"]&&[method isEqual:@"GET"])return DXRemoteResponse(200,@{@"schema":@1,@"data":@{@"service":@"Dylix Remote",@"state":self.state}});
+ if([path isEqual:@"/health"]&&[method isEqual:@"GET"])return DXRemoteResponse(200,@{@"schema":@1,@"data":@{@"service":@"Workbench Remote",@"state":self.state}});
  if([path isEqual:@"/api/v1/pair"]&&[method isEqual:@"POST"]){
   if(![headers[@"origin"] isEqual:origin])return Error(403,@"origin_required",@"配对需要同源请求");
   if(![[headers[@"content-type"] lowercaseString] hasPrefix:@"application/json"])return Error(415,@"json_required",@"请发送 JSON");
@@ -214,7 +214,7 @@ static NSDictionary *Error(NSInteger status,NSString *code,NSString *message){re
   if(result[@"token"]){response[@"headers"]=@{@"Set-Cookie":[NSString stringWithFormat:@"%@=%@; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000",self.cookieName,result[@"token"]]};}[self publish];return response;
  }
  NSDictionary *device=[self.access authenticateCookie:headers[@"cookie"]?:@"" name:self.cookieName];if([device[@"permission"] isEqual:@"webdav"])device=nil;if(!device)return Error(401,@"authentication_required",@"请先在手机上配对此浏览器");
- if(![@[@"GET",@"HEAD"] containsObject:method]&&(![headers[@"origin"] isEqual:origin]||![headers[@"x-dylix-csrf"] isEqual:device[@"csrf"]]))return Error(403,@"csrf_rejected",@"请求确认信息已过期，请刷新");
+ if(![@[@"GET",@"HEAD"] containsObject:method]&&(![headers[@"origin"] isEqual:origin]||![headers[@"x-workbench-csrf"] isEqual:device[@"csrf"]]))return Error(403,@"csrf_rejected",@"请求确认信息已过期，请刷新");
  if([path isEqual:@"/api/v1/flex/next"]&&[method isEqual:@"GET"]){
   if(![device[@"permission"] isEqual:@"workspace"])return Error(403,@"workspace_required",@"FLEX 实时连接需要工作区授权");
   if(![self.snapshot[@"protectedDataAvailable"] boolValue])return Error(423,@"device_locked",@"设备已锁定");

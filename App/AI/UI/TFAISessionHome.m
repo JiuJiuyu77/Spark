@@ -1,7 +1,7 @@
 #import "../Sessions/TFAISessionArchive.h"
 #import "../AIV2Contracts.h"
 #import "TFAIUIHelpers.h"
-static dispatch_queue_t HomeQueue(void){static dispatch_queue_t q;static dispatch_once_t once;dispatch_once(&once,^{q=dispatch_queue_create("tweakforge.ai.home",DISPATCH_QUEUE_SERIAL);});return q;}
+static dispatch_queue_t HomeQueue(void){static dispatch_queue_t q;static dispatch_once_t once;dispatch_once(&once,^{q=dispatch_queue_create("workbench.ai.home",DISPATCH_QUEUE_SERIAL);});return q;}
 @interface TFAISessionCell : UITableViewCell
 @property UILabel *sessionTitle,*summaryLabel,*projectLabel,*timeLabel;
 @property UIImageView *symbol;
@@ -22,7 +22,7 @@ static dispatch_queue_t HomeQueue(void){static dispatch_queue_t q;static dispatc
 @property(copy) void (^pendingExport)(void);
 @end
 @implementation TFAISessionHome
-- (void)viewDidLoad{[super viewDidLoad];[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(reload) name:@"DylixSessionArchiveImported" object:nil];self.title=self.scope?@"项目 AI 会话":@"AI 会话";self.tableView.backgroundColor=UIColor.systemGroupedBackgroundColor;self.tableView.rowHeight=UITableViewAutomaticDimension;self.tableView.estimatedRowHeight=110;self.records=@[];self.visible=@[];self.navigationItem.rightBarButtonItem=AIBar(@"square.and.pencil",@"新建会话",self,@selector(create));UISearchController *search=[[UISearchController alloc]init];search.searchResultsUpdater=self;search.obscuresBackgroundDuringPresentation=NO;search.searchBar.placeholder=@"搜索标题、摘要或项目";self.navigationItem.searchController=search;self.navigationItem.hidesSearchBarWhenScrolling=NO;self.definesPresentationContext=YES;[self reload];}
+- (void)viewDidLoad{[super viewDidLoad];[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(reload) name:@"WorkbenchSessionArchiveImported" object:nil];self.title=self.scope?@"项目 AI 会话":@"AI 会话";self.tableView.backgroundColor=UIColor.systemGroupedBackgroundColor;self.tableView.rowHeight=UITableViewAutomaticDimension;self.tableView.estimatedRowHeight=110;self.records=@[];self.visible=@[];self.navigationItem.rightBarButtonItem=AIBar(@"square.and.pencil",@"新建会话",self,@selector(create));UISearchController *search=[[UISearchController alloc]init];search.searchResultsUpdater=self;search.obscuresBackgroundDuringPresentation=NO;search.searchBar.placeholder=@"搜索标题、摘要或项目";self.navigationItem.searchController=search;self.navigationItem.hidesSearchBarWhenScrolling=NO;self.definesPresentationContext=YES;[self reload];}
 - (void)viewWillAppear:(BOOL)animated{[super viewWillAppear:animated];[self.navigationController setToolbarHidden:YES animated:NO];[self reload];__weak typeof(self) weak=self;[self.liveTimer invalidate];self.liveTimer=[NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer *timer){[weak refreshLiveIndicators];}];}
 - (void)viewWillDisappear:(BOOL)animated{[super viewWillDisappear:animated];[self.liveTimer invalidate];self.liveTimer=nil;}
 - (void)dealloc{[NSNotificationCenter.defaultCenter removeObserver:self];[self.liveTimer invalidate];}

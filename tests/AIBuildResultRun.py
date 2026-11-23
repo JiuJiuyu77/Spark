@@ -30,7 +30,7 @@ report[@"success"]=@NO;[[NSJSONSerialization dataWithJSONObject:report options:0
 [NSFileManager.defaultManager removeItemAtPath:path error:nil];Check([editor aiBuildResult][@"error"]!=nil,@"missing report gives explicit error");
 [NSFileManager.defaultManager removeItemAtPath:dir error:nil];}}
 '''.replace('METHOD',method)
-with tempfile.TemporaryDirectory(prefix='dylix-build-report-') as tmp:
+with tempfile.TemporaryDirectory(prefix='workbench-build-report-') as tmp:
  p=Path(tmp);(p/'test.m').write_text(fixture)
  subprocess.run(['xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk','-fobjc-arc','-Wno-incompatible-pointer-types',str(p/'test.m'),'-framework','Foundation','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test')],check=True)

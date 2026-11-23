@@ -8,7 +8,7 @@ import tempfile
 root = Path(__file__).resolve().parents[1]
 cli_sdk = Path('/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk')
 sdk = str(cli_sdk) if cli_sdk.exists() else subprocess.check_output(['xcrun', '--sdk', 'macosx', '--show-sdk-path'], text=True).strip()
-with tempfile.TemporaryDirectory(prefix='tweakforge-permission-v4-') as work:
+with tempfile.TemporaryDirectory(prefix='workbench-permission-v4-') as work:
     work = Path(work)
     include = json.dumps(str(root / 'tests/AIPermissionV4Regression.inc'), ensure_ascii=False)
     main = work / 'main.m'

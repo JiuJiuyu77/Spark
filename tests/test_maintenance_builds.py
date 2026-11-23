@@ -1,6 +1,6 @@
 """Run real embedded compiler and inspect payloads on disposable simulator fixtures."""
 import io,json,pathlib,plistlib,subprocess,tarfile,tempfile,time
-R=pathlib.Path(__file__).resolve().parents[1];O=R/'evidence/1.0.0-maintenance';D='059E3F19-5F2D-4C4F-86B2-C39F89179142';B='com.xuegao.theosmobilecompiler'
+R=pathlib.Path(__file__).resolve().parents[1];O=R/'evidence/1.0.0-maintenance';D='059E3F19-5F2D-4C4F-86B2-C39F89179142';B='com.HuQing.Workbench'
 def sim(*args):return subprocess.check_output(['xcrun','simctl',*map(str,args)],text=True).strip()
 doc=pathlib.Path(sim('get_app_container',D,B,'data'))/'Documents';results=[]
 with tempfile.TemporaryDirectory(prefix='tf-maint-builds-') as temp:

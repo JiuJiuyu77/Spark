@@ -22,4 +22,4 @@
 
 结构对照了 theos/theos 的 `makefiles/instance/rules.mk`（构建、裁剪后签名），以及 opa334/Dopamine 的 2.x 分支 `BaseBin/dyldhook/src/lv_bypass.c` 与 `BaseBin/launchdhook/src/jbserver/jbdomain_systemwide.c`（加载时签名与 CDHash 信任处理）。本次没有复制这些项目的实现。
 
-本校验针对 Dylix 自己生成的 thin ARM64、SHA-256 ad-hoc dylib，不是任意第三方签名验证器，不等同于设备 trustcache/宿主兼容验证。未取得本次用户失败的 rootless deb，也未在 Dopamine 真机注入 QXCapturePlus；原项目需要在本版本重新构建后再测，旧 deb 不会自动修复。未改变已有人设、工具审批或项目文件。
+本校验针对 Workbench 自己生成的 thin ARM64、SHA-256 ad-hoc dylib，不是任意第三方签名验证器，不等同于设备 trustcache/宿主兼容验证。未取得本次用户失败的 rootless deb，也未在 Dopamine 真机注入 QXCapturePlus；原项目需要在本版本重新构建后再测，旧 deb 不会自动修复。未改变已有人设、工具审批或项目文件。

@@ -26,4 +26,4 @@ UIKit 使用生产 FLEX Chat / Runtime / StatusWindow，HTTP 与无关服务为�
 
 ## 安装
 
-需要同时更新 Dylix Build 210 和 FLEX 插件，目标 App 重启以加载新 dylib。只升级 Dylix 不会更新已注入的插件。IPA 内置新 deb/dylib，交付目录也分别提供。配置、项目、审批、工具定义、人设及 SDK26 主程序构建方式保留。
+需要同时更新 Workbench Build 210 和 FLEX 插件，目标 App 重启以加载新 dylib。只升级 Workbench 不会更新已注入的插件。IPA 内置新 deb/dylib，交付目录也分别提供。配置、项目、审批、工具定义、人设及 SDK26 主程序构建方式保留。

@@ -39,7 +39,7 @@ def build(platform, source=None, output=None):
     sdkroot = subprocess.check_output(['xcrun', '--sdk', sdk, '--show-sdk-path'], text=True).strip()
     clang = subprocess.check_output(['xcrun', '--find', 'clang'], text=True).strip()
     # A short, ASCII alias also supports old upstream scripts and toolchains.
-    alias = Path('/tmp') / ('dylix-ish-sdk-' + sdk)
+    alias = Path('/tmp') / ('workbench-ish-sdk-' + sdk)
     if alias.is_symlink(): alias.unlink()
     if not alias.exists(): alias.symlink_to(sdkroot, target_is_directory=True)
     target = 'arm64-apple-ios15.0' + ('-simulator' if platform == 'simulator' else '')
@@ -56,8 +56,8 @@ def build(platform, source=None, output=None):
     env.pop('DYLD_LIBRARY_PATH', None)
     env.pop('DYLD_FRAMEWORK_PATH', None)
     # Do not put a downloaded clang/ld64 ahead of Apple's tools.
-    lld = env.get('DYLIX_LLD') or shutil.which('ld.lld')
-    if not lld: raise SystemExit('Set DYLIX_LLD to LLVM ld.lld (guest ELF linker).')
+    lld = env.get('WORKBENCH_LLD') or shutil.which('ld.lld')
+    if not lld: raise SystemExit('Set WORKBENCH_LLD to LLVM ld.lld (guest ELF linker).')
     bindir = output / 'tools'; bindir.mkdir(exist_ok=True)
     link = bindir / 'ld.lld'
     if link.exists() or link.is_symlink(): link.unlink()
@@ -71,7 +71,7 @@ def build(platform, source=None, output=None):
     if not meson or not ninja: raise SystemExit('Install meson and ninja in your Python environment.')
     builddir = output / 'meson'
     command = [meson, 'setup', str(builddir), str(source), '--cross-file', str(cross),
-        '-Dguest_arch=arm64', '-Dengine=asbestos', '-Djit=false', '-Dc_args=-DDYLIX_EMBEDDED_SANDBOX=1', '--buildtype=release']
+        '-Dguest_arch=arm64', '-Dengine=asbestos', '-Djit=false', '-Dc_args=-DWORKBENCH_EMBEDDED_SANDBOX=1', '--buildtype=release']
     if (builddir / 'build.ninja').exists(): command.append('--reconfigure')
     run(command, env=env)
     run([ninja, '-C', builddir, *LIBS], env=env)

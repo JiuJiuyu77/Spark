@@ -1,6 +1,6 @@
 #import <UIKit/UIKit.h>
 
-@interface FLEXDylixChatViewController : UIViewController
+@interface FLEXWorkbenchChatViewController : UIViewController
 @property(nonatomic,copy) NSString *(^reportProvider)(void);
 @property(nonatomic,weak) id selectedObject;
 - (instancetype)initWithReport:(NSString *)report className:(NSString *)className;

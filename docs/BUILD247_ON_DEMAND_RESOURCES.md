@@ -23,7 +23,7 @@
 
 ## 下载与完整性
 
-固定资源位于 `https://dylib.cn/downloads/dylix/v1/`，文件名包含哈希前缀。App 内清单固定完整 SHA-256 和字节数。HTTPS 下载拒绝跳转，使用临时会话，不保存 Cookie；大小或哈希不符不安装。同一资源并发请求合并，支持取消及重新点击重试；暂不提供断点续传。
+固定资源位于 `https://dylib.cn/downloads/workbench/v1/`，文件名包含哈希前缀。App 内清单固定完整 SHA-256 和字节数。HTTPS 下载拒绝跳转，使用临时会话，不保存 Cookie；大小或哈希不符不安装。同一资源并发请求合并，支持取消及重新点击重试；暂不提供断点续传。
 
 下载内容限 SDK 数据和隔离 Linux 环境归档，不下载加载替代 iOS 原生签名 Framework。
 
@@ -43,7 +43,7 @@
 
 本轮复查三条生产资源 URL 均为 HTTP 404，尚未上传服务器。App 按需下载不能在部署前对外宣称可用。
 
-将 `build/Dylix-1.1.1-build247-website-resources.zip` 的 `downloads` 文件夹合并到 `/www/wwwroot/dylib.cn/`，保留文件名及 notices。无需数据库、PHP 接口、Token 或覆盖整份 Nginx 配置。使用部署包内的校验脚本执行完整下载校验，三项 PASS 后再分发精简版。
+将 `build/Workbench-1.1.1-build247-website-resources.zip` 的 `downloads` 文件夹合并到 `/www/wwwroot/dylib.cn/`，保留文件名及 notices。无需数据库、PHP 接口、Token 或覆盖整份 Nginx 配置。使用部署包内的校验脚本执行完整下载校验，三项 PASS 后再分发精简版。
 
 ## 主要实现文件
 

@@ -1,4 +1,4 @@
-# FLEX 1.0.21 / Dylix 1.0.7 build190
+# FLEX 1.0.21 / Workbench 1.0.7 build190
 
 日期：2026-11-05
 
@@ -6,9 +6,9 @@
 
 旧版 `DXRememberedChat` 只存在于进程内存，无法跨目标 App 进程退出保留。
 
-新版在目标 App 自己的 `Library/Application Support/FLEXDylix/connection.plist` 原子保存地址、实际端口、项目 ID/名称、连接 ID、原始模型 ID/名称、会话 ID/标题。授权码、认证令牌、CSRF 值只存目标 App 钥匙串，使用设备本地的首次解锁后可访问属性；不随 dylib 分发，也不写普通配置、日志和聊天历史。
+新版在目标 App 自己的 `Library/Application Support/FLEXWorkbench/connection.plist` 原子保存地址、实际端口、项目 ID/名称、连接 ID、原始模型 ID/名称、会话 ID/标题。授权码、认证令牌、CSRF 值只存目标 App 钥匙串，使用设备本地的首次解锁后可访问属性；不随 dylib 分发，也不写普通配置、日志和聊天历史。
 
-UI 选择变化立即保存。流式消息正文只在内存保留；进程重启后从认证后的 Dylix 服务重新获取会话历史。恢复连接先验证令牌，再核对项目与准确模型 ID，不静默切换模型。恢复过程中暂不接收新发送，避免历史加载覆盖新消息。配置失效或服务暂时离线时保留地址和选择，允许再次校验保存的连接，或使用预填的地址/授权码重新配对。随机一次性授权码失效后不能绕过服务端校验，需输入新的有效码。
+UI 选择变化立即保存。流式消息正文只在内存保留；进程重启后从认证后的 Workbench 服务重新获取会话历史。恢复连接先验证令牌，再核对项目与准确模型 ID，不静默切换模型。恢复过程中暂不接收新发送，避免历史加载覆盖新消息。配置失效或服务暂时离线时保留地址和选择，允许再次校验保存的连接，或使用预填的地址/授权码重新配对。随机一次性授权码失效后不能绕过服务端校验，需输入新的有效码。
 
 主动断开清除保存的授权信息，保留地址和项目、模型、会话选择。不会在重启时自动恢复工具操作审批，也不会恢复已中断的 AI 任务。新版本第一次配置后才能持久化，旧版从未落盘的内存数据不能凭空恢复。
 
@@ -41,6 +41,6 @@ UI 选择变化立即保存。流式消息正文只在内存保留；进程重�
 
 ## 本期代码位置
 
-- FLEX：`FLEXDylixPreferences.h/.m`、`FLEXDylixChatViewController.m`、`Makefile`。
-- Dylix：`TFAIToolbox.m`、`TFAIBuildCache.h/.m`、`TFAIBuildQueue.h/.m`、`Studio.m`、`CompilerController.h`、`main.m`、构建号及内置 FLEX 包清单。
+- FLEX：`FLEXWorkbenchPreferences.h/.m`、`FLEXWorkbenchChatViewController.m`、`Makefile`。
+- Workbench：`TFAIToolbox.m`、`TFAIBuildCache.h/.m`、`TFAIBuildQueue.h/.m`、`Studio.m`、`CompilerController.h`、`main.m`、构建号及内置 FLEX 包清单。
 - 测试：工具、FLEX UIKit/重启持久化、Agent 队列及内嵌编译器集成回归。

@@ -5,22 +5,22 @@
   "ipaSHA256": "94ce59bb0c1b9e2826c5facbd9d9d948bd240f81be663116672e8768ab1ca25f",
   "ipaBytes": 139963380,
   "componentVersions": {
-    "Payload/TheosMobileCompiler.app/Info.plist": {
+    "Payload/Workbench.app/Info.plist": {
       "version": "1.0.9",
       "build": "201",
       "minimumOS": "15.0"
     },
-    "Payload/TheosMobileCompiler.app/PlugIns/TweakForgeShare.appex/Info.plist": {
+    "Payload/Workbench.app/PlugIns/WorkbenchShare.appex/Info.plist": {
       "version": "1.0.9",
       "build": "201",
       "minimumOS": "15.0"
     },
-    "Payload/TheosMobileCompiler.app/PlugIns/TweakForgeActivity.appex/Info.plist": {
+    "Payload/Workbench.app/PlugIns/WorkbenchActivity.appex/Info.plist": {
       "version": "1.0.9",
       "build": "201",
       "minimumOS": "16.2"
     },
-    "Payload/TheosMobileCompiler.app/Frameworks/TFTaskActivity.framework/Info.plist": {
+    "Payload/Workbench.app/Frameworks/TFTaskActivity.framework/Info.plist": {
       "version": "1.0.9",
       "build": "201",
       "minimumOS": "16.2"

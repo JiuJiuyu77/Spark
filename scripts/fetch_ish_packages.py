@@ -16,7 +16,7 @@ def download(url,path):
  subprocess.run(['curl','--fail','--location','--retry','3','--connect-timeout','20','--max-time','900','--continue-at','-','--silent','--show-error',url,'-o',str(temporary)],check=True)
  temporary.replace(path)
 def main():
- parser=argparse.ArgumentParser();parser.add_argument('--cache',type=Path,default=Path('/tmp/dylix-alpine-official'));args=parser.parse_args();args.cache.mkdir(parents=True,exist_ok=True)
+ parser=argparse.ArgumentParser();parser.add_argument('--cache',type=Path,default=Path('/tmp/workbench-alpine-official'));args=parser.parse_args();args.cache.mkdir(parents=True,exist_ok=True)
  packages={};providers={}
  for repo in ['main','community']:
   index=args.cache/(repo+'-APKINDEX.tar.gz');download(BASE+repo+'/aarch64/APKINDEX.tar.gz',index)

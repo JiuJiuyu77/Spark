@@ -1,4 +1,4 @@
-# Dylix Remote 架构与实施方案
+# Workbench Remote 架构与实施方案
 
 ## 1.0.7（160）当前实现摘要 · 2026-11-03
 
@@ -61,7 +61,7 @@ Network.framework提供局域网HTTP / HTTP1.1，工作台和WebDAV均使用明�
 
 随机8位码五分钟有效，授权成功持久化后消费；固定6–12位数字存本机钥匙串，手动更换前有效，支持多设备。有效码直接200，无手机二次批准；配对时请求 workspace 或 overview:read。配对失败按peer每分钟5次、全局20次限速；最多32设备。固定码是长期凭据，撤销设备后持码者仍可重配，应同时换码。
 
-会话通过 DylixRemoteSession，HttpOnly / SameSite=Strict / Path=/，30天有效；32字节随机令牌仅cookie传递，落盘只保存SHA256。变更同时校验Origin与CSRF。Host严格匹配实际IP端口，无wildcard CORS。静态资源来自bundle固定allowlist；模型Key、Git凭据、系统绝对路径不回传。日志不含code/token/body。
+会话通过 WorkbenchRemoteSession，HttpOnly / SameSite=Strict / Path=/，30天有效；32字节随机令牌仅cookie传递，落盘只保存SHA256。变更同时校验Origin与CSRF。Host严格匹配实际IP端口，无wildcard CORS。静态资源来自bundle固定allowlist；模型Key、Git凭据、系统绝对路径不回传。日志不含code/token/body。
 
 请求头16KiB；普通body8KiB，workspace JSON2MiB，DAV PUT8MiB；读取请求10秒、响应120秒、最多16连接，响应后关闭。拒绝重复header、Transfer-Encoding、管线、Upgrade。默认关闭，不自动公网映射，仅绑定私有Wi-Fi IPv4。iOS App退出或挂起期间不提供永久在线保证。
 

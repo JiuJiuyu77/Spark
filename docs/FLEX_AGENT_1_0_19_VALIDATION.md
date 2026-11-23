@@ -1,4 +1,4 @@
-# FLEX 1.0.19 / Dylix 1.0.7 build187
+# FLEX 1.0.19 / Workbench 1.0.7 build187
 
 日期：2026-11-05。设备版使用 iPhoneOS 26.0 SDK，最低 iOS 15。
 
@@ -31,9 +31,9 @@ Remote 原先保存消息/checkpoint，却没有把运行时工具事件映射�
 1. FLEX 生产 Chat / Runtime / TouchDriver UIKit 模拟器测试：79 项，0 失败。包含自定义视图和控制器的声明类、signature、无伪造生命周期执行结论；既有模型、会话权限、收起/恢复、触摸及滚动回归。
 2. 会话存储测试：35 项，0 失败。包含旧原生快照不能覆盖远程记录，远程更新保留用户草稿/附件。
 3. 附件及资源索引测试：102 项，0 失败。包含重复工具结果幂等，以及模型回复结束前立即索引构建产物。
-4. 实际 Dylix 模拟器 Studio→聊天→会话文件界面回归：7 项，0 失败。覆盖恢复的 8 字节选区不自动添加、显式所选代码菜单、已打开文件页立即收到产物、聊天记录刷新和远程同步不制造附件。
+4. 实际 Workbench 模拟器 Studio→聊天→会话文件界面回归：7 项，0 失败。覆盖恢复的 8 字节选区不自动添加、显式所选代码菜单、已打开文件页立即收到产物、聊天记录刷新和远程同步不制造附件。
 5. 生产 Remote HTTP 集成通过：真实本地 HTTP 模型回显、精确模型选择、无效模型拒绝、同一会话一次总授权、撤销/隔离、工具完成记录持久化、配对、心跳、16 KiB 回复、伪造回复拒绝及退出。
-6. FLEX arm64 rootless dylib/deb、Dylix 模拟器及设备 IPA 构建通过。IPA 内置同版本插件，交付时核对 manifest SHA-256、deb 内 dylib 和独立 dylib 一致。
+6. FLEX arm64 rootless dylib/deb、Workbench 模拟器及设备 IPA 构建通过。IPA 内置同版本插件，交付时核对 manifest SHA-256、deb 内 dylib 和独立 dylib 一致。
 
 ## 验证边界
 
@@ -41,7 +41,7 @@ Remote 原先保存消息/checkpoint，却没有把运行时工具事件映射�
 
 ## 主要文件
 
-- FLEX/FLEXDylixRuntime.m、FLEXDylixChatViewController.m、Makefile。
+- FLEX/FLEXWorkbenchRuntime.m、FLEXWorkbenchChatViewController.m、Makefile。
 - App/Studio.m、App/AI/UI/TFAIAttachmentMenu.m。
 - App/AI/Actions/TFAISessionResources.h/.m、App/Remote/DXRemoteWorkspace.m。
 - App/AI/Sessions/TFAISessions.m、App/AI/UI/TFAIChat.m、TFAISessionFiles.m。
@@ -50,4 +50,4 @@ Remote 原先保存消息/checkpoint，却没有把运行时工具事件映射�
 
 ## 安装验收
 
-配套更新 Dylix build187 与 FLEX 1.0.19。进入已有会话应不再自动添加旧代码；让 FLEX AI 构建时打开 Dylix 会话文件页，确认工具成功返回后即可看到产物。让 AI 对目标按钮读取 hookEvidence，再跨页面重进和复用验证定位条件。原有项目、人设、技能、记忆不清除。
+配套更新 Workbench build187 与 FLEX 1.0.19。进入已有会话应不再自动添加旧代码；让 FLEX AI 构建时打开 Workbench 会话文件页，确认工具成功返回后即可看到产物。让 AI 对目标按钮读取 hookEvidence，再跨页面重进和复用验证定位条件。原有项目、人设、技能、记忆不清除。

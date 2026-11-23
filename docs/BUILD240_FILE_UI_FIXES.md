@@ -8,7 +8,7 @@
 - 长按菜单动作排队到菜单 animator 完成后再启动导出；分享弹窗等待导航过渡完成。增加导出中提示与防重复触发。
 - 导出只遍历本会话引用的顶层资源 ID，跳过无关会话的大量头文件/构建目录，避免无反馈的全量扫描。保留原先 ZIP 限额和路径校验，正确处理应用容器路径别名。
 - 外部 Bookmark 可解析但 stale 时尝试刷新；损坏记录返回可理解错误。目录读取通过 NSFileCoordinator，安全作用域覆盖完整读取周期。
-- 阶段诊断保存在 Documents/DylixDiagnostics/file-ui.log，仅记录阶段及错误 domain/code，不记录目录路径、Bookmark、消息和密钥。
+- 阶段诊断保存在 Documents/WorkbenchDiagnostics/file-ui.log，仅记录阶段及错误 domain/code，不记录目录路径、Bookmark、消息和密钥。
 
 ## 源码核对
 
@@ -23,6 +23,6 @@
 - SessionArchive239SimulatorRun.py：iPhone/iPad 各 10 项生产设置/菜单排队/原生分享/识别导入/刷新检查通过。
 - ISHRuntimeRun.py --data237：目录授权、重复错误展示、取消后重试、独立页面及 guest 文件链路通过。
 - 实际 UI：在 iOS 18.3 ARM64 验证程序（使用生产目录代码）中，通过系统 Files 进入另一个 App 的测试目录 FolderOpen240，真正点击右上角「打开」，返回列表显示已挂载，目录含 verify.txt；终止并重启后仍可用、仍能列出文件。
-- 实际 UI：完整 Dylix 模拟器 App，长按会话，点击导出，真实显示系统 ZIP 分享面板。
+- 实际 UI：完整 Workbench 模拟器 App，长按会话，点击导出，真实显示系统 ZIP 分享面板。
 - 完整模拟器 App 为 x86_64/Rosetta；其系统 Files 远程选择器出现空白，故目录的实际点击验证使用原生 ARM64 验证程序，未将其伪称为完整 App 全流程真机验证。
 - 设备包用 iOS 26 SDK 编译，最低 iOS 15；验证 ZIP 完整性和 ad-hoc 签名。本机只有 iOS 18.3 runtime，未验证 iOS 26 真机、iOS 15–17 或 iCloud Drive。

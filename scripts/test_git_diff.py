@@ -12,7 +12,7 @@ index abc..def 100644
  #import <Foundation/Foundation.h>
  @implementation Settings
 -- (NSString *)title { return @"Mobile Tweak"; }
-+- (NSString *)title { return @"TweakForge"; }
++- (NSString *)title { return @"Workbench"; }
 +- (BOOL)enabled { return YES; }
  @end
  // end

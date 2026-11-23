@@ -1,4 +1,4 @@
-# Dylix 1.0.5（143）
+# Workbench 1.0.5（143）
 
 - 修复本机 ARM64 构建中异常展开信息异常，导致部分插件注入后闪退的问题。
 - 补齐直接调用 Clang cc1 时遗漏的 Darwin 帧指针与 unwind-tables 默认参数。

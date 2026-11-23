@@ -18,7 +18,7 @@
   },
   "builds": {
     "private": {
-      "file": "Dylix-1.0.9-build203-unsigned.ipa",
+      "file": "Workbench-1.0.9-build203-unsigned.ipa",
       "bytes": 139969910,
       "sha256": "007ba129adb44437c9af64147fe8fb13323ef78090bd92b420faa3002b160183",
       "zipIntegrity": "passed",
@@ -27,7 +27,7 @@
       "flexManifest": "passed"
     },
     "public": {
-      "file": "Dylix-1.0.9-build203-opensource-unsigned.ipa",
+      "file": "Workbench-1.0.9-build203-opensource-unsigned.ipa",
       "bytes": 139873512,
       "sha256": "8ebc524962801b42477f436e9bc5d401b41896c0dadb269437a61031decb0ded",
       "zipIntegrity": "passed",

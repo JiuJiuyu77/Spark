@@ -13,16 +13,16 @@ struct TFActivityWidget: Widget {
             HStack(spacing: 12) {
                 Image(systemName: context.state.finished ? "checkmark.circle" : "sparkles").font(.title3)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Dylix AI").font(.headline)
+                    Text("Workbench AI").font(.headline)
                     Text(context.state.stage).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer()
                 if !context.state.finished { ProgressView().controlSize(.small).frame(width: 20, height: 20) }
             }.padding(16).activityBackgroundTint(Color(.secondarySystemBackground))
-             .widgetURL(URL(string: "tweakforge://ai"))
+             .widgetURL(URL(string: "workbench://ai"))
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) { Label("Dylix", systemImage: "sparkles").font(.subheadline).lineLimit(1).minimumScaleFactor(0.75) }
+                DynamicIslandExpandedRegion(.leading) { Label("Workbench", systemImage: "sparkles").font(.subheadline).lineLimit(1).minimumScaleFactor(0.75) }
                 DynamicIslandExpandedRegion(.trailing) { if !context.state.finished { ProgressView().controlSize(.small).frame(width: 20, height: 20) } }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -41,7 +41,7 @@ struct TFActivityWidget: Widget {
                 else { ProgressView().controlSize(.mini).tint(.white).frame(width: 14, height: 14) }
             } minimal: {
                 Image(systemName: context.state.finished ? "checkmark" : "sparkles").font(.system(size: 12))
-            }.keylineTint(.white).widgetURL(URL(string: "tweakforge://ai"))
+            }.keylineTint(.white).widgetURL(URL(string: "workbench://ai"))
         }
     }
 }

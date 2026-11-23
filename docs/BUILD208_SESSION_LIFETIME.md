@@ -20,7 +20,7 @@
 - 上游：https://github.com/OpenMinis/OpenMinis
 - 核对提交：`1a71df0f381cefde80bf912b723de6f9831bc177`
 - 参考文件：`src/ios/Agent/Chat/AIChatViewModel+SSEStream.swift` 中的每流等待监测、等待事件前后计时与结束取消。
-- 没有声称 OpenMinis 使用与 Dylix 相同的会话权限生命周期；会话授权改动依据 Dylix 自身项目边界与审批模型完成。
+- 没有声称 OpenMinis 使用与 Workbench 相同的会话权限生命周期；会话授权改动依据 Workbench 自身项目边界与审批模型完成。
 
 ## 验证方法与限制
 

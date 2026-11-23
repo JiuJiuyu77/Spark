@@ -4,7 +4,7 @@ openssl='/opt/homebrew/opt/openssl@3/bin/openssl' if pathlib.Path('/opt/homebrew
 root=pathlib.Path(__file__).resolve().parents[1]
 sdk=pathlib.Path('/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk')
 if not sdk.exists():sdk=pathlib.Path(subprocess.check_output(['xcrun','--sdk','macosx','--show-sdk-path'],text=True).strip())
-with tempfile.TemporaryDirectory(prefix='dylix-remote-core-') as folder:
+with tempfile.TemporaryDirectory(prefix='workbench-remote-core-') as folder:
  output=pathlib.Path(folder)/'test'
  subprocess.run(['xcrun','clang','-isysroot',str(sdk),'-fobjc-arc','-Wno-incompatible-pointer-types','-framework','Foundation','-framework','Network','-framework','Security',str(root/'tests/RemoteCoreTests.m'),str(root/'App/Remote/DXRemoteHTTP.m'),str(root/'App/Remote/DXRemoteAccess.m'),str(root/'App/Remote/DXRemoteTLS.m'),'-o',str(output)],check=True)
  cert=pathlib.Path(folder)/'cert.der'

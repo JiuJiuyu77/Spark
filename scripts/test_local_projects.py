@@ -16,7 +16,7 @@ import subprocess
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-BUNDLE = 'com.xuegao.theosmobilecompiler'
+BUNDLE = 'com.HuQing.Workbench'
 SKIP = {'.git', '.theos', 'build', 'packages', 'Packages', 'Package', 'Payload',
         'node_modules', 'DerivedData', '__MACOSX', 'retdec', 'retdec-build'}
 
@@ -62,7 +62,7 @@ def main():
     args = parser.parse_args()
     evidence = args.output or ROOT / 'evidence/local-theos-simulator-20261027'
     evidence.mkdir(parents=True, exist_ok=True)
-    sim('install', 'booted', str(ROOT / 'build/simulator/TheosMobileCompiler.app'))
+    sim('install', 'booted', str(ROOT / 'build/simulator/Workbench.app'))
     container = Path(sim('get_app_container', 'booted', BUNDLE, 'data'))
     documents = container / 'Documents'
     documents.mkdir(exist_ok=True)

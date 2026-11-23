@@ -25,7 +25,7 @@
 ## 上游参考
 OpenMinis/OpenMinis 本地快照 1a71df0f381cefde80bf912b723de6f9831bc177：
 MountedFoldersSettingsView.swift、MountedFoldersManager.swift、BackupFormat.swift、BackupCrypto.swift。
-本次以 Objective-C 适配 Dylix 数据布局；没有复制其 Swift 源码或声称 .minisbak 格式兼容。
+本次以 Objective-C 适配 Workbench 数据布局；没有复制其 Swift 源码或声称 .minisbak 格式兼容。
 
 ## 验证记录
 - `tests/BackupRun.py`：37 项通过。

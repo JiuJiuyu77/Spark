@@ -4,14 +4,14 @@
 // Exported since iOS 11.2; declared in the iOS 26 public header. Keep Xcode 16
 // simulator compilation consistent with the same runtime API.
 extern SecIdentityRef _Nullable SecIdentityCreate(CFAllocatorRef _Nullable allocator,SecCertificateRef certificate,SecKeyRef key) CF_RETURNS_RETAINED;
-static NSError *TLSError(NSInteger code){return [NSError errorWithDomain:@"Dylix.Remote.TLS" code:code userInfo:@{NSLocalizedDescriptionKey:[NSString stringWithFormat:@"本机 TLS 身份准备失败（%ld），请检查签名与钥匙串权限",(long)code]}];}
+static NSError *TLSError(NSInteger code){return [NSError errorWithDomain:@"Workbench.Remote.TLS" code:code userInfo:@{NSLocalizedDescriptionKey:[NSString stringWithFormat:@"本机 TLS 身份准备失败（%ld），请检查签名与钥匙串权限",(long)code]}];}
 static NSData *DER(uint8_t tag,NSData *body){NSMutableData *d=[NSMutableData dataWithBytes:&tag length:1];NSUInteger n=body.length;if(n<128){uint8_t b=n;[d appendBytes:&b length:1];}else{uint8_t bytes[sizeof(NSUInteger)],length=0;for(NSUInteger v=n;v;v>>=8)bytes[sizeof(bytes)-1-length++]=v&255;uint8_t b=0x80|length;[d appendBytes:&b length:1];[d appendBytes:bytes+sizeof(bytes)-length length:length];}[d appendData:body];return d;}
 static NSData *Join(NSArray<NSData *> *parts){NSMutableData *d=[NSMutableData new];for(NSData *p in parts)[d appendData:p];return d;}
 static NSData *Hex(NSString *s){NSMutableData *d=[NSMutableData new];for(NSUInteger i=0;i+1<s.length;i+=2){unsigned v=0;[[NSScanner scannerWithString:[s substringWithRange:NSMakeRange(i,2)]] scanHexInt:&v];uint8_t b=v;[d appendBytes:&b length:1];}return d;}
 static NSData *Seq(NSArray *a){return DER(0x30,Join(a));}
 static NSData *OID(NSString *hex){return DER(0x06,Hex(hex));}
 static NSData *Bits(NSData *data){return DER(0x03,Join(@[Hex(@"00"),data]));}
-static NSData *Name(void){return Seq(@[DER(0x31,Seq(@[OID(@"550403"),DER(0x0c,[@"Dylix Remote" dataUsingEncoding:NSUTF8StringEncoding])]))]);}
+static NSData *Name(void){return Seq(@[DER(0x31,Seq(@[OID(@"550403"),DER(0x0c,[@"Workbench Remote" dataUsingEncoding:NSUTF8StringEncoding])]))]);}
 static NSData *Time(NSDate *date){NSDateFormatter *f=[NSDateFormatter new];f.locale=[NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];f.timeZone=[NSTimeZone timeZoneForSecondsFromGMT:0];f.dateFormat=@"yyMMddHHmmss'Z'";return DER(0x17,[[f stringFromDate:date] dataUsingEncoding:NSASCIIStringEncoding]);}
 NSData *DXRemoteCreateCertificate(SecKeyRef key,NSString *address,NSError **error){
  struct in_addr ip;if(inet_pton(AF_INET,address.UTF8String,&ip)!=1){if(error)*error=TLSError(-1);return nil;}
@@ -29,7 +29,7 @@ NSData *DXRemoteCreateCertificate(SecKeyRef key,NSString *address,NSError **erro
  NSData *tbs=Seq(@[DER(0xa0,DER(0x02,Hex(@"02"))),DER(0x02,[NSData dataWithBytes:serial length:sizeof(serial)]),algorithm,Name(),Seq(@[Time([NSDate dateWithTimeIntervalSinceNow:-300]),Time([NSDate dateWithTimeIntervalSinceNow:90*86400])]),Name(),spki,extensions]);
  NSData *signature=CFBridgingRelease(SecKeyCreateSignature(key,kSecKeyAlgorithmECDSASignatureMessageX962SHA256,(__bridge CFDataRef)tbs,&e));if(!signature){if(error)*error=e?CFBridgingRelease(e):TLSError(-4);return nil;}return Seq(@[tbs,algorithm,Bits(signature)]);
 }
-static NSMutableDictionary *SecretQuery(NSString *account){return [@{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:@"Dylix.Remote.LocalSecrets.v1",(__bridge id)kSecAttrAccount:account} mutableCopy];}
+static NSMutableDictionary *SecretQuery(NSString *account){return [@{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:@"Workbench.Remote.LocalSecrets.v1",(__bridge id)kSecAttrAccount:account} mutableCopy];}
 BOOL DXRemoteSetSecret(NSString *account,NSString *value,NSError **error){NSMutableDictionary *q=SecretQuery(account);OSStatus status;if(value.length){NSDictionary *attrs=@{(__bridge id)kSecValueData:[value dataUsingEncoding:NSUTF8StringEncoding],(__bridge id)kSecAttrAccessible:(__bridge id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly};status=SecItemUpdate((__bridge CFDictionaryRef)q,(__bridge CFDictionaryRef)attrs);if(status==errSecItemNotFound){[q addEntriesFromDictionary:attrs];status=SecItemAdd((__bridge CFDictionaryRef)q,NULL);}}else{status=SecItemDelete((__bridge CFDictionaryRef)q);if(status==errSecItemNotFound)status=errSecSuccess;}if(status!=errSecSuccess&&error)*error=TLSError(status);return status==errSecSuccess;}
 NSString *DXRemoteGetSecret(NSString *account){NSMutableDictionary *q=SecretQuery(account);q[(__bridge id)kSecReturnData]=@YES;CFTypeRef data=NULL;OSStatus s=SecItemCopyMatching((__bridge CFDictionaryRef)q,&data);if(s!=errSecSuccess)return nil;return [[NSString alloc]initWithData:CFBridgingRelease(data) encoding:NSUTF8StringEncoding];}
 @interface DXRemoteTLS ()

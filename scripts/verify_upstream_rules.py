@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Build isolated rule probes and run regressions without launching the app UI.
 Requires Xcode, a booted simulator and the existing x86_64 simulator frameworks.
-Does not rebuild, install, terminate or alter the TweakForge app.
+Does not rebuild, install, terminate or alter the Workbench app.
 """
 import argparse,os,pathlib,subprocess,sys,tempfile
 R=pathlib.Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--mac-include',type=pathlib.Path);args=p.parse_args()
-frameworks=R/'build/simulator/TheosMobileCompiler.app/Frameworks'
+frameworks=R/'build/simulator/Workbench.app/Frameworks'
 for name in ['ios_system','libLLVM','clang']:
  if not (frameworks/(name+'.framework')/name).is_file():p.error('Build the existing simulator frameworks first: missing '+name)
 def run(argv,env=None):

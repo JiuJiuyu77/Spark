@@ -166,7 +166,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 @end
 @implementation TMCLocalFolders
 - (void)viewDidLoad{
- [super viewDidLoad];self.title=[self.directory isEqual:self.boundary]?@"Dylix 本机目录":self.directory.lastPathComponent;
+ [super viewDidLoad];self.title=[self.directory isEqual:self.boundary]?@"Workbench 本机目录":self.directory.lastPathComponent;
  self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithTitle:@"打开" style:UIBarButtonItemStyleDone target:self action:@selector(choose)];self.navigationItem.rightBarButtonItem.accessibilityLabel=@"打开当前工程文件夹";
  self.navigationItem.rightBarButtonItem.enabled=![self.directory isEqual:self.boundary];
  if([self.directory isEqual:self.boundary])self.navigationItem.leftBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(cancel)];
@@ -174,7 +174,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
  NSArray *urls=[NSFileManager.defaultManager contentsOfDirectoryAtURL:[NSURL fileURLWithPath:self.directory] includingPropertiesForKeys:@[NSURLIsDirectoryKey,NSURLIsSymbolicLinkKey] options:NSDirectoryEnumerationSkipsHiddenFiles error:&error];
  for(NSURL *url in urls){NSDictionary *v=[url resourceValuesForKeys:@[NSURLIsDirectoryKey,NSURLIsSymbolicLinkKey] error:nil];NSString *name=url.lastPathComponent;if([v[NSURLIsSymbolicLinkKey] boolValue]||[name hasPrefix:@"Build-"]||[name hasPrefix:@"Snapshot-"])continue;[items addObject:@{@"name":name,@"directory":v[NSURLIsDirectoryKey]?:@NO}];}
  [items sortUsingComparator:^NSComparisonResult(NSDictionary *a,NSDictionary *b){if([a[@"directory"] boolValue]!=[b[@"directory"] boolValue])return [a[@"directory"] boolValue]?NSOrderedAscending:NSOrderedDescending;return [a[@"name"] localizedStandardCompare:b[@"name"]];}];self.entries=items;
- if(error||!items.count){UILabel *empty=[UILabel new];empty.text=error.localizedDescription?:@"此文件夹为空。请先在“文件”App 中复制工程到 Dylix。";empty.numberOfLines=0;empty.textAlignment=NSTextAlignmentCenter;empty.textColor=UIColor.secondaryLabelColor;self.tableView.backgroundView=empty;}
+ if(error||!items.count){UILabel *empty=[UILabel new];empty.text=error.localizedDescription?:@"此文件夹为空。请先在“文件”App 中复制工程到 Workbench。";empty.numberOfLines=0;empty.textAlignment=NSTextAlignmentCenter;empty.textColor=UIColor.secondaryLabelColor;self.tableView.backgroundView=empty;}
 }
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section{return @"进入工程文件夹，再点右上角“打开” · 本机直接读取";}
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{return self.entries.count;}
@@ -234,7 +234,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
         NSDate *date = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil][NSFileModificationDate];
         if (date && [date compare:latest] == NSOrderedDescending) { latest = date; self.lastBuild = path; }
     }
-    self.console.text = @"Dylix · 技术验证版\n\n导入多源码工程文件夹，或点击运行构建内置 Objective-C 样本。\n\n目标：arm64 · iOS 15+ · Rootless .deb\n所有构建步骤在 App 进程内执行。";
+    self.console.text = @"Workbench · 技术验证版\n\n导入多源码工程文件夹，或点击运行构建内置 Objective-C 样本。\n\n目标：arm64 · iOS 15+ · Rootless .deb\n所有构建步骤在 App 进程内执行。";
     NSString *savedSource = [NSUserDefaults.standardUserDefaults stringForKey:@"ImportedSourceRelativePath"];
     if (savedSource) {
         NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
@@ -434,7 +434,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
             if(progress.cancelled){self.importInProgress=NO;[self cleanupArchive];return;}
             if(!projects){
                 [self hideArchiveHUD];
-                if([error.domain isEqual:@"TweakForgeArchive"]&&error.code==TMCArchivePassword){[self requestArchivePassword:password.length>0];return;}
+                if([error.domain isEqual:@"WorkbenchArchive"]&&error.code==TMCArchivePassword){[self requestArchivePassword:password.length>0];return;}
                 self.importInProgress=NO;[self cleanupArchive];[self showImportMessage:error.localizedDescription?:@"压缩包识别失败"];return;
             }
             if(projects.count==1){[self importArchiveProject:projects.firstObject];return;}
@@ -482,7 +482,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
             [coordinator coordinateReadingItemAtURL:url options:NSFileCoordinatorReadingWithoutChanges error:&coordinationError byAccessor:^(NSURL *readURL) {
                 BOOL directory = NO;
                 [NSFileManager.defaultManager fileExistsAtPath:readURL.path isDirectory:&directory];
-                if(directory&&urls.count!=1){copyError=[NSError errorWithDomain:@"TweakForgeImport" code:2 userInfo:@{NSLocalizedDescriptionKey:@"工程文件夹每次仅支持一个；源码文件支持多选。"}];return;}
+                if(directory&&urls.count!=1){copyError=[NSError errorWithDomain:@"WorkbenchImport" code:2 userInfo:@{NSLocalizedDescriptionKey:@"工程文件夹每次仅支持一个；源码文件支持多选。"}];return;}
                 if (directory && urls.count == 1) [NSFileManager.defaultManager copyItemAtPath:readURL.path toPath:dest error:&copyError];
                 else {
                     if (![NSFileManager.defaultManager createDirectoryAtPath:dest withIntermediateDirectories:YES attributes:nil error:&copyError]) return;
@@ -745,7 +745,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
         [link addObjectsFromArray:@[@"-o", [build stringByAppendingPathComponent:dylibName]]];
         [commands addObject:link];
         TMCLog(log, "source count=%lu; compile all objects, then link once\n", (unsigned long)projectSources.count);
-        NSString *inputFingerprint=TFAIBuildInputFingerprint(projectDirectory,config);NSString *checkpointCache=self.checkpointCacheDirectory?:[NSSearchPathForDirectoriesInDomains(NSCachesDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"DylixBuildCheckpoints"];
+        NSString *inputFingerprint=TFAIBuildInputFingerprint(projectDirectory,config);NSString *checkpointCache=self.checkpointCacheDirectory?:[NSSearchPathForDirectoriesInDomains(NSCachesDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"WorkbenchBuildCheckpoints"];
         NSMutableArray *results = [NSMutableArray array];
         BOOL compileFailed = NO;
         for (NSArray<NSString *> *arguments in commands) {
@@ -873,10 +873,10 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 @end
 
 // UIKit owns the window lifecycle; retain the same window during data restoration.
-@interface DylixSceneDelegate : UIResponder <UIWindowSceneDelegate>
+@interface WorkbenchSceneDelegate : UIResponder <UIWindowSceneDelegate>
 @property(nonatomic, strong) UIWindow *window;
 @end
-@implementation DylixSceneDelegate
+@implementation WorkbenchSceneDelegate
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
     if (![scene isKindOfClass:UIWindowScene.class]) return;
     AppDelegate *app = (AppDelegate *)UIApplication.sharedApplication.delegate;
@@ -900,7 +900,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 @implementation AppDelegate
 - (void)openBuildQueueFromNotification:(NSNotification *)note{UIViewController *root=self.window.rootViewController;if(root.presentedViewController)return;if([root isKindOfClass:UITabBarController.class])root=[(UITabBarController *)root selectedViewController];if([root isKindOfClass:UINavigationController.class])[(UINavigationController *)root pushViewController:TFAIBuildQueueController() animated:YES];}
 - (void)openAIFromNotification:(NSNotification *)note{TMCOpenAIConversation(self.window.rootViewController,note.userInfo[@"sessionID"],note.userInfo[@"projectID"]);}
-- (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {if(self.restoringData){self.pendingRestoreURL=url;return YES;}if(url.isFileURL){TFIncomingReceive(self.window.rootViewController,url);return YES;}if(([url.scheme isEqual:@"tweakforge"]||[url.scheme isEqual:@"dylix"])&&[url.host isEqual:@"ai"]){TMCOpenAIConversation(self.window.rootViewController,nil,nil);return YES;}if(([url.scheme isEqual:@"tweakforge"]||[url.scheme isEqual:@"dylix"])&&[url.host isEqual:@"incoming"]){TFIncomingDrain(self.window.rootViewController);return YES;}return NO;}
+- (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {if(self.restoringData){self.pendingRestoreURL=url;return YES;}if(url.isFileURL){TFIncomingReceive(self.window.rootViewController,url);return YES;}if(([url.scheme isEqual:@"workbench"]||[url.scheme isEqual:@"workbench"])&&[url.host isEqual:@"ai"]){TMCOpenAIConversation(self.window.rootViewController,nil,nil);return YES;}if(([url.scheme isEqual:@"workbench"]||[url.scheme isEqual:@"workbench"])&&[url.host isEqual:@"incoming"]){TFIncomingDrain(self.window.rootViewController);return YES;}return NO;}
 - (void)applicationDidBecomeActive:(UIApplication *)application {if(!self.restoringData)TFIncomingDrain(self.window.rootViewController);}
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
     // BGTask handlers must be registered before this method returns, before scene connection.
@@ -910,13 +910,13 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 - (BOOL)startInterfaceWithOptions:(NSDictionary *)options {
     if (self.interfaceStarted) return YES;
     self.interfaceStarted = YES;
-    NSString *pending=[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/DylixRestore/pending.json"];
+    NSString *pending=[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/WorkbenchRestore/pending.json"];
     if(![NSFileManager.defaultManager fileExistsAtPath:pending])return [self finishLaunching:options];
     self.restoringData=YES;
     // Return to UIKit immediately: large restores must not trigger the launch watchdog.
     NSAssert(self.window.windowScene, @"A connected UIWindowScene is required before startup");
     UIViewController *loading=[UIViewController new];loading.view.backgroundColor=UIColor.systemBackgroundColor;
-    UILabel *label=[UILabel new];label.text=@"正在恢复 Dylix 数据，请勿关闭应用";label.font=[UIFont preferredFontForTextStyle:UIFontTextStyleBody];label.translatesAutoresizingMaskIntoConstraints=NO;
+    UILabel *label=[UILabel new];label.text=@"正在恢复 Workbench 数据，请勿关闭应用";label.font=[UIFont preferredFontForTextStyle:UIFontTextStyleBody];label.translatesAutoresizingMaskIntoConstraints=NO;
     UIActivityIndicatorView *spinner=[[UIActivityIndicatorView alloc]initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];spinner.translatesAutoresizingMaskIntoConstraints=NO;[spinner startAnimating];
     [loading.view addSubview:label];[loading.view addSubview:spinner];
     [NSLayoutConstraint activateConstraints:@[[label.centerXAnchor constraintEqualToAnchor:loading.view.centerXAnchor],[label.centerYAnchor constraintEqualToAnchor:loading.view.centerYAnchor],[spinner.centerXAnchor constraintEqualToAnchor:loading.view.centerXAnchor],[spinner.bottomAnchor constraintEqualToAnchor:label.topAnchor constant:-20]]];
@@ -938,7 +938,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
     BOOL testing = [NSProcessInfo.processInfo.arguments containsObject:@"--self-test"] || [NSProcessInfo.processInfo.arguments containsObject:@"--self-test-project"];
     self.window.rootViewController = testing ? [[TMCNavigationController alloc] initWithRootViewController:[CompilerController new]] : TMCStudioRoot();
 #if TARGET_OS_SIMULATOR
-#if DYLIX_HAS_INTEGRATION165
+#if WORKBENCH_HAS_INTEGRATION165
     extern UIViewController *DXIntegration165Controller(void);
     if([NSProcessInfo.processInfo.arguments containsObject:@"--integration165-tests"])self.window.rootViewController=[[TMCNavigationController alloc]initWithRootViewController:DXIntegration165Controller()];
 #endif

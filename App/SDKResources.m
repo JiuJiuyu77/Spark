@@ -3,7 +3,7 @@
 #import "AI/Resources/DXResourceStore.h"
 #import <CommonCrypto/CommonDigest.h>
 
-static NSError *SDKError(NSString *message){return [NSError errorWithDomain:@"TweakForgeSDK" code:4 userInfo:@{NSLocalizedDescriptionKey:message}];}
+static NSError *SDKError(NSString *message){return [NSError errorWithDomain:@"WorkbenchSDK" code:4 userInfo:@{NSLocalizedDescriptionKey:message}];}
 NSDictionary *TMCSDKBuildSettings(NSDictionary *config,NSUserDefaults *defaults,NSError **error){
  id sdk=config[@"sdkVersion"]?:[defaults objectForKey:@"StudioSDKVersion"]?:@"16.4";
  id minimum=config[@"deploymentTarget"]?:[defaults objectForKey:@"StudioDeploymentTarget"]?:@"15.0";
@@ -24,16 +24,16 @@ NSString *TMCPrepareSelectedSDK(NSBundle *bundle, NSString *cacheRoot, NSString 
         NSDictionary *manifest=[NSDictionary dictionaryWithContentsOfFile:[bundle.bundlePath stringByAppendingPathComponent:[stem stringByAppendingString:@"Resource.plist"]]];
         NSString *digest=manifest[@"sha256"];
         if(![digest isKindOfClass:NSString.class]||digest.length!=64||[digest rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdef"].invertedSet].location!=NSNotFound) {
-            if(error)*error=[NSError errorWithDomain:@"TweakForgeSDK" code:1 userInfo:@{NSLocalizedDescriptionKey:@"内置 SDK 清单损坏，请重新安装软件。"}];
+            if(error)*error=[NSError errorWithDomain:@"WorkbenchSDK" code:1 userInfo:@{NSLocalizedDescriptionKey:@"内置 SDK 清单损坏，请重新安装软件。"}];
             return nil;
         }
-        NSString *root=[cacheRoot stringByAppendingPathComponent:@"TweakForgeSDK"];
+        NSString *root=[cacheRoot stringByAppendingPathComponent:@"WorkbenchSDK"];
         if(optional)root=[DXResourceStore.directory stringByAppendingPathComponent:@"SDK26Installed"];
         NSString *destination=[root stringByAppendingPathComponent:digest];
         NSString *marker=[destination stringByAppendingPathComponent:@".complete"];
         if([[NSString stringWithContentsOfFile:marker encoding:NSUTF8StringEncoding error:nil] isEqual:digest]&&[fm fileExistsAtPath:[destination stringByAppendingPathComponent:@"usr/include/stdio.h"]])return destination;
         if(optional){
-            NSString *old=[[[cacheRoot stringByAppendingPathComponent:@"TweakForgeSDK"] stringByAppendingPathComponent:digest] stringByStandardizingPath];
+            NSString *old=[[[cacheRoot stringByAppendingPathComponent:@"WorkbenchSDK"] stringByAppendingPathComponent:digest] stringByStandardizingPath];
             if([[NSString stringWithContentsOfFile:[old stringByAppendingPathComponent:@".complete"] encoding:NSUTF8StringEncoding error:nil] isEqual:digest]&&[fm fileExistsAtPath:[old stringByAppendingPathComponent:@"usr/include/stdio.h"]]){
                 [fm createDirectoryAtPath:root withIntermediateDirectories:YES attributes:nil error:nil];
                 if([fm moveItemAtPath:old toPath:destination error:nil])return destination;
@@ -55,7 +55,7 @@ NSString *TMCPrepareSelectedSDK(NSBundle *bundle, NSString *cacheRoot, NSString 
         unsigned char hash[CC_SHA256_DIGEST_LENGTH];CC_SHA256(data.bytes,(CC_LONG)data.length,hash);
         NSMutableString *actual=[NSMutableString new];for(NSUInteger i=0;i<sizeof(hash);i++)[actual appendFormat:@"%02x",hash[i]];
         if(![actual isEqual:digest]) {
-            if(error)*error=[NSError errorWithDomain:@"TweakForgeSDK" code:2 userInfo:@{NSLocalizedDescriptionKey:@"内置 SDK 校验失败，请重新安装软件。"}];
+            if(error)*error=[NSError errorWithDomain:@"WorkbenchSDK" code:2 userInfo:@{NSLocalizedDescriptionKey:@"内置 SDK 校验失败，请重新安装软件。"}];
             return nil;
         }
         if(![fm createDirectoryAtPath:root withIntermediateDirectories:YES attributes:nil error:error])return nil;
@@ -63,7 +63,7 @@ NSString *TMCPrepareSelectedSDK(NSBundle *bundle, NSString *cacheRoot, NSString 
         if(!TMCExtractArchive([NSURL fileURLWithPath:archive],[NSURL fileURLWithPath:staging],nil,nil,nil,error)){[fm removeItemAtPath:staging error:nil];return nil;}
         NSDictionary *settings=[NSDictionary dictionaryWithContentsOfFile:[staging stringByAppendingPathComponent:@"SDKSettings.plist"]];
         BOOL ok=[settings[@"Version"] isEqual:version]&&[fm fileExistsAtPath:[staging stringByAppendingPathComponent:@"usr/include/stdio.h"]];
-        if(!ok&&error)*error=[NSError errorWithDomain:@"TweakForgeSDK" code:3 userInfo:@{NSLocalizedDescriptionKey:@"内置 SDK 缺少必要头文件。"}];
+        if(!ok&&error)*error=[NSError errorWithDomain:@"WorkbenchSDK" code:3 userInfo:@{NSLocalizedDescriptionKey:@"内置 SDK 缺少必要头文件。"}];
         if(ok)ok=[digest writeToFile:[staging stringByAppendingPathComponent:@".complete"] atomically:YES encoding:NSUTF8StringEncoding error:error];
         if(ok){[fm removeItemAtPath:destination error:nil];ok=[fm moveItemAtPath:staging toPath:destination error:error];}
         if(!ok){[fm removeItemAtPath:staging error:nil];return nil;}
@@ -76,5 +76,5 @@ BOOL TMCSDKIsInstalled(NSBundle *bundle,NSString *cacheRoot,NSString *version){
  // Bundled SDKs are ready offline; extracted optional SDKs need a matching marker.
  if([NSFileManager.defaultManager fileExistsAtPath:[bundle.bundlePath stringByAppendingPathComponent:[stem stringByAppendingString:@".zip"]]])return YES;
  NSDictionary *m=[NSDictionary dictionaryWithContentsOfFile:[bundle.bundlePath stringByAppendingPathComponent:[stem stringByAppendingString:@"Resource.plist"]]];NSString *digest=m[@"sha256"];if(digest.length!=64)return NO;
- for(NSString *base in @[[DXResourceStore.directory stringByAppendingPathComponent:@"SDK26Installed"],[cacheRoot stringByAppendingPathComponent:@"TweakForgeSDK"]]){NSString *root=[base stringByAppendingPathComponent:digest];if([[NSString stringWithContentsOfFile:[root stringByAppendingPathComponent:@".complete"] encoding:NSUTF8StringEncoding error:nil] isEqual:digest]&&[NSFileManager.defaultManager fileExistsAtPath:[root stringByAppendingPathComponent:@"usr/include/stdio.h"]])return YES;}return NO;
+ for(NSString *base in @[[DXResourceStore.directory stringByAppendingPathComponent:@"SDK26Installed"],[cacheRoot stringByAppendingPathComponent:@"WorkbenchSDK"]]){NSString *root=[base stringByAppendingPathComponent:digest];if([[NSString stringWithContentsOfFile:[root stringByAppendingPathComponent:@".complete"] encoding:NSUTF8StringEncoding error:nil] isEqual:digest]&&[NSFileManager.defaultManager fileExistsAtPath:[root stringByAppendingPathComponent:@"usr/include/stdio.h"]])return YES;}return NO;
 }

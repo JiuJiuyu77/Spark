@@ -29,7 +29,7 @@ def run(*argv, **kw):
     return subprocess.run([str(x) for x in argv], check=True, **kw)
 
 def collect(name):
-    data = Path(subprocess.check_output(['xcrun', 'simctl', 'get_app_container', args.device, 'com.dylix.ishproof', 'data'], text=True).strip()) / 'Documents'
+    data = Path(subprocess.check_output(['xcrun', 'simctl', 'get_app_container', args.device, 'com.workbench.ishproof', 'data'], text=True).strip()) / 'Documents'
     output = data / 'ish-regression.json'
     deadline = time.monotonic() + 720
     while time.monotonic() < deadline:
@@ -46,7 +46,7 @@ def collect(name):
         time.sleep(.25)
     raise RuntimeError(f'{name} timed out')
 
-with tempfile.TemporaryDirectory(prefix='dylix247-https-') as temporary:
+with tempfile.TemporaryDirectory(prefix='workbench247-https-') as temporary:
     stage = Path(temporary)
     run(sys.executable, root / 'scripts/prepare_download_resources.py', '--stage', stage)
     (stage / 'fixture.bin').write_bytes(b'fixture47')
@@ -62,7 +62,7 @@ with tempfile.TemporaryDirectory(prefix='dylix247-https-') as temporary:
         with (evidence / 'native-build.log').open('w') as log:
             run(sys.executable, root / 'tests/ISHRuntimeRun.py', '--resources247', '--resource-origin', f'https://localhost:{server.server_port}', '--device', args.device, stdout=log, stderr=subprocess.STDOUT)
         collect('download-install')
-        run('xcrun', 'simctl', 'launch', '--terminate-running-process', args.device, 'com.dylix.ishproof', '--resources247-persist')
+        run('xcrun', 'simctl', 'launch', '--terminate-running-process', args.device, 'com.workbench.ishproof', '--resources247-persist')
         collect('restart-uninstall')
     finally:
         server.shutdown()

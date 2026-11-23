@@ -29,6 +29,6 @@ HTTPS原有行为不变，OAuth连接继续要求HTTPS。App的ATS采用通用HT
 
 同源比较采用实际协议、主机和有效端口：HTTP默认80、HTTPS默认443；跨域、跨协议、端口变化和改变请求方法的重定向被拒绝。HTTPS不会自动回落HTTP。远程网页只使用手机保存的连接，API密钥、OAuth token和User-Agent配置不返回网页。
 
-Dylix Remote 的局域网HTTP服务与模型API连接是两条独立链路；打开其中一个不自动授权另一个。TLS保护网页/服务传输，User-Agent用于标识客户端，两者用途不同。
+Workbench Remote 的局域网HTTP服务与模型API连接是两条独立链路；打开其中一个不自动授权另一个。TLS保护网页/服务传输，User-Agent用于标识客户端，两者用途不同。
 
 实现：`TFAIProtocol`、`TFAIConnections`、`TFAITransport`、`TFAISettings`及`build.py`中的ATS声明。测试见[Build165记录](BUILD165_TESTS.md)。

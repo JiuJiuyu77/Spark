@@ -4,7 +4,7 @@
 
 对照 OpenMinis `MountedFoldersSettingsView.swift`（本地快照 1a71df0）：上游明确处理选择回调与 sheet 关闭重叠，待选择器退出后进入挂载流程；通过普通 iOS bookmark 保存授权，不使用 macOS 专属 withSecurityScope。
 
-Dylix 本次调整：
+Workbench 本次调整：
 - 先保留安全作用域，等待选择器关闭，再在后台进行目录登记。
 - 保留选择器引用；处理 UIKit 已开始自动关闭的转场。
 - 展示保存中、成功、失败结果；失败不因选择器仍在呈现而静默丢失。

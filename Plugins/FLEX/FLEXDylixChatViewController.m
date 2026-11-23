@@ -1,10 +1,10 @@
-#import "FLEXDylixChatViewController.h"
-#import "FLEXDylixRuntime.h"
-#import "FLEXDylixAddress.h"
-#import "FLEXDylixConnection.h"
-#import "FLEXDylixPreferences.h"
-#import "FLEXDylixMarkdown.h"
-#import "FLEXDylixStatusWindow.h"
+#import "FLEXWorkbenchChatViewController.h"
+#import "FLEXWorkbenchRuntime.h"
+#import "FLEXWorkbenchAddress.h"
+#import "FLEXWorkbenchConnection.h"
+#import "FLEXWorkbenchPreferences.h"
+#import "FLEXWorkbenchMarkdown.h"
+#import "FLEXWorkbenchStatusWindow.h"
 #import "FLEXManager+Private.h"
 #import "FLEXUtility.h"
 #import <arpa/inet.h>
@@ -14,7 +14,7 @@
 #import <unistd.h>
 
 typedef void (^DXChatReply)(NSDictionary *data, NSError *error);
-static NSError *DXChatError(NSString *message) { return [NSError errorWithDomain:@"FLEX.Dylix" code:1 userInfo:@{NSLocalizedDescriptionKey:message?:@"连接失败"}]; }
+static NSError *DXChatError(NSString *message) { return [NSError errorWithDomain:@"FLEX.Workbench" code:1 userInfo:@{NSLocalizedDescriptionKey:message?:@"连接失败"}]; }
 static NSDictionary *DXRememberedChat;
 static NSString *DXChatContent(id content) {
  if([content isKindOfClass:NSString.class])return content;
@@ -24,7 +24,7 @@ static NSString *DXChatContent(id content) {
  return [parts componentsJoinedByString:@"\n"];
 }
 
-@interface FLEXDylixChatViewController () <UITextViewDelegate>
+@interface FLEXWorkbenchChatViewController () <UITextViewDelegate>
 @property NSString *report, *className, *host, *token, *csrf, *projectID, *projectName, *connectionID, *modelID, *modelName, *sessionID, *sessionTitle, *jobID;
 @property NSUInteger port;
 @property NSString *authorizationCode;
@@ -43,7 +43,7 @@ static NSString *DXChatContent(id content) {
 @property NSUInteger sessionLoadGeneration, missedHeartbeats;
 @property (nonatomic) BOOL busy;
 @property BOOL liveHasContent;
-@property FLEXDylixRuntime *runtime;
+@property FLEXWorkbenchRuntime *runtime;
 @property NSTimer *agentTimer;
 @property NSMutableDictionary<NSString *,NSDictionary *> *agentReplies;
 @property NSString *pendingCommandID;
@@ -53,7 +53,7 @@ static NSString *DXChatContent(id content) {
 @property BOOL agentStopped, uiTransitioning;
 @property NSUInteger agentGeneration;
 @property NSMutableDictionary<NSString *,NSNumber *> *commandGenerations;
-@property FLEXDylixStatusWindow *statusWindow;
+@property FLEXWorkbenchStatusWindow *statusWindow;
 @property NSString *taskPhase, *localOperation;
 @property NSString *idleStatus, *captureStatus, *captureID;
 @property NSMutableDictionary<NSString *,NSString *> *activeToolOperations;
@@ -67,7 +67,7 @@ static NSString *DXChatContent(id content) {
 @property NSError *lastConnectionError;
 @end
 
-@implementation FLEXDylixChatViewController
+@implementation FLEXWorkbenchChatViewController
 @synthesize busy=_busy;
 - (void)setBusy:(BOOL)busy {
  _busy=busy;self.sendButton.enabled=YES;
@@ -80,7 +80,7 @@ static NSString *DXChatContent(id content) {
  return self;
 }
 - (void)restoreConnection {
- NSDictionary *state=DXRememberedChat?:[FLEXDylixPreferences loadState];
+ NSDictionary *state=DXRememberedChat?:[FLEXWorkbenchPreferences loadState];
  self.host=state[@"host"];self.port=[state[@"port"] unsignedIntegerValue];self.token=state[@"token"];self.csrf=state[@"csrf"];self.authorizationCode=state[@"authorizationCode"];
  self.projectID=state[@"projectID"];self.projectName=state[@"projectName"];self.connectionID=state[@"connectionID"];self.modelID=state[@"modelID"];self.modelName=state[@"modelName"];self.sessionID=state[@"sessionID"];self.sessionTitle=state[@"sessionTitle"];
  self.needsConnectionValidation=self.host.length&&self.token.length;
@@ -90,8 +90,8 @@ static NSString *DXChatContent(id content) {
  if(!self.host.length||!self.port)return;
  NSMutableDictionary *state=[@{@"host":self.host,@"port":@(self.port)} mutableCopy];
  for(NSString *key in @[@"authorizationCode",@"token",@"csrf",@"projectID",@"projectName",@"connectionID",@"modelID",@"modelName",@"sessionID",@"sessionTitle"]){id value=[self valueForKey:key];if(value)state[key]=value;}
- NSError *error=nil;if(![FLEXDylixPreferences saveState:state error:&error]&&!self.storageWarningShown){self.storageWarningShown=YES;self.activityLabel.text=error.localizedDescription;}
- // Chat text stays in memory only; Dylix remains the source of durable history.
+ NSError *error=nil;if(![FLEXWorkbenchPreferences saveState:state error:&error]&&!self.storageWarningShown){self.storageWarningShown=YES;self.activityLabel.text=error.localizedDescription;}
+ // Chat text stays in memory only; Workbench remains the source of durable history.
  NSMutableArray *saved=[NSMutableArray new];for(NSDictionary *item in self.messages)[saved addObject:item.copy];state[@"messages"]=saved;
  DXRememberedChat=state.copy;
 }
@@ -144,8 +144,8 @@ static NSString *DXChatContent(id content) {
  [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; return button;
 }
 - (void)viewDidLoad {
- [super viewDidLoad]; self.title=@"Dylix AI"; self.view.backgroundColor=UIColor.systemGroupedBackgroundColor;
- self.runtime=[FLEXDylixRuntime new];self.runtime.selectedObject=self.selectedObject;self.agentReplies=[NSMutableDictionary new];self.commandGenerations=[NSMutableDictionary new];
+ [super viewDidLoad]; self.title=@"Workbench AI"; self.view.backgroundColor=UIColor.systemGroupedBackgroundColor;
+ self.runtime=[FLEXWorkbenchRuntime new];self.runtime.selectedObject=self.selectedObject;self.agentReplies=[NSMutableDictionary new];self.commandGenerations=[NSMutableDictionary new];
  self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc]initWithTitle:@"新会话" style:UIBarButtonItemStylePlain target:self action:@selector(newSession)];
  if (self.navigationController.viewControllers.firstObject == self) {
   self.navigationItem.leftBarButtonItem=[[UIBarButtonItem alloc]initWithImage:[UIImage systemImageNamed:@"minus"] style:UIBarButtonItemStylePlain target:self action:@selector(closeTapped)];
@@ -153,7 +153,7 @@ static NSString *DXChatContent(id content) {
  }
  UIBarButtonItem *disconnect=[[UIBarButtonItem alloc]initWithTitle:@"断开" style:UIBarButtonItemStylePlain target:self action:@selector(disconnectTapped)];
  self.navigationItem.rightBarButtonItems=@[self.navigationItem.rightBarButtonItem,disconnect];
- self.connectButton=[self button:self.csrf.length?@"连接设置":@"连接 Dylix" action:@selector(connectTapped)];
+ self.connectButton=[self button:self.csrf.length?@"连接设置":@"连接 Workbench" action:@selector(connectTapped)];
  self.permissionButton=[self button:@"工具权限" action:@selector(permissionTapped)];
  if (@available(iOS 13.0, *)) {
   [self.connectButton setTitle:nil forState:UIControlStateNormal];[self.connectButton setImage:[UIImage systemImageNamed:@"gearshape"] forState:UIControlStateNormal];
@@ -174,7 +174,7 @@ static NSString *DXChatContent(id content) {
  [self.connectButton setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
  self.contextLabel=[UILabel new];self.contextLabel.font=[UIFont systemFontOfSize:12 weight:UIFontWeightMedium];self.contextLabel.textColor=secondary;self.contextLabel.text=[@"FLEX 现场  ·  " stringByAppendingString:self.className];self.contextLabel.lineBreakMode=NSLineBreakByTruncatingMiddle;
  self.activityLabel=[UILabel new];self.activityLabel.font=[UIFont systemFontOfSize:12];self.activityLabel.textColor=secondary;self.activityLabel.text=@"就绪";self.activityLabel.lineBreakMode=NSLineBreakByTruncatingTail;
- self.activityLabel.textAlignment=NSTextAlignmentRight;self.activityLabel.numberOfLines=2;self.activityLabel.accessibilityIdentifier=@"dylix.agent.activity";
+ self.activityLabel.textAlignment=NSTextAlignmentRight;self.activityLabel.numberOfLines=2;self.activityLabel.accessibilityIdentifier=@"workbench.agent.activity";
  UIStackView *selectors=[[UIStackView alloc]initWithArrangedSubviews:@[self.projectButton,self.modelButton,self.sessionButton]];selectors.axis=UILayoutConstraintAxisHorizontal;selectors.spacing=6;selectors.distribution=UIStackViewDistributionFillEqually;
  for(UIButton *button in @[self.projectButton,self.modelButton,self.sessionButton]){button.titleLabel.lineBreakMode=NSLineBreakByTruncatingTail;button.contentEdgeInsets=UIEdgeInsetsMake(6,7,6,7);}
  self.sessionButton.contentHorizontalAlignment=UIControlContentHorizontalAlignmentCenter;
@@ -215,16 +215,16 @@ static NSString *DXChatContent(id content) {
 - (void)setStatus:(NSString *)text {self.idleStatus=text;[self rememberConnection];[self refreshAgentStatus];}
 - (void)showConnectionState:(NSUInteger)state {
  self.connectionState=state;
- NSString *address=self.host.length?[NSString stringWithFormat:@"%@:%lu",self.host,(unsigned long)self.port]:@"Dylix";
- self.statusLabel.text=state==2?[NSString stringWithFormat:@"已连接 · %@",address]:state==1?@"正在检查连接…":state==3?@"连接中断 · 点击重连":@"未连接 Dylix";
+ NSString *address=self.host.length?[NSString stringWithFormat:@"%@:%lu",self.host,(unsigned long)self.port]:@"Workbench";
+ self.statusLabel.text=state==2?[NSString stringWithFormat:@"已连接 · %@",address]:state==1?@"正在检查连接…":state==3?@"连接中断 · 点击重连":@"未连接 Workbench";
  self.statusDot.backgroundColor=state==2?UIColor.systemGreenColor:state==1?UIColor.systemOrangeColor:state==3?UIColor.systemRedColor:UIColor.systemGrayColor;
- self.connectButton.accessibilityLabel=state==0?@"连接 Dylix":@"连接设置";
+ self.connectButton.accessibilityLabel=state==0?@"连接 Workbench":@"连接设置";
  if (@available(iOS 13.0, *)) {} else [self.connectButton setTitle:@"连" forState:UIControlStateNormal];
  [self refreshAgentStatus];
 }
 - (void)updateSessionButton {NSString *name=self.sessionTitle.length?self.sessionTitle:@"新会话";[self.sessionButton setTitle:[NSString stringWithFormat:@"会话 · %@  ▾",name] forState:UIControlStateNormal];}
 - (void)showConnectionDiagnostic {
- NSString *report=self.lastConnectionError.userInfo[FLEXDylixConnectionDiagnosticKey];if(!report.length)return;
+ NSString *report=self.lastConnectionError.userInfo[FLEXWorkbenchConnectionDiagnosticKey];if(!report.length)return;
  UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"连接诊断" message:report preferredStyle:UIAlertControllerStyleAlert];
  [alert addAction:[UIAlertAction actionWithTitle:@"复制诊断" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){UIPasteboard.generalPasteboard.string=report;[self setStatus:@"已复制连接诊断"]; }]];
  [alert addAction:[UIAlertAction actionWithTitle:@"关闭" style:UIAlertActionStyleCancel handler:nil]];
@@ -232,11 +232,11 @@ static NSString *DXChatContent(id content) {
 }
 - (void)showError:(NSError *)error {
  if(!error)return;
- if(error.userInfo[FLEXDylixConnectionDiagnosticKey])self.lastConnectionError=error;
+ if(error.userInfo[FLEXWorkbenchConnectionDiagnosticKey])self.lastConnectionError=error;
  [self setStatus:[[error.localizedDescription componentsSeparatedByString:@"\n"] firstObject]];
  if(!self.view.window){[self append:[@"错误：" stringByAppendingString:error.localizedDescription?:@"请求失败"]];return;}
- UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Dylix 连接" message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];
- NSString *report=error.userInfo[FLEXDylixConnectionDiagnosticKey];
+ UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Workbench 连接" message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];
+ NSString *report=error.userInfo[FLEXWorkbenchConnectionDiagnosticKey];
  if(report.length)[alert addAction:[UIAlertAction actionWithTitle:@"复制诊断" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){UIPasteboard.generalPasteboard.string=report;[self setStatus:@"已复制连接诊断"]; }]];
  [alert addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleCancel handler:nil]];
  [self presentViewController:alert animated:YES completion:nil];
@@ -253,10 +253,10 @@ static NSString *DXChatContent(id content) {
    [NSLayoutConstraint activateConstraints:@[[label.topAnchor constraintEqualToAnchor:row.topAnchor],[label.bottomAnchor constraintEqualToAnchor:row.bottomAnchor],[label.leadingAnchor constraintEqualToAnchor:row.leadingAnchor constant:15],[label.trailingAnchor constraintEqualToAnchor:row.trailingAnchor constant:-15]]];
   } else {
    UIView *bubble=[UIView new];bubble.backgroundColor=mine?UIColor.systemBlueColor:UIColor.secondarySystemGroupedBackgroundColor;bubble.layer.cornerRadius=14;bubble.translatesAutoresizingMaskIntoConstraints=NO;[row addSubview:bubble];
-   UILabel *author=[UILabel new];author.text=mine?@"我":@"DYLIX AI";author.font=[UIFont systemFontOfSize:11 weight:UIFontWeightSemibold];author.textColor=UIColor.secondaryLabelColor;author.translatesAutoresizingMaskIntoConstraints=NO;[row addSubview:author];
+   UILabel *author=[UILabel new];author.text=mine?@"我":@"WORKBENCH AI";author.font=[UIFont systemFontOfSize:11 weight:UIFontWeightSemibold];author.textColor=UIColor.secondaryLabelColor;author.translatesAutoresizingMaskIntoConstraints=NO;[row addSubview:author];
    UIButton *copy=[UIButton buttonWithType:UIButtonTypeSystem];[copy setTitle:@"复制" forState:UIControlStateNormal];copy.titleLabel.font=[UIFont systemFontOfSize:11];copy.tag=index;copy.translatesAutoresizingMaskIntoConstraints=NO;[copy addTarget:self action:@selector(copyMessage:) forControlEvents:UIControlEventTouchUpInside];[row addSubview:copy];
    UILabel *label=[UILabel new];label.text=value.length?value:@"正在回复…";label.numberOfLines=0;label.lineBreakMode=NSLineBreakByWordWrapping;label.font=[UIFont systemFontOfSize:15];label.textColor=mine?UIColor.whiteColor:UIColor.labelColor;label.translatesAutoresizingMaskIntoConstraints=NO;[bubble addSubview:label];
-   if(!mine)label.attributedText=FLEXDylixRenderMarkdown(value,label.textColor);
+   if(!mine)label.attributedText=FLEXWorkbenchRenderMarkdown(value,label.textColor);
    [NSLayoutConstraint activateConstraints:@[[author.topAnchor constraintEqualToAnchor:row.topAnchor],[author.leadingAnchor constraintEqualToAnchor:bubble.leadingAnchor constant:2],[copy.centerYAnchor constraintEqualToAnchor:author.centerYAnchor],[copy.trailingAnchor constraintEqualToAnchor:bubble.trailingAnchor constant:-2],[author.trailingAnchor constraintLessThanOrEqualToAnchor:copy.leadingAnchor constant:-8],
     [bubble.topAnchor constraintEqualToAnchor:author.bottomAnchor constant:5],[bubble.bottomAnchor constraintEqualToAnchor:row.bottomAnchor],[bubble.widthAnchor constraintLessThanOrEqualToAnchor:row.widthAnchor multiplier:0.88],[bubble.leadingAnchor constraintGreaterThanOrEqualToAnchor:row.leadingAnchor],[bubble.trailingAnchor constraintLessThanOrEqualToAnchor:row.trailingAnchor],mine?[bubble.trailingAnchor constraintEqualToAnchor:row.trailingAnchor]:[bubble.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
     [label.topAnchor constraintEqualToAnchor:bubble.topAnchor constant:11],[label.bottomAnchor constraintEqualToAnchor:bubble.bottomAnchor constant:-11],[label.leadingAnchor constraintEqualToAnchor:bubble.leadingAnchor constant:12],[label.trailingAnchor constraintEqualToAnchor:bubble.trailingAnchor constant:-12]]];
@@ -290,7 +290,7 @@ static NSString *DXChatContent(id content) {
   if(!self.messages.count)[self.messages addObject:[@{@"role":@"tip",@"text":@"这个会话还没有可显示的文字消息。"} mutableCopy]];
   [self renderMessages];[self restoreDraft];[self updateSessionButton];
   BOOL running=[@[@"streaming",@"running",@"waitingApproval"] containsObject:record[@"state"]];
-  [self setStatus:running?@"会话正在 Dylix 运行，点会话可刷新":[NSString stringWithFormat:@"已打开会话 · %lu 条消息",(unsigned long)self.messages.count]];
+  [self setStatus:running?@"会话正在 Workbench 运行，点会话可刷新":[NSString stringWithFormat:@"已打开会话 · %lu 条消息",(unsigned long)self.messages.count]];
   NSString *savedConnection=record[@"connectionID"],*savedModel=record[@"modelID"];
   self.reasoningEffort=nil;self.reasoningOptions=nil;
   self.connectionID=nil;self.modelID=nil;self.modelName=nil;[self.modelButton setTitle:@"选择模型" forState:UIControlStateNormal];
@@ -335,23 +335,23 @@ static NSString *DXChatContent(id content) {
 - (void)refreshAgentStatus {
  BOOL show=self.chatMinimized&&self.csrf.length&&!self.statusSuspended&&UIApplication.sharedApplication.applicationState==UIApplicationStateActive;
  if(show&&!self.statusWindow){
-  if(@available(iOS 13.0,*)){UIWindowScene *scene=FLEXUtility.appKeyWindow.windowScene;if(scene)self.statusWindow=[[FLEXDylixStatusWindow alloc]initWithWindowScene:scene];}
-  if(!self.statusWindow)self.statusWindow=[[FLEXDylixStatusWindow alloc]initWithFrame:UIScreen.mainScreen.bounds];
+  if(@available(iOS 13.0,*)){UIWindowScene *scene=FLEXUtility.appKeyWindow.windowScene;if(scene)self.statusWindow=[[FLEXWorkbenchStatusWindow alloc]initWithWindowScene:scene];}
+  if(!self.statusWindow)self.statusWindow=[[FLEXWorkbenchStatusWindow alloc]initWithFrame:UIScreen.mainScreen.bounds];
   __weak typeof(self) weak=self;self.statusWindow.openChat=^{typeof(self) chat=weak;if(!chat||chat.uiTransitioning)return;chat.uiTransitioning=YES;[chat restoreChatWithCompletion:^{chat.uiTransitioning=NO;}];};
  }
  BOOL control=[self isScreenControl:self.localOperation];for(NSString *op in self.activeToolOperations.allValues)if([self isScreenControl:op])control=YES;
  BOOL running=self.busy||self.localOperation.length||self.activeToolOperations.count;
- NSString *title=@"Dylix AI · 已连接",*detail=@"轻点返回会话";UIColor *color=UIColor.systemGreenColor;
- if(self.connectionState!=2){title=self.connectionState==3?@"Dylix AI · 连接中断":@"Dylix AI · 检查连接";detail=self.connectionState==3?@"轻点检查连接与任务":@"等待 Dylix 心跳确认";color=self.connectionState==3?UIColor.systemRedColor:UIColor.systemOrangeColor;}
- else if(self.agentStopped){title=@"Dylix AI · 已停止";detail=self.idleStatus?:@"轻点返回会话";color=UIColor.systemGrayColor;}
+ NSString *title=@"Workbench AI · 已连接",*detail=@"轻点返回会话";UIColor *color=UIColor.systemGreenColor;
+ if(self.connectionState!=2){title=self.connectionState==3?@"Workbench AI · 连接中断":@"Workbench AI · 检查连接";detail=self.connectionState==3?@"轻点检查连接与任务":@"等待 Workbench 心跳确认";color=self.connectionState==3?UIColor.systemRedColor:UIColor.systemOrangeColor;}
+ else if(self.agentStopped){title=@"Workbench AI · 已停止";detail=self.idleStatus?:@"轻点返回会话";color=UIColor.systemGrayColor;}
  else if(self.waitingApproval){title=@"AI 等待你的确认";detail=@"请查看当前确认弹窗";color=UIColor.systemOrangeColor;}
- else if(running){title=control?@"AI 操作中 · 请勿触屏":@"Dylix AI · 处理中";color=control?UIColor.systemOrangeColor:UIColor.systemBlueColor;
+ else if(running){title=control?@"AI 操作中 · 请勿触屏":@"Workbench AI · 处理中";color=control?UIColor.systemOrangeColor:UIColor.systemBlueColor;
   NSString *phase=self.localOperation.length?[self phaseForOperation:self.localOperation]:(self.taskPhase?:@"等待模型响应");
   NSTimeInterval elapsed=self.lastTaskUpdate>0?MAX(0,NSProcessInfo.processInfo.systemUptime-self.lastTaskUpdate):0;
    detail=elapsed>=15?[NSString stringWithFormat:@"%@ · 等待更新 %.0f 秒",phase,elapsed]:phase;
-  if([phase isEqual:@"正在回复"]&&!control)title=@"Dylix AI · 正在回复";
- }else if([self.idleStatus isEqual:@"请求未完成"]){title=@"Dylix AI · 任务未完成";detail=@"请求未完成 · 查看错误详情";color=UIColor.systemOrangeColor;}
- else if([self.idleStatus isEqual:@"回复完成"]){title=@"Dylix AI · 回复完成";detail=@"回复完成";}
+  if([phase isEqual:@"正在回复"]&&!control)title=@"Workbench AI · 正在回复";
+ }else if([self.idleStatus isEqual:@"请求未完成"]){title=@"Workbench AI · 任务未完成";detail=@"请求未完成 · 查看错误详情";color=UIColor.systemOrangeColor;}
+ else if([self.idleStatus isEqual:@"回复完成"]){title=@"Workbench AI · 回复完成";detail=@"回复完成";}
  else detail=self.idleStatus?:@"就绪";
  if(control)detail=[@"请勿触屏 · " stringByAppendingString:detail];
  if(self.captureStatus.length)detail=[detail stringByAppendingFormat:@"\n%@",self.captureStatus];
@@ -402,7 +402,7 @@ static NSString *DXChatContent(id content) {
  }];
 }
 - (void)stopAgentTapped {
- // Local latch closes immediately, even if the cancel request cannot reach Dylix.
+ // Local latch closes immediately, even if the cancel request cannot reach Workbench.
  self.agentStopped=YES;NSUInteger generation=++self.agentGeneration;[self setStatus:@"正在停止任务…"];
  [self.runtime cancelPendingInput];
  if(self.jobID.length)[self request:@"/api/v1/jobs/cancel" body:@{@"id":self.jobID} completion:^(NSDictionary *result,NSError *error){if(generation!=self.agentGeneration)return;if(!error){self.busy=NO;self.jobID=nil;}[self setStatus:error?@"本地工具已停止；远端取消失败，请恢复会话检查":@"任务已停止"]; }];
@@ -411,16 +411,16 @@ static NSString *DXChatContent(id content) {
 - (void)closeTapped {if(self.uiTransitioning)return;self.uiTransitioning=YES;[self minimizeChat:NO completion:^{self.uiTransitioning=NO;}];}
 - (void)disconnectTapped {
  if(self.busy){[self showError:DXChatError(@"AI 正在回复，请等本次请求结束后断开")];return;}
- if(!self.token.length){[self setStatus:@"尚未连接 Dylix"];return;}
- UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"断开 Dylix" message:@"清除保存的授权码和连接令牌，保留地址、项目、模型及会话选择。再次连接需要授权码。" preferredStyle:UIAlertControllerStyleAlert];
+ if(!self.token.length){[self setStatus:@"尚未连接 Workbench"];return;}
+ UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"断开 Workbench" message:@"清除保存的授权码和连接令牌，保留地址、项目、模型及会话选择。再次连接需要授权码。" preferredStyle:UIAlertControllerStyleAlert];
  [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
  [alert addAction:[UIAlertAction actionWithTitle:@"断开连接" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action){
-  [self.agentTimer invalidate];self.agentTimer=nil;[self setStatus:@"正在断开 Dylix…"];
+  [self.agentTimer invalidate];self.agentTimer=nil;[self setStatus:@"正在断开 Workbench…"];
   self.agentStopped=YES;
   [self request:@"/api/v1/logout" body:@{} completion:^(NSDictionary *result,NSError *error){
-   NSError *storageError=nil;[FLEXDylixPreferences clearAuthorization:&storageError];
+   NSError *storageError=nil;[FLEXWorkbenchPreferences clearAuthorization:&storageError];
    self.sessionLoadGeneration++;self.token=nil;self.csrf=nil;self.authorizationCode=nil;self.jobID=nil;self.needsConnectionValidation=NO;
-   self.missedHeartbeats=0;[self showConnectionState:0];[self rememberConnection];[self setStatus:storageError?storageError.localizedDescription:@"已断开 Dylix，已保留项目和模型选择"];
+   self.missedHeartbeats=0;[self showConnectionState:0];[self rememberConnection];[self setStatus:storageError?storageError.localizedDescription:@"已断开 Workbench，已保留项目和模型选择"];
   }];
  }]];
  [self presentViewController:alert animated:YES completion:nil];
@@ -557,7 +557,7 @@ static NSString *DXChatContent(id content) {
  }];
 }
 - (void)permissionTapped {
- if(!self.csrf.length||!self.projectID.length){[self setStatus:@"请先连接 Dylix 并选择项目"];return;}
+ if(!self.csrf.length||!self.projectID.length){[self setStatus:@"请先连接 Workbench 并选择项目"];return;}
  if(self.sessionID.length){[self showSessionPermission];return;}
  if(self.busy){[self setStatus:@"正在建立会话，请稍后授权"];return;}
  NSString *project=self.projectID;NSUInteger generation=self.sessionLoadGeneration;self.busy=YES;
@@ -572,7 +572,7 @@ static NSString *DXChatContent(id content) {
 // Plain HTTP is intentional for the user's LAN-only Remote service. This socket path is independent of host ATS and NSURLSession hooks.
 - (NSDictionary *)requestSync:(NSString *)path body:(NSDictionary *)body error:(NSError **)error {
  NSString *newToken=nil;
- NSDictionary *result=FLEXDylixHTTPRequest(self.host,self.port,path,body,self.token,self.csrf,8,&newToken,error);
+ NSDictionary *result=FLEXWorkbenchHTTPRequest(self.host,self.port,path,body,self.token,self.csrf,8,&newToken,error);
  if(newToken.length)self.token=newToken;
  return result;
 }
@@ -583,7 +583,7 @@ static NSString *DXChatContent(id content) {
  [self request:@"/api/v1/workspace" body:@{@"action":action,@"projectID":self.projectID?:@"",@"arguments":arguments?:@{}} completion:^(NSDictionary *data,NSError *error){if(error){completion(nil,error);return;}[self waitJob:data[@"id"] completion:completion];}];
 }
 - (void)waitJob:(NSString *)identifier completion:(DXChatReply)completion {
- if(![identifier isKindOfClass:NSString.class]){completion(nil,DXChatError(@"Dylix 没有返回任务 ID"));return;}
+ if(![identifier isKindOfClass:NSString.class]){completion(nil,DXChatError(@"Workbench 没有返回任务 ID"));return;}
  [self request:@"/api/v1/jobs/get" body:@{@"id":identifier} completion:^(NSDictionary *job,NSError *error){
   if(error){completion(nil,error);return;}
   BOOL current=[identifier isEqual:self.jobID];
@@ -600,19 +600,19 @@ static NSString *DXChatContent(id content) {
  NSString *identifier=job[@"id"],*nonce=job[@"nonce"];if(!identifier.length||!nonce.length){completion(nil,DXChatError(@"确认请求无效"));return;}
  NSTimeInterval expiry=[job[@"expiresAt"] isKindOfClass:NSNumber.class]?[job[@"expiresAt"] doubleValue]:0;
  if(expiry<=0)expiry=NSDate.date.timeIntervalSince1970+120;
- UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"确认 Dylix 操作" message:[@[job[@"confirmation"][@"summary"]?:@"AI 请求执行操作",job[@"confirmation"][@"details"]?:@""] componentsJoinedByString:@"\n\n"] preferredStyle:UIAlertControllerStyleAlert];
- for(NSNumber *choice in @[@NO,@YES]){BOOL accepted=choice.boolValue;[alert addAction:[UIAlertAction actionWithTitle:accepted?@"允许":@"拒绝" style:accepted?UIAlertActionStyleDefault:UIAlertActionStyleCancel handler:^(UIAlertAction *action){[self request:@"/api/v1/jobs/confirm" body:@{@"id":identifier,@"nonce":nonce,@"accepted":choice} completion:^(NSDictionary *result,NSError *error){if(error)completion(nil,error);else [self waitJob:identifier completion:completion];}];}]];}[self presentApproval:alert expiresAt:expiry onExpiry:^{completion(nil,DXChatError(@"Dylix 操作确认已过期"));}];
+ UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"确认 Workbench 操作" message:[@[job[@"confirmation"][@"summary"]?:@"AI 请求执行操作",job[@"confirmation"][@"details"]?:@""] componentsJoinedByString:@"\n\n"] preferredStyle:UIAlertControllerStyleAlert];
+ for(NSNumber *choice in @[@NO,@YES]){BOOL accepted=choice.boolValue;[alert addAction:[UIAlertAction actionWithTitle:accepted?@"允许":@"拒绝" style:accepted?UIAlertActionStyleDefault:UIAlertActionStyleCancel handler:^(UIAlertAction *action){[self request:@"/api/v1/jobs/confirm" body:@{@"id":identifier,@"nonce":nonce,@"accepted":choice} completion:^(NSDictionary *result,NSError *error){if(error)completion(nil,error);else [self waitJob:identifier completion:completion];}];}]];}[self presentApproval:alert expiresAt:expiry onExpiry:^{completion(nil,DXChatError(@"Workbench 操作确认已过期"));}];
 }
 - (void)connectTapped {
- UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"连接 Dylix Remote" message:@"粘贴 Dylix 设置页复制的完整地址，再输入授权码" preferredStyle:UIAlertControllerStyleAlert];
- [alert addTextFieldWithConfigurationHandler:^(UITextField *field){field.placeholder=@"粘贴 Dylix 复制的访问地址";if(self.host.length&&self.port)field.text=[NSString stringWithFormat:@"http://%@:%lu",self.host,(unsigned long)self.port];field.keyboardType=UIKeyboardTypeURL;field.autocapitalizationType=UITextAutocapitalizationTypeNone;field.autocorrectionType=UITextAutocorrectionTypeNo;}];
+ UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"连接 Workbench Remote" message:@"粘贴 Workbench 设置页复制的完整地址，再输入授权码" preferredStyle:UIAlertControllerStyleAlert];
+ [alert addTextFieldWithConfigurationHandler:^(UITextField *field){field.placeholder=@"粘贴 Workbench 复制的访问地址";if(self.host.length&&self.port)field.text=[NSString stringWithFormat:@"http://%@:%lu",self.host,(unsigned long)self.port];field.keyboardType=UIKeyboardTypeURL;field.autocapitalizationType=UITextAutocapitalizationTypeNone;field.autocorrectionType=UITextAutocorrectionTypeNo;}];
  [alert addTextFieldWithConfigurationHandler:^(UITextField *field){field.placeholder=@"授权码";field.text=self.authorizationCode;field.secureTextEntry=YES;field.keyboardType=UIKeyboardTypeNumberPad;}];
- if(self.lastConnectionError.userInfo[FLEXDylixConnectionDiagnosticKey])[alert addAction:[UIAlertAction actionWithTitle:@"上次连接诊断" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){[self showConnectionDiagnostic];}]];
+ if(self.lastConnectionError.userInfo[FLEXWorkbenchConnectionDiagnosticKey])[alert addAction:[UIAlertAction actionWithTitle:@"上次连接诊断" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){[self showConnectionDiagnostic];}]];
  if(self.token.length)[alert addAction:[UIAlertAction actionWithTitle:@"使用已保存连接" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){self.needsConnectionValidation=YES;[self resumeSavedConnection];}]];
  [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
  [alert addAction:[UIAlertAction actionWithTitle:@"连接" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){
   NSString *host=nil,*message=nil;NSUInteger port=0;
-  if(!FLEXDylixParseAddress(alert.textFields[0].text,&host,&port,&message)){[self showError:DXChatError(message)];return;}
+  if(!FLEXWorkbenchParseAddress(alert.textFields[0].text,&host,&port,&message)){[self showError:DXChatError(message)];return;}
   NSString *code=[alert.textFields[1].text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];if(!code.length){[self showError:DXChatError(@"请输入授权码")];return;}
   if(self.busy){[self setStatus:@"AI 正在执行，请结束任务后更换连接"];return;}
   BOOL changed=![self.host isEqual:host]||self.port!=port;self.sessionLoadGeneration++;self.host=host;self.port=port;self.authorizationCode=code;self.token=nil;self.csrf=nil;self.needsConnectionValidation=NO;self.restoringWorkspace=NO;self.missedHeartbeats=0;
@@ -626,7 +626,7 @@ static NSString *DXChatContent(id content) {
 - (void)projectTapped {if(self.restoringWorkspace){[self setStatus:@"正在恢复上次项目和会话，请稍候"];return;}
  if(self.busy){[self setStatus:@"AI 正在回复，结束后可切换项目"];return;}
  if(!self.csrf.length){[self connectTapped];return;}
- [self workspace:@"projects" arguments:@{} completion:^(NSDictionary *data,NSError *error){if(error){[self showError:error];return;}NSArray *projects=data[@"projects"];UIAlertController *menu=[UIAlertController alertControllerWithTitle:@"选择 Dylix 项目" message:@"AI 的文件和构建权限仍限定在所选项目" preferredStyle:UIAlertControllerStyleActionSheet];for(NSDictionary *project in projects){NSString *name=project[@"name"]?:project[@"id"];[menu addAction:[UIAlertAction actionWithTitle:name style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){if(![self.projectID isEqual:project[@"id"]]){[self saveDraft];self.sessionLoadGeneration++;self.projectID=project[@"id"];self.projectName=name;self.sessionID=nil;self.sessionTitle=nil;self.reasoningEffort=nil;self.reasoningOptions=nil;self.liveMessage=nil;[self.messages removeAllObjects];[self addMessage:@"已切换项目。选择历史会话，或直接发送以创建新会话。" role:@"tip"];[self restoreDraft];[self updateSessionButton];}else self.projectName=name;[self.projectButton setTitle:name forState:UIControlStateNormal];[self rememberConnection];[self modelTapped];}]];}[menu addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];menu.popoverPresentationController.sourceView=self.projectButton;menu.popoverPresentationController.sourceRect=self.projectButton.bounds;[self presentViewController:menu animated:YES completion:nil];}];
+ [self workspace:@"projects" arguments:@{} completion:^(NSDictionary *data,NSError *error){if(error){[self showError:error];return;}NSArray *projects=data[@"projects"];UIAlertController *menu=[UIAlertController alertControllerWithTitle:@"选择 Workbench 项目" message:@"AI 的文件和构建权限仍限定在所选项目" preferredStyle:UIAlertControllerStyleActionSheet];for(NSDictionary *project in projects){NSString *name=project[@"name"]?:project[@"id"];[menu addAction:[UIAlertAction actionWithTitle:name style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){if(![self.projectID isEqual:project[@"id"]]){[self saveDraft];self.sessionLoadGeneration++;self.projectID=project[@"id"];self.projectName=name;self.sessionID=nil;self.sessionTitle=nil;self.reasoningEffort=nil;self.reasoningOptions=nil;self.liveMessage=nil;[self.messages removeAllObjects];[self addMessage:@"已切换项目。选择历史会话，或直接发送以创建新会话。" role:@"tip"];[self restoreDraft];[self updateSessionButton];}else self.projectName=name;[self.projectButton setTitle:name forState:UIControlStateNormal];[self rememberConnection];[self modelTapped];}]];}[menu addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];menu.popoverPresentationController.sourceView=self.projectButton;menu.popoverPresentationController.sourceRect=self.projectButton.bounds;[self presentViewController:menu animated:YES completion:nil];}];
 }
 - (void)applyModelSelection:(NSDictionary *)connection {
  BOOL changed=![self.connectionID isEqual:connection[@"id"]]||![self.modelID isEqual:connection[@"model"]];
@@ -639,7 +639,7 @@ static NSString *DXChatContent(id content) {
 - (void)chooseReasoningForConnection:(NSDictionary *)connection {
  NSArray *options=connection[@"efforts"];if(![options isKindOfClass:NSArray.class]||options.count<2){[self setStatus:@"此模型未提供可调思考档位，将使用模型默认设置"];return;}
  NSString *project=[self.projectID copy],*cid=[self.connectionID copy],*model=[self.modelID copy];NSUInteger generation=self.sessionLoadGeneration;
- UIAlertController *menu=[UIAlertController alertControllerWithTitle:@"深度思考" message:@"仅列出当前模型支持的档位。选择后下次发送生效；未在 FLEX 选择时沿用 Dylix 会话设置。" preferredStyle:UIAlertControllerStyleActionSheet];
+ UIAlertController *menu=[UIAlertController alertControllerWithTitle:@"深度思考" message:@"仅列出当前模型支持的档位。选择后下次发送生效；未在 FLEX 选择时沿用 Workbench 会话设置。" preferredStyle:UIAlertControllerStyleActionSheet];
  for(NSDictionary *option in options){NSString *value=option[@"id"];if(![value isKindOfClass:NSString.class])continue;NSString *name=option[@"name"]?:value;
  [menu addAction:[UIAlertAction actionWithTitle:name style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){if(self.busy||generation!=self.sessionLoadGeneration||![project isEqual:self.projectID]||![cid isEqual:self.connectionID]||![model isEqual:self.modelID])return;self.reasoningEffort=value;[self setStatus:[NSString stringWithFormat:@"深度思考：%@ · 下次发送生效",name]];}]];}
  [menu addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];menu.popoverPresentationController.sourceView=self.modelButton;menu.popoverPresentationController.sourceRect=self.modelButton.bounds;[self presentViewController:menu animated:YES completion:nil];
@@ -658,13 +658,13 @@ static NSString *DXChatContent(id content) {
   [menu addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];menu.popoverPresentationController.sourceView=self.modelButton;menu.popoverPresentationController.sourceRect=self.modelButton.bounds;[self presentViewController:menu animated:YES completion:nil];
  }];
 }
-- (void)setLiveText:(NSString *)text {if(!self.liveMessage)return;self.liveMessage[@"text"]=text?:@"";self.liveHasContent=text.length>0;self.liveLabel.attributedText=FLEXDylixRenderMarkdown(text,self.liveLabel.textColor);[self scrollMessagesToBottom];[self rememberConnection];}
+- (void)setLiveText:(NSString *)text {if(!self.liveMessage)return;self.liveMessage[@"text"]=text?:@"";self.liveHasContent=text.length>0;self.liveLabel.attributedText=FLEXWorkbenchRenderMarkdown(text,self.liveLabel.textColor);[self scrollMessagesToBottom];[self rememberConnection];}
 - (void)sendTapped {
  if(self.restoringWorkspace){[self setStatus:@"正在恢复上次项目和会话，请稍候"];return;}
  if(self.needsConnectionValidation){[self resumeSavedConnection];return;}
  if(self.busy){[self stopAgentTapped];return;}
  NSString *question=[self.input.text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];if(!question.length)return;
- if(!self.projectID.length||!self.connectionID.length||!self.modelID.length){[self showError:DXChatError(@"请先连接 Dylix，选择项目和模型")];return;}
+ if(!self.projectID.length||!self.connectionID.length||!self.modelID.length){[self showError:DXChatError(@"请先连接 Workbench，选择项目和模型")];return;}
  if(!self.sessionID.length){
   NSString *project=self.projectID;NSUInteger loadGeneration=self.sessionLoadGeneration,requestGeneration=self.agentGeneration;self.busy=YES;
   [self workspace:@"ai_create" arguments:@{@"name":question.length>30?[question substringToIndex:30]:question} completion:^(NSDictionary *record,NSError *error){
@@ -682,8 +682,8 @@ static NSString *DXChatContent(id content) {
  NSString *fullReport=[NSString stringWithFormat:@"%@\nCurrent FLEX runtime: %@",current?:@"",liveText?:@""];NSString *report=fullReport.length>16000?[fullReport substringToIndex:16000]:fullReport;
  NSString *liveClass=live[@"selectedObject"][@"class"]?:self.className;
  [self workspace:@"flex_publish" arguments:@{@"bundleID":bundle,@"className":liveClass?:@"未知对象",@"report":report,@"capabilities":@{@"protocolVersion":@2,@"touchGestures":@([[self.runtime execute:@"gesture_capabilities" arguments:@{} error:nil][@"available"] boolValue])}} completion:^(NSDictionary *published,NSError *error){if(generation!=self.agentGeneration){self.busy=NO;[self setStatus:@"任务已停止"];return;}if(error){self.busy=NO;self.sendButton.enabled=YES;[self setLiveText:error.localizedDescription];[self showError:error];return;}
-  NSString *contextualQuestion=[NSString stringWithFormat:@"%@\n\n当前 FLEX 现场：目标 App %@，当前选中对象 %@。你可以自主用 flex_live_read(current)、screen_elements 和 view_tree 探索整个当前页面，不必等用户先选视图；可用 hit_test 从窗口坐标定位对象。若当前模型已验证图片能力，且用户授权 FLEX 敏感读取，可用 flex_sensitive_read(capture_screen) 获取目标窗口截图；截图会作为下一轮真正的图片输入，不是 base64 文本。需要进入页面时，可请求 flex_control(activate_control) 激活可见 UIButton，或 scroll_view 滚动，均受 FLEX 控制授权约束；操作后重新观察页面。默认目标是在 Dylix 当前项目中编写持久插件功能，视图实例 ID 不是 Logos Hook 的类名或 selector。按需用 class_info、项目文件及已授权头文件核查类与方法；object_info 的 hookEvidence 提供祖先视图、nearest_responder_controller、稳定特征候选和生命周期方法声明位置。先读取目标按钮与业务祖先的 object_info，再用 class_info/class_header 核查；导航离开重进、滚动复用后重新截图和查询，比较 signature 与 instanceID。lifecycleExecutionObserved=false 表示没有调用轨迹，不能把声明当成实际执行；stabilityVerified=false 表示尚需你交叉验证。证据不足时说明缺口，不要编造 Hook。set_view 仅临时改变当前实例，不能代替插件代码；项目写入和构建仍走 Dylix 原有审批。",question,bundle,liveClass];
-  contextualQuestion=[contextualQuestion stringByAppendingString:@"\n自主操作时先读取 tool_catalog 和 chat_status。需要操作目标 App 时调用 flex_control(minimize_chat, surface=target)，确认 chat_status.targetReady=true 后再触摸，会话与任务保持运行；需要操作 FLEX 功能页时用 open_tool 和返回目录中的 tool_id，随后用 flex_sensitive_read(flex_ui_state) 读取页面、用 set_search / flex_scroll / select_row 导航（仅 selectSupported=true 的行），最后可 restore_chat 恢复聊天。截图可指定 surface=flex 或 target。收起后有独立的 AI 状态悬浮球，显示连接、工具处理和回复状态，不暂停会话；用户可以点击悬浮球或 FLEX 菜单的 Dylix AI 回到同一会话。状态球不是目标 App 控件，不要操作它。若工具报告停止，不可重试控制。目录标为不支持的入口不要声称已操作。需要自定义点击、双击、长按、滑动、拖动、双指缩放或旋转时，先读 gesture_capabilities；若可用，再在会话已收起到 target 后调用 flex_control(gesture)。这是投递真实触摸序列，返回 delivered 仅证明已投递，必须重新截图/读取现场确认业务效果。滚动返回 scrolled 表示实际位移；用 previousOffset、contentOffset、delta 与 reachedBoundary 区分移动和触及边界。xx.h 与反汇编入口为 extension.headers / extension.disassembly；class_header 可按行读取真实头文件。若候选 UIButton 无 controlActions，或 hit_test 命中其父容器，应继续检查交互父视图、手势及所属控制器，不能据此编写全局 UIButton Hook。用户要求的测试应逐项执行或明确阻塞原因，不得因为其他项目已通过就跳过可恢复的测试。独立测试构建前先确认 schema 能否选择隔离项目/配置；没有入口就先报告阻塞，不能只创建散落源码后当成构建准备完成，更不能改业务根配置。仅返回普通页面且实例相同，只能说明实例被保留，不能当作销毁重建或列表复用验证。截图像素尺寸可能经过压缩，触摸坐标以 screen_elements.windowBounds 为准。"];
+  NSString *contextualQuestion=[NSString stringWithFormat:@"%@\n\n当前 FLEX 现场：目标 App %@，当前选中对象 %@。你可以自主用 flex_live_read(current)、screen_elements 和 view_tree 探索整个当前页面，不必等用户先选视图；可用 hit_test 从窗口坐标定位对象。若当前模型已验证图片能力，且用户授权 FLEX 敏感读取，可用 flex_sensitive_read(capture_screen) 获取目标窗口截图；截图会作为下一轮真正的图片输入，不是 base64 文本。需要进入页面时，可请求 flex_control(activate_control) 激活可见 UIButton，或 scroll_view 滚动，均受 FLEX 控制授权约束；操作后重新观察页面。默认目标是在 Workbench 当前项目中编写持久插件功能，视图实例 ID 不是 Logos Hook 的类名或 selector。按需用 class_info、项目文件及已授权头文件核查类与方法；object_info 的 hookEvidence 提供祖先视图、nearest_responder_controller、稳定特征候选和生命周期方法声明位置。先读取目标按钮与业务祖先的 object_info，再用 class_info/class_header 核查；导航离开重进、滚动复用后重新截图和查询，比较 signature 与 instanceID。lifecycleExecutionObserved=false 表示没有调用轨迹，不能把声明当成实际执行；stabilityVerified=false 表示尚需你交叉验证。证据不足时说明缺口，不要编造 Hook。set_view 仅临时改变当前实例，不能代替插件代码；项目写入和构建仍走 Workbench 原有审批。",question,bundle,liveClass];
+  contextualQuestion=[contextualQuestion stringByAppendingString:@"\n自主操作时先读取 tool_catalog 和 chat_status。需要操作目标 App 时调用 flex_control(minimize_chat, surface=target)，确认 chat_status.targetReady=true 后再触摸，会话与任务保持运行；需要操作 FLEX 功能页时用 open_tool 和返回目录中的 tool_id，随后用 flex_sensitive_read(flex_ui_state) 读取页面、用 set_search / flex_scroll / select_row 导航（仅 selectSupported=true 的行），最后可 restore_chat 恢复聊天。截图可指定 surface=flex 或 target。收起后有独立的 AI 状态悬浮球，显示连接、工具处理和回复状态，不暂停会话；用户可以点击悬浮球或 FLEX 菜单的 Workbench AI 回到同一会话。状态球不是目标 App 控件，不要操作它。若工具报告停止，不可重试控制。目录标为不支持的入口不要声称已操作。需要自定义点击、双击、长按、滑动、拖动、双指缩放或旋转时，先读 gesture_capabilities；若可用，再在会话已收起到 target 后调用 flex_control(gesture)。这是投递真实触摸序列，返回 delivered 仅证明已投递，必须重新截图/读取现场确认业务效果。滚动返回 scrolled 表示实际位移；用 previousOffset、contentOffset、delta 与 reachedBoundary 区分移动和触及边界。xx.h 与反汇编入口为 extension.headers / extension.disassembly；class_header 可按行读取真实头文件。若候选 UIButton 无 controlActions，或 hit_test 命中其父容器，应继续检查交互父视图、手势及所属控制器，不能据此编写全局 UIButton Hook。用户要求的测试应逐项执行或明确阻塞原因，不得因为其他项目已通过就跳过可恢复的测试。独立测试构建前先确认 schema 能否选择隔离项目/配置；没有入口就先报告阻塞，不能只创建散落源码后当成构建准备完成，更不能改业务根配置。仅返回普通页面且实例相同，只能说明实例被保留，不能当作销毁重建或列表复用验证。截图像素尺寸可能经过压缩，触摸坐标以 screen_elements.windowBounds 为准。"];
   NSMutableDictionary *arguments=[@{@"text":contextualQuestion,@"connectionID":self.connectionID,@"model":self.modelID,@"mode":@"develop"} mutableCopy];if(self.sessionID.length)arguments[@"sessionID"]=self.sessionID;if(self.reasoningEffort.length)arguments[@"reasoningEffort"]=self.reasoningEffort;
   [self setStatus:@"AI 正在回复…"];[self request:@"/api/v1/workspace" body:@{@"action":@"ai_send",@"projectID":self.projectID,@"arguments":arguments} completion:^(NSDictionary *job,NSError *failure){if(generation!=self.agentGeneration){self.busy=NO;if([job[@"id"] length])[self request:@"/api/v1/jobs/cancel" body:@{@"id":job[@"id"]} completion:^(NSDictionary *r,NSError *e){}];return;}if(failure){self.busy=NO;self.sendButton.enabled=YES;[self setLiveText:failure.localizedDescription];[self showError:failure];return;}self.jobID=job[@"id"];if([job[@"sessionID"] isKindOfClass:NSString.class])self.sessionID=job[@"sessionID"];[self waitJob:self.jobID completion:^(NSDictionary *result,NSError *endError){if(generation!=self.agentGeneration)return;self.busy=NO;self.sendButton.enabled=YES;self.jobID=nil;if(endError){[self setLiveText:endError.localizedDescription];[self setStatus:@"请求未完成"];return;}if([result[@"sessionID"] isKindOfClass:NSString.class]){self.sessionID=result[@"sessionID"];if(!self.sessionTitle.length){self.sessionTitle=question.length>30?[question substringToIndex:30]:question;[self updateSessionButton];}}[self setStatus:@"回复完成"];if(!self.liveHasContent){NSArray *messages=result[@"messages"];for(NSDictionary *message in messages.reverseObjectEnumerator)if([message[@"role"] isEqual:@"assistant"]){NSString *text=DXChatContent(message[@"content"]);if(text.length){[self setLiveText:text];break;}}}[self rememberConnection];}];}];
  }];

@@ -10,7 +10,7 @@
 - DeepAgents 摘要中间件：<https://github.com/langchain-ai/deepagents/blob/master/libs/deepagents/deepagents/middleware/summarization.py>。保留近期对话并为旧信息提供持久引用。
 - LangChain 任务清单中间件：<https://github.com/langchain-ai/langchain/blob/master/libs/langchain_v1/langchain/agents/middleware/todo.py>。复杂任务使用结构化进度；计划不等于真实执行结果，简单任务无需额外清单。
 
-## 应用到 Dylix
+## 应用到 Workbench
 
 1. 新增 `update_plan`，最多 20 项，每项内容最多 240 UTF-16 单位，状态为 pending/in_progress/completed/blocked。整个数组替换，空数组清除。可选 explanation 最多 600 单位。
 2. 工具只产生会话记录，不访问文件、不代替执行、不授予权限。通过现有工具注册、参数校验、会话检查、调用记录与导出链路。Ask 模式同样允许记录计划，子任务原有工具白名单不变。

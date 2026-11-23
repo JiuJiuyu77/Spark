@@ -6,7 +6,7 @@
 
 - OpenMinis `src/ios/Agent/Chat/AIChatViewModel+Compaction.swift`：压缩摘要保留请求、已执行操作、结果、文件和决策；摘要仅为历史，最新用户消息优先；明确不要重新运行发现流程。核对原始源码：https://github.com/OpenMinis/OpenMinis/blob/main/src/ios/Agent/Chat/AIChatViewModel%2BCompaction.swift
 - DeepAgents `middleware/summarization.py` / `filesystem.py`：摘要与保留的近期消息组合；大结果卸载时保留预览和可回取位置，按需读取。核对原始源码：https://github.com/langchain-ai/deepagents/tree/master/libs/deepagents/deepagents/middleware
-- Dylix 没有直接移植上述实现或增加每轮付费摘要请求；采用适合现有 Objective-C 数据结构的确定性工作证据。
+- Workbench 没有直接移植上述实现或增加每轮付费摘要请求；采用适合现有 Objective-C 数据结构的确定性工作证据。
 
 ## 实现
 

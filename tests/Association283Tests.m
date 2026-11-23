@@ -22,5 +22,5 @@ int main(){@autoreleasepool{
  TFAISetSessionLiveRun(scope,identifier,YES);NSError *error=nil;Check(![TFAISessions saveMetadata:@{@"associatedProjectID":@"project-c",@"workspaceID":@"project-c"} identifier:identifier project:scope error:&error]&&error,@"active run association rejected");TFAISetSessionLiveRun(scope,identifier,NO);Check([[TFAISessions loadSession:identifier project:scope][@"workspaceID"] isEqual:@"project-b"],@"active run keeps previous workspace");
  [TFAISessions remove:identifier project:scope];
  }
- NSString *root=[[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"TweakForgeAI/Sessions"] stringByAppendingPathComponent:scope];[NSFileManager.defaultManager removeItemAtPath:root error:nil];printf("%d checks, %d failures\n",checks,failures);return failures?1:0;
+ NSString *root=[[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"WorkbenchAI/Sessions"] stringByAppendingPathComponent:scope];[NSFileManager.defaultManager removeItemAtPath:root error:nil];printf("%d checks, %d failures\n",checks,failures);return failures?1:0;
 }}

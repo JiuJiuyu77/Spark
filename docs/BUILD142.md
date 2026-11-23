@@ -1,4 +1,4 @@
-# Dylix 1.0.5（142）
+# Workbench 1.0.5（142）
 
 - 增加项目与全局 C++ 标准选择，默认使用 gnu++17，兼容 typeof 等 GNU 扩展。
 - AI 通过 propose_build_settings 设置 cxxStandard；优先尊重 Makefile 显式 -std，构建返回实际生效配置。

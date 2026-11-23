@@ -1,4 +1,4 @@
-#line 1 "TheosMobileCompiler/Resources/SampleMultiProject/Tweak.xm"
+#line 1 "Workbench/Resources/SampleMultiProject/Tweak.xm"
 #import "Shared.h"
 
 #include <substrate.h>
@@ -26,7 +26,7 @@ __asm__(".linker_option \"-framework\", \"CydiaSubstrate\"");
 @class MobileMultiFixture; 
 static NSString * (*_logos_orig$_ungrouped$MobileMultiFixture$message)(_LOGOS_SELF_TYPE_NORMAL MobileMultiFixture* _LOGOS_SELF_CONST, SEL); static NSString * _logos_method$_ungrouped$MobileMultiFixture$message(_LOGOS_SELF_TYPE_NORMAL MobileMultiFixture* _LOGOS_SELF_CONST, SEL); 
 
-#line 2 "TheosMobileCompiler/Resources/SampleMultiProject/Tweak.xm"
+#line 2 "Workbench/Resources/SampleMultiProject/Tweak.xm"
 @interface MobileMultiFixture : NSObject
 - (NSString *)message;
 @end

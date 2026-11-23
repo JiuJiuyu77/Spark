@@ -330,10 +330,10 @@ static void FLEXInstallListCallbackHook(Class cls, SEL selector, IMP wrapper) {
         make.button(@"分享插件数据").handler(^(NSArray<NSString *> *strings) {
             [self shareRuntimeReportFromSender:sender];
         });
-        make.button(@"使用 Dylix AI 分析当前对象").handler(^(NSArray<NSString *> *strings) {
+        make.button(@"使用 Workbench AI 分析当前对象").handler(^(NSArray<NSString *> *strings) {
             NSString *name=[FLEXRuntimeUtility safeClassNameForObject:self.object] ?: @"未知对象";
-            NSString *report=[self dylixChatReport];
-            [FLEXManager.sharedManager.explorerViewController showDylixChatForObject:self.object report:report className:name];
+            NSString *report=[self workbenchChatReport];
+            [FLEXManager.sharedManager.explorerViewController showWorkbenchChatForObject:self.object report:report className:name];
         });
         make.button(@"采集列表行为（8秒）").handler(^(NSArray<NSString *> *strings) {
             [self startListCallbackCaptureFromSender:sender];
@@ -342,7 +342,7 @@ static void FLEXInstallListCallbackHook(Class cls, SEL selector, IMP wrapper) {
     } showFrom:self source:sender];
 }
 
-- (NSString *)dylixChatReport {
+- (NSString *)workbenchChatReport {
     NSMutableString *report=[NSMutableString stringWithFormat:@"Class: %@\nDescription: %@\n%@\n", [FLEXRuntimeUtility safeClassNameForObject:self.object] ?: @"未知对象", self.explorer.objectDescription ?: @"", [self runtimeContextReportForObject:self.object] ?: @""];
     [self appendMetadata:@[self.explorer.properties] title:@"Properties" target:self.object toReport:report includeValues:NO];
     [self appendMetadata:@[self.explorer.ivars] title:@"Instance Variables" target:self.object toReport:report includeValues:NO];

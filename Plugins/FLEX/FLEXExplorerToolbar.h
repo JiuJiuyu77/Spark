@@ -56,8 +56,8 @@ NS_ASSUME_NONNULL_BEGIN
 /// Toolbar item for app protection.
 @property (nonatomic, readonly) FLEXExplorerToolbarItem *protectionItem;
 
-/// Toolbar item for the Dylix AI connection.
-@property (nonatomic, readonly) FLEXExplorerToolbarItem *dylixItem;
+/// Toolbar item for the Workbench AI connection.
+@property (nonatomic, readonly) FLEXExplorerToolbarItem *workbenchItem;
 
 /// A view for moving the entire toolbar.
 @property (nonatomic, readonly) UIView *dragHandle;

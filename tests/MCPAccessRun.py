@@ -48,7 +48,7 @@ root = Path(__file__).resolve().parents[1]
 server = ThreadingHTTPServer(('127.0.0.1',0),Handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
 try:
-    with tempfile.TemporaryDirectory(prefix='dylix-mcp-access-') as folder:
+    with tempfile.TemporaryDirectory(prefix='workbench-mcp-access-') as folder:
         exe = Path(folder)/'test'
         files = ['tests/MCPAccessTests.m','App/AI/Agent/TFAIMCP.m','App/AI/Registry/TFAIToolRegistry.m','App/AI/Sandbox/TFAIISHRuntime.m','App/AI/Sandbox/TFAIISHRootCatalog.m','App/AI/Sandbox/TFAIISHEnvironment.m','App/AI/Sandbox/TFAIISHMCPTransport.m','App/AI/Permissions/TFAIPolicy.m','App/AI/Providers/TFAIProtocol.m','App/AI/Providers/TFAIRegistry.m']
         subprocess.run(['xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk','-fobjc-arc','-fblocks','-Wno-nullability-completeness',*[str(root/f) for f in files],'-lsqlite3','-framework','Foundation','-framework','Security','-o',str(exe)],check=True)

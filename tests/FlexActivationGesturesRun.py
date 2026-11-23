@@ -3,10 +3,10 @@ from pathlib import Path
 import argparse,json,plistlib,subprocess,tempfile,time,shutil
 p=argparse.ArgumentParser();p.add_argument('--device',default='A406534F-7D2B-4F72-AB5D-AC9AF178049C');args=p.parse_args()
 root=Path(__file__).resolve().parents[1];flex=root/'Plugins/FLEX';out=root/'build/flex-activation';out.mkdir(parents=True,exist_ok=True)
-app=out/'FlexActivation.app';app.mkdir(exist_ok=True);bundle='app.dylix.tests.flex-activation'
+app=out/'FlexActivation.app';app.mkdir(exist_ok=True);bundle='app.workbench.tests.flex-activation'
 (app/'Info.plist').write_bytes(plistlib.dumps(dict(CFBundleIdentifier=bundle,CFBundleExecutable='FlexActivation',CFBundleName='FlexActivation',CFBundlePackageType='APPL',CFBundleVersion='1',CFBundleShortVersionString='1.0',MinimumOSVersion='15.0',UIDeviceFamily=[1,2],UILaunchScreen={})))
 # Only the test event injector allows 4 fingers; production AI gesture limits stay unchanged.
-driver=(flex/'FLEXDylixTouchDriver.m').read_text();assert driver.count('paths.count>2')==1
+driver=(flex/'FLEXWorkbenchTouchDriver.m').read_text();assert driver.count('paths.count>2')==1
 driver=driver.replace('paths.count>2','paths.count>4');(out/'TestFourFingerInjector.m').write_text(driver)
 def run(*cmd):
  r=subprocess.run([str(c) for c in cmd],capture_output=True,text=True)

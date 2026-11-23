@@ -1,7 +1,7 @@
 #import "TFAIProtocol.h"
 #import "TFAIRegistry.h"
 #import <arpa/inet.h>
-NSError *TFAIError(NSInteger code, NSString *message){return [NSError errorWithDomain:@"TweakForge.AI" code:code userInfo:@{NSLocalizedDescriptionKey:message?:@"AI 请求失败"}];}
+NSError *TFAIError(NSInteger code, NSString *message){return [NSError errorWithDomain:@"Workbench.AI" code:code userInfo:@{NSLocalizedDescriptionKey:message?:@"AI 请求失败"}];}
 NSArray<NSDictionary *> *TFAIProtocolCatalog(void){return TFAIProviderRegistry();}
 // Common gateway envelopes. Never filter model names by vendor/family.
 NSDictionary *TFAIModelPage(id payload){
@@ -159,7 +159,7 @@ static NSDictionary *TFAIGeminiRequest(NSArray *messages,NSDictionary *c,NSArray
 NSDictionary *TFAIRequestBody(NSArray *messages,NSDictionary *c,NSArray *tools,BOOL stream,NSError **error){
  NSString *model=Str(c[@"model"]),*original=c[@"protocol"]?:@"chat",*protocol=WireProtocol(original);if(!model.length){if(error)*error=TFAIError(3,@"请先选择或填写模型 ID");return nil;}
  if(!TFAIImagesAllowed(c))for(NSDictionary *message in messages)if([message[@"images"] count]){if(error)*error=TFAIError(32,@"当前模型已禁用图片，或当前服务声明不支持图片。请在模型能力中调整配置或选择支持图片的模型；原图片与会话保留。");return nil;}
- BOOL anthropicCache=[protocol isEqual:@"anthropic"]&&[NSUserDefaults.standardUserDefaults boolForKey:@"Dylix.AI.AnthropicCache"]&&[[NSURL URLWithString:Str(c[@"baseURL"])].host.lowercaseString isEqual:@"api.anthropic.com"]&&!c[@"_probeToolName"];
+ BOOL anthropicCache=[protocol isEqual:@"anthropic"]&&[NSUserDefaults.standardUserDefaults boolForKey:@"Workbench.AI.AnthropicCache"]&&[[NSURL URLWithString:Str(c[@"baseURL"])].host.lowercaseString isEqual:@"api.anthropic.com"]&&!c[@"_probeToolName"];
  if([protocol isEqual:@"gemini"])return TFAIGeminiRequest(messages,c,tools,error);NSMutableDictionary *body=[@{@"model":model,@"stream":@(stream)} mutableCopy];if([protocol isEqual:@"chat"]&&stream&&![c[@"omitStreamUsage"] boolValue])body[@"stream_options"]=@{@"include_usage":@YES};NSMutableArray *out=[NSMutableArray new];NSMutableArray *system=[NSMutableArray new];NSUInteger imageBytes=0;
  for(id entry in messages){if(![entry isKindOfClass:NSDictionary.class])continue;NSDictionary *m=entry;NSString *role=Str(m[@"role"]),*text=Str(m[@"content"]);if(![@[@"system",@"user",@"assistant",@"tool"] containsObject:role])continue;NSArray *calls=[m[@"tool_calls"] isKindOfClass:NSArray.class]?m[@"tool_calls"]:@[];NSMutableArray *images=[NSMutableArray new];
   for(id item in ([m[@"images"] isKindOfClass:NSArray.class]?m[@"images"]:@[])){if(![item isKindOfClass:NSDictionary.class])continue;NSString *data=Str(item[@"data"]),*mime=Str(item[@"mime"]);if(![@[@"image/png",@"image/jpeg",@"image/webp",@"image/gif"] containsObject:mime]||!data.length||![[NSData alloc]initWithBase64EncodedString:data options:0]){if(error)*error=TFAIError(4,@"图片附件格式无效");return nil;}imageBytes+=data.length;if(imageBytes>12*1024*1024){if(error)*error=TFAIError(4,@"图片附件超过 12 MB 编码上限，请减少图片");return nil;}[images addObject:@{@"data":data,@"mime":mime}];}
@@ -174,7 +174,7 @@ NSDictionary *TFAIRequestBody(NSArray *messages,NSDictionary *c,NSArray *tools,B
  TFApplyThinking(body,c,effort);
  }
  if(tools.count&&TFAIToolsAllowed(c)){NSMutableArray *encoded=[NSMutableArray new];for(NSDictionary *tool in tools){if([protocol isEqual:@"chat"])[encoded addObject:@{@"type":@"function",@"function":tool}];else if([protocol isEqual:@"responses"]){NSMutableDictionary *f=[tool mutableCopy];f[@"type"]=@"function";f[@"strict"]=@NO;[encoded addObject:f];}else [encoded addObject:@{@"name":tool[@"name"]?:@"",@"description":tool[@"description"]?:@"",@"input_schema":tool[@"parameters"]?:@{@"type":@"object"}}];}body[@"tools"]=encoded;if([c[@"_probeToolName"] isEqual:@"probe_ping"]){body[@"tool_choice"]=[protocol isEqual:@"chat"]?@{@"type":@"function",@"function":@{@"name":@"probe_ping"}}:[protocol isEqual:@"responses"]?@{@"type":@"function",@"name":@"probe_ping"}:@{@"type":@"tool",@"name":@"probe_ping"};}}
- if([protocol isEqual:@"anthropic"]&&[NSUserDefaults.standardUserDefaults boolForKey:@"Dylix.AI.AnthropicCache"]&&[[NSURL URLWithString:Str(c[@"baseURL"])].host.lowercaseString isEqual:@"api.anthropic.com"]&&!c[@"_probeToolName"]&&system.count){
+ if([protocol isEqual:@"anthropic"]&&[NSUserDefaults.standardUserDefaults boolForKey:@"Workbench.AI.AnthropicCache"]&&[[NSURL URLWithString:Str(c[@"baseURL"])].host.lowercaseString isEqual:@"api.anthropic.com"]&&!c[@"_probeToolName"]&&system.count){
   NSMutableArray *blocks=[NSMutableArray new];BOOL marked=NO;
   for(NSString *text in system){NSRange snapshot=[text rangeOfString:@"【本轮环境快照】"];if(!marked&&snapshot.location!=NSNotFound&&snapshot.location>0){[blocks addObject:@{@"type":@"text",@"text":[text substringToIndex:snapshot.location],@"cache_control":@{@"type":@"ephemeral"}}];[blocks addObject:@{@"type":@"text",@"text":[text substringFromIndex:snapshot.location]}];marked=YES;}else if(text.length)[blocks addObject:@{@"type":@"text",@"text":text}];}
   if(!marked&&blocks.count){NSMutableDictionary *last=[blocks.lastObject mutableCopy];last[@"cache_control"]=@{@"type":@"ephemeral"};blocks[blocks.count-1]=last;}if(blocks.count)body[@"system"]=blocks;

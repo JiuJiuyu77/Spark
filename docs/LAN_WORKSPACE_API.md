@@ -1,13 +1,13 @@
-# Dylix Remote API · 1.0.7 / Build 160
+# Workbench Remote API · 1.0.7 / Build 160
 
-schema 1，Dylix1.0.7（160），服务运行在iPhone/iPad。默认关闭，工作台端口8787、WebDAV8788；停服后可设1024–65535，仅私有Wi-Fi IPv4。HTTP / HTTP1.1，局域网明文传输；不使用TLS证书。没有Bonjour、WebSocket或匿名Shell。网页、Monaco在App bundle内，无公网CDN。
+schema 1，Workbench1.0.7（160），服务运行在iPhone/iPad。默认关闭，工作台端口8787、WebDAV8788；停服后可设1024–65535，仅私有Wi-Fi IPv4。HTTP / HTTP1.1，局域网明文传输；不使用TLS证书。没有Bonjour、WebSocket或匿名Shell。网页、Monaco在App bundle内，无公网CDN。
 
 ## 首次信任与配对
 
 1. 手机开启服务，访问显示的 `http://IP:端口`。二维码仅包含此URL。
 2. 使用可信的同一局域网。HTTP没有证书信任步骤；浏览器可能仍标记“不安全”。
 3. `POST /api/v1/pair`，Content-Type application/json、Origin完全匹配，body `{"name":"我的电脑","code":"授权码","workspace":true}`。正确码直接200，data为 `state:approved, deviceID`，不再等待手机确认。
-4. 响应 `Set-Cookie: DylixRemoteSession=…; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000`。令牌不出现在JSON、URL或localStorage。服务器持久化其SHA256。
+4. 响应 `Set-Cookie: WorkbenchRemoteSession=…; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000`。令牌不出现在JSON、URL或localStorage。服务器持久化其SHA256。
 5. 随机8位码五分钟有效、成功保存授权后一次消费；固定6–12位ASCII数字存手机钥匙串、长期有效、可重复配不同设备，每台独立令牌。持码者撤权后仍可重配，需换码阻断。换码不自动撤销已授权设备。
 
 `workspace`须为JSON布尔/NSNumber；缺省仅overview:read。勾选workspace获得手机项目范围的工作区能力，具体写入、构建、Git和AI工具仍确认。旧 `/api/v1/pair/result`兼容处理保留，但当前配对不创建pending申请，客户端无需调用。
@@ -31,7 +31,7 @@ schema 1，Dylix1.0.7（160），服务运行在iPhone/iPad。默认关闭，工
 - POST `/api/v1/jobs/cancel`：`{id}`，协作取消；当前编译阶段可返回cancelRequested而非立即终止。
 - GET `/api/v1/download/<id>`：本设备专属、五分钟下载引用，文件管理下载无固定大小上限（Build157起），以分块方式发送。
 
-所有变更必须同时有同源Origin与 `X-Dylix-CSRF`，从status.session.csrf获取。workspace读操作也通过POST调度，同样需要CSRF。仅workspace权限可访问工作区、jobs与downloads，DAV令牌不适用于工作台。
+所有变更必须同时有同源Origin与 `X-Workbench-CSRF`，从status.session.csrf获取。workspace读操作也通过POST调度，同样需要CSRF。仅workspace权限可访问工作区、jobs与downloads，DAV令牌不适用于工作台。
 
 ## 工作区任务
 
@@ -51,7 +51,7 @@ schema 1，Dylix1.0.7（160），服务运行在iPhone/iPad。默认关闭，工
 
 ## WebDAV over HTTP
 
-手机选择单一内部项目并指定只读/读写，开启独立HTTP端口。Basic用户名dylix，随机256bit密码24小时有效，手机可撤销；更换共享设置重发凭据并使旧凭据失效。不要把浏览器cookie用于DAV。
+手机选择单一内部项目并指定只读/读写，开启独立HTTP端口。Basic用户名workbench，随机256bit密码24小时有效，手机可撤销；更换共享设置重发凭据并使旧凭据失效。不要把浏览器cookie用于DAV。
 
 支持OPTIONS、PROPFIND（Depth0/1）、GET/HEAD、PUT、MKCOL、MOVE、COPY、DELETE、LOCK/UNLOCK（Depth0、600秒）。写入8MiB、读取32MiB；ETag/If-Match拒绝旧版本覆盖，锁拒绝冲突写，覆盖/删除先备份；不共享整个沙盒。拒绝跨origin Destination与路径穿越、非空目录整体COPY/MOVE/DELETE。该实现是明确范围的DAV子集，尚未通过Finder/Windows各客户端完整互操作验收；iOS Files原生连接服务器为SMB，使用支持WebDAV的客户端。
 
@@ -117,7 +117,7 @@ Remote在进入后台时获取独立音频owner，前台或全部监听停止/�
 
 Build159起，首次进入项目编辑器自动请求启用自动保存；手动关闭按浏览器/项目记忆。原生写入授权仍按配对设备/项目校验，首次启用及服务重启后需要确认，不改变服务端权限边界。默认开启只改变初始偏好，未确认前不自动写入。
 
-布局偏好保存在浏览器本地，不改变项目文件：`DylixRemoteNavigationCollapsed`控制导航图标栏，`DylixRemoteTreeCollapsed`和`DylixRemoteTreeWidth`控制项目文件栏。文件栏最小140px，最大420px且为代码区保留约300px；拖动分隔线调整，方向键每次16px、Shift32px、Home/End到边界、双击恢复245px、Enter收起。手机宽度下文件栏作为浮层，不挤压代码。
+布局偏好保存在浏览器本地，不改变项目文件：`WorkbenchRemoteNavigationCollapsed`控制导航图标栏，`WorkbenchRemoteTreeCollapsed`和`WorkbenchRemoteTreeWidth`控制项目文件栏。文件栏最小140px，最大420px且为代码区保留约300px；拖动分隔线调整，方向键每次16px、Shift32px、Home/End到边界、双击恢复245px、Enter收起。手机宽度下文件栏作为浮层，不挤压代码。
 
 “全屏编辑”采用工作区专注布局，Ctrl/Command+Alt+Enter切换，退出按钮或Esc恢复。编辑内容、选中文件、撤销记录和文件栏宽度保留；全屏仍显示实际连接状态。浏览器原生全屏权限不是前提，HTTP页面也可使用。工具栏按保存/历史/自动保存、语言/字号/查找/换行、文件栏/全屏/文件操作分组。
 

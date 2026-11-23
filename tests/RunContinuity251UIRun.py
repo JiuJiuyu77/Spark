@@ -3,7 +3,7 @@ import argparse,json,subprocess,time,shutil
 r=Path(__file__).resolve().parents[1];p=argparse.ArgumentParser();p.add_argument('--device',action='append',required=True);a=p.parse_args()
 def run(*args):return subprocess.check_output(list(map(str,args)),text=True).strip()
 for device in a.device:
- bundle='com.xuegao.theosmobilecompiler';run('xcrun','simctl','install',device,r/'build/simulator/TheosMobileCompiler.app');home=Path(run('xcrun','simctl','get_app_container',device,bundle,'data'))
+ bundle='com.HuQing.Workbench';run('xcrun','simctl','install',device,r/'build/simulator/Workbench.app');home=Path(run('xcrun','simctl','get_app_container',device,bundle,'data'))
  for mode in ('continuity251',):
   path=home/f'Documents/{mode}-results.json';path.unlink(missing_ok=True)
   run('xcrun','simctl','launch','--terminate-running-process',device,bundle,'--data-settings237','--'+mode)

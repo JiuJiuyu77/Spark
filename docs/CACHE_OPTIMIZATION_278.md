@@ -9,7 +9,7 @@
 - 压缩应采用冻结的 trim/checkpoint，编辑历史、切换模型、工具 schema 或预算变化时才失效；
 - 原始会话永远保留，网络投影只保存可复用的摘要/回读引用。
 
-## Dylix 改动
+## Workbench 改动
 
 1. 新增 `TFAIContextSessionProjection`：在一次运行中冻结历史投影，追加新消息时复用已确认前缀。
 2. 仅当投影接近 85% 文本预算、历史发生编辑或连接/schema/预算变化时建立压缩 checkpoint。
@@ -37,7 +37,7 @@
 - Cline：`apps/vscode/src/core/controller/slash/condense.ts`、`apps/cli/src/runtime/interactive/compaction.ts`，以及对应 `condense.test.ts`/`compaction.test.ts`。重点是手动/自动压缩共用同一条路径、保留可恢复的历史摘要，并在继续执行前重建上下文。
 - Codex：`codex-rs/core/src/compact.rs`。实现了 compaction checkpoint、保留项/待处理用户输入、压缩前后 hook、摘要元数据和持久历史替换；压缩不是简单截断，也不会把临时状态反复写入稳定前缀。
 
-这些原则已落实到 Dylix：冻结 canonical projection、临时观察尾部、checkpoint 失效条件、原始 transcript 与网络投影分离、provider replay 丢弃、压缩前预算保护，以及运行时 transport 回归测试。没有照搬其他项目的许可证代码，只吸收公开架构原则。
+这些原则已落实到 Workbench：冻结 canonical projection、临时观察尾部、checkpoint 失效条件、原始 transcript 与网络投影分离、provider replay 丢弃、压缩前预算保护，以及运行时 transport 回归测试。没有照搬其他项目的许可证代码，只吸收公开架构原则。
 
 ## 新增验证
 
@@ -54,12 +54,12 @@
 - 成功返回一次 usage：`prompt_tokens=4390`、`cached_tokens=3566`、`total_tokens=4396`。
 - 该次响应的可观测缓存比例为 `3566 / 4390 = 81.23%`，说明稳定前缀确实被中转站/上游识别为缓存；这是单次请求观测值，不代表长期平均命中率。
 - 随后同凭据请求返回 HTTP 401，无法继续进行多轮统计；因此没有把单次结果扩展成整体账单结论，也没有继续重试消耗额度。
-- 中转站返回了 `prompt_tokens_details.cached_tokens`，Dylix 应优先读取这个字段；如果字段不存在，则不能自行推算供应商缓存命中。
+- 中转站返回了 `prompt_tokens_details.cached_tokens`，Workbench 应优先读取这个字段；如果字段不存在，则不能自行推算供应商缓存命中。
 
 
 ## gpt-6.1-sol 实测补充（2026-11-22）
 
 - 使用 `gpt-6.1-sol` 成功获得一次真实 usage：`prompt_tokens=4388`、`cached_tokens=3566`、`total_tokens=4393`。
 - 单次可观测缓存比例约为 `81.27%`。
-- 同一凭据随后多轮请求再次返回 HTTP 401，无法形成稳定的多轮样本；测试脚本也验证了 401 并非 Dylix 统计逻辑造成。
-- 因此本次只能确认 6.1-sol 的单次缓存字段可被 Dylix 正确读取，不能据此宣称大量测试完成或长期命中率稳定。
+- 同一凭据随后多轮请求再次返回 HTTP 401，无法形成稳定的多轮样本；测试脚本也验证了 401 并非 Workbench 统计逻辑造成。
+- 因此本次只能确认 6.1-sol 的单次缓存字段可被 Workbench 正确读取，不能据此宣称大量测试完成或长期命中率稳定。

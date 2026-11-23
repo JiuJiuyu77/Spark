@@ -5,19 +5,19 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT/'evidence/1.0.8-build192-deb-compatibility/simulator'
-APP = 'com.xuegao.theosmobilecompiler'
-DEVICE = os.environ.get('DYLIX_SIM_DEVICE', 'booted')
+APP = 'com.HuQing.Workbench'
+DEVICE = os.environ.get('WORKBENCH_SIM_DEVICE', 'booted')
 def sim(*args):
     return subprocess.check_output(['xcrun','simctl',*map(str,args)], text=True).strip()
 
-sim('install',DEVICE,ROOT/'build/simulator/TheosMobileCompiler.app')
+sim('install',DEVICE,ROOT/'build/simulator/Workbench.app')
 doc = Path(sim('get_app_container',DEVICE,APP,'data'))/'Documents'
 OUT.mkdir(parents=True, exist_ok=True)
-with tempfile.TemporaryDirectory(prefix='dylix-issue2-ios-') as temp:
+with tempfile.TemporaryDirectory(prefix='workbench-issue2-ios-') as temp:
     project=Path(temp)
     (project/'Fixture.c').write_text('int package_fixture(void) { return 42; }\n')
     (project/'MobileCompiler.json').write_text(json.dumps({'name':'Deb compatibility','productName':'Fixture','sources':['Fixture.c'],'package':True,'exportDylib':True,'packageSchemes':['rootless','rootful','roothide']}))
-    (project/'control').write_text('Package: local.dylix.issue2\nName: Fixture\nVersion: 1.0.0\nArchitecture: iphoneos-arm64\nMaintainer: Test\nDescription: Disposable compatibility fixture\n')
+    (project/'control').write_text('Package: local.workbench.issue2\nName: Fixture\nVersion: 1.0.0\nArchitecture: iphoneos-arm64\nMaintainer: Test\nDescription: Disposable compatibility fixture\n')
     (project/'Fixture.plist').write_bytes(plistlib.dumps({'Filter':{'Bundles':['com.example.fixture']}}))
     resource=project/'layout/Library/Application Support/Fixture.bundle/test.txt'
     resource.parent.mkdir(parents=True); resource.write_text('resource fixture\n')

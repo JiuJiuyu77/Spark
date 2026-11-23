@@ -35,7 +35,7 @@ NSDictionary *TFShareResolveGroups(NSArray *mainGroups,NSArray *extensionGroups,
 static NSDictionary *Resolve(void){
  NSBundle *current=NSBundle.mainBundle,*main=current,*extension=nil;
  if([current.bundlePath.pathExtension isEqual:@"appex"]){extension=current;main=[NSBundle bundleWithPath:current.bundlePath.stringByDeletingLastPathComponent.stringByDeletingLastPathComponent];}
- else extension=[NSBundle bundleWithPath:[current.bundlePath stringByAppendingPathComponent:@"PlugIns/TweakForgeShare.appex"]];
+ else extension=[NSBundle bundleWithPath:[current.bundlePath stringByAppendingPathComponent:@"PlugIns/WorkbenchShare.appex"]];
  NSArray *mainGroups=Groups(main),*extGroups=Groups(extension);
  NSMutableDictionary *result=[TFShareResolveGroups(mainGroups,extGroups,^NSURL *(NSString *group){return [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:group];}) mutableCopy];
  result[@"bundleID"]=current.bundleIdentifier?:@"";result[@"mainBundleID"]=main.bundleIdentifier?:@"";result[@"mainGroups"]=mainGroups;result[@"extensionGroups"]=extGroups;return result;

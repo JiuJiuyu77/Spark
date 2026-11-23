@@ -181,9 +181,9 @@
       "version": "1.0.9",
       "build": "209",
       "binaries": {
-        "main": "/Users/xuegao/Downloads/ClassDump-com.phoenix.video😡-1792882659/workspaces/dylix-122/TheosMobileCompiler/build/device/TheosMobileCompiler.app/TheosMobileCompiler:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOS\n    minos 15.0\n      sdk 26.0\n   ntools 1\n     tool LD\n  version 1115.7.3\n",
-        "share": "/Users/xuegao/Downloads/ClassDump-com.phoenix.video😡-1792882659/workspaces/dylix-122/TheosMobileCompiler/build/device/TheosMobileCompiler.app/PlugIns/TweakForgeShare.appex/TweakForgeShare:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOS\n    minos 15.0\n      sdk 26.0\n   ntools 1\n     tool LD\n  version 1115.7.3\n",
-        "activity": "/Users/xuegao/Downloads/ClassDump-com.phoenix.video😡-1792882659/workspaces/dylix-122/TheosMobileCompiler/build/device/TheosMobileCompiler.app/PlugIns/TweakForgeActivity.appex/TweakForgeActivity:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOS\n    minos 16.2\n      sdk 18.2\n   ntools 1\n     tool LD\n  version 1115.7.3\n"
+        "main": "/Users/xuegao/Downloads/ClassDump-com.phoenix.video😡-1792882659/workspaces/workbench-122/Workbench/build/device/Workbench.app/Workbench:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOS\n    minos 15.0\n      sdk 26.0\n   ntools 1\n     tool LD\n  version 1115.7.3\n",
+        "share": "/Users/xuegao/Downloads/ClassDump-com.phoenix.video😡-1792882659/workspaces/workbench-122/Workbench/build/device/Workbench.app/PlugIns/WorkbenchShare.appex/WorkbenchShare:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOS\n    minos 15.0\n      sdk 26.0\n   ntools 1\n     tool LD\n  version 1115.7.3\n",
+        "activity": "/Users/xuegao/Downloads/ClassDump-com.phoenix.video😡-1792882659/workspaces/workbench-122/Workbench/build/device/Workbench.app/PlugIns/WorkbenchActivity.appex/WorkbenchActivity:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOS\n    minos 16.2\n      sdk 18.2\n   ntools 1\n     tool LD\n  version 1115.7.3\n"
       },
       "signatureValid": true,
       "signatureOutput": "",
@@ -197,9 +197,9 @@
       "version": "1.0.9",
       "build": "209",
       "binaries": {
-        "main": "/Users/xuegao/Downloads/ClassDump-com.phoenix.video😡-1792882659/deliverables/Dylix-OpenSource/source/build/device/TheosMobileCompiler.app/TheosMobileCompiler:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOS\n    minos 15.0\n      sdk 26.0\n   ntools 1\n     tool LD\n  version 1115.7.3\n",
-        "share": "/Users/xuegao/Downloads/ClassDump-com.phoenix.video😡-1792882659/deliverables/Dylix-OpenSource/source/build/device/TheosMobileCompiler.app/PlugIns/TweakForgeShare.appex/TweakForgeShare:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOS\n    minos 15.0\n      sdk 26.0\n   ntools 1\n     tool LD\n  version 1115.7.3\n",
-        "activity": "/Users/xuegao/Downloads/ClassDump-com.phoenix.video😡-1792882659/deliverables/Dylix-OpenSource/source/build/device/TheosMobileCompiler.app/PlugIns/TweakForgeActivity.appex/TweakForgeActivity:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOS\n    minos 16.2\n      sdk 18.2\n   ntools 1\n     tool LD\n  version 1115.7.3\n"
+        "main": "/Users/xuegao/Downloads/ClassDump-com.phoenix.video😡-1792882659/deliverables/Workbench-OpenSource/source/build/device/Workbench.app/Workbench:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOS\n    minos 15.0\n      sdk 26.0\n   ntools 1\n     tool LD\n  version 1115.7.3\n",
+        "share": "/Users/xuegao/Downloads/ClassDump-com.phoenix.video😡-1792882659/deliverables/Workbench-OpenSource/source/build/device/Workbench.app/PlugIns/WorkbenchShare.appex/WorkbenchShare:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOS\n    minos 15.0\n      sdk 26.0\n   ntools 1\n     tool LD\n  version 1115.7.3\n",
+        "activity": "/Users/xuegao/Downloads/ClassDump-com.phoenix.video😡-1792882659/deliverables/Workbench-OpenSource/source/build/device/Workbench.app/PlugIns/WorkbenchActivity.appex/WorkbenchActivity:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOS\n    minos 16.2\n      sdk 18.2\n   ntools 1\n     tool LD\n  version 1115.7.3\n"
       },
       "signatureValid": true,
       "signatureOutput": "",

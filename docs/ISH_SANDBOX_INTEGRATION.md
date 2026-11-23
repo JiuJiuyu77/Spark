@@ -2,7 +2,7 @@
 
 ## 实现
 
-Dylix 静态链接 `OpenMinis/ish-arm64` 的 ARM64 Asbestos 内核、模拟器与 fakefs，运行官方 Alpine 3.21.0 aarch64 minirootfs。未启用 JIT，不依赖独立 iSH App，也不把 ios_system 或本机 Clang 冒充 Linux Shell。
+Workbench 静态链接 `OpenMinis/ish-arm64` 的 ARM64 Asbestos 内核、模拟器与 fakefs，运行官方 Alpine 3.21.0 aarch64 minirootfs。未启用 JIT，不依赖独立 iSH App，也不把 ios_system 或本机 Clang 冒充 Linux Shell。
 
 入口：会话 → Agent 能力 → Linux 终端。终端使用离线 xterm.js、原生 WKWebView 和 PTY，支持键盘、ANSI、中文、窗口尺寸变化、Ctrl-C、Tab 和历史方向键。返回聊天保留当前 shell；App 被系统结束后只保留文件，不自动重放未完成命令。
 
@@ -45,13 +45,13 @@ python3 -m http.server 0 --bind 127.0.0.1 --directory /workspace
 ```
 
 用进程列表读取实际端口，再打开预览，不能把任意地址冒充自己的服务器。DNS 在每次准备会话时跟随设备系统 resolver；仅当无配置时使用 fallback。
-原生聊天 deb 解包无需先安装 binutils。Linux 包管理器安装的是 Linux 用户态工具；iOS 插件编译仍使用 Dylix 现有 Clang/LLD/Logos 工具链。ARM64 解释执行速度低于原生；网络、iOS 后台调度和内存仍受设备与系统限制。
+原生聊天 deb 解包无需先安装 binutils。Linux 包管理器安装的是 Linux 用户态工具；iOS 插件编译仍使用 Workbench 现有 Clang/LLD/Logos 工具链。ARM64 解释执行速度低于原生；网络、iOS 后台调度和内存仍受设备与系统限制。
 
 Build 212–214 没有集成反编译器；Build 215 新增下述 Ghidra/radare2 引擎。未加入未知密钥恢复、FairPlay 解密或宿主动态注入。
 
 ## 构建与复现
 
-需要 Apple Clang、Python、Meson、Ninja 和 LLVM `ld.lld`（仅用于 guest ELF VDSO）。`DYLIX_LLD` 指定 ELF linker，不要把下载的 clang/ld64 全局覆盖 Apple 工具链。
+需要 Apple Clang、Python、Meson、Ninja 和 LLVM `ld.lld`（仅用于 guest ELF VDSO）。`WORKBENCH_LLD` 指定 ELF linker，不要把下载的 clang/ld64 全局覆盖 Apple 工具链。
 
 ```sh
 python3 scripts/build_ish.py --platform device
@@ -63,13 +63,13 @@ python3 tests/ToolRegistryRuntimeRun.py
 
 设备和模拟器静态库分别输出；manifest 记录源码指纹、架构、平台、JIT 状态与归档 SHA-256。源码变化会触发增量重建，App 构建再次校验归档。
 
-`tests/ISHRuntimeRun.py` 使用实际生产 runtime 和 terminal 文件，在 ARM64 iOS 模拟器 UIKit harness 中执行。Dylix 原有 LLVM 模拟器框架只有 x86_64，所以不能将此测试冒称为完整 Dylix ARM64 模拟器端到端测试。真机安装运行仍需单独验证。结果保存在 `build/ish-regression/results.json`，终端截图为同目录 `terminal.png`。
+`tests/ISHRuntimeRun.py` 使用实际生产 runtime 和 terminal 文件，在 ARM64 iOS 模拟器 UIKit harness 中执行。Workbench 原有 LLVM 模拟器框架只有 x86_64，所以不能将此测试冒称为完整 Workbench ARM64 模拟器端到端测试。真机安装运行仍需单独验证。结果保存在 `build/ish-regression/results.json`，终端截图为同目录 `terminal.png`。
 
 ## 验证与交付
 
 测试包含真实进程交互、跨会话拒绝、环形缓冲、UTF-8 字节游标、超时、离线 APK 签名安装、Python/Node/npm/Git/curl、真实 HTTP 监听端口与 WKWebView JS 预览、停止回收、终端 UI 和重启持久化。Build 213 最终通过 47 项（含独立测试应用中使用生产终端页面输入/读取 AI 进程、真实 DNS/HTTPS）、190 项注册表检查、107 项附件检查和 27 组解包测试。逐项结果随构建交付，位于 `build/ish-regression/results.json`。`--network` 为额外联网检查，离线环境可不传该参数。
 
-工具注册表与真实 AIRuntime 审批分发另有 Foundation harness；附件和原生 deb 解包回归继续保留。生产源文件在 ARM64 iOS 模拟器 harness 中运行，不能冒称完整 Dylix 真机或 ARM64 模拟器 App 端到端测试。真机键盘、低内存和长时间后台需在目标设备验证。
+工具注册表与真实 AIRuntime 审批分发另有 Foundation harness；附件和原生 deb 解包回归继续保留。生产源文件在 ARM64 iOS 模拟器 harness 中运行，不能冒称完整 Workbench 真机或 ARM64 模拟器 App 端到端测试。真机键盘、低内存和长时间后台需在目标设备验证。
 
 ## 来源与许可证
 
@@ -82,7 +82,7 @@ Alpine 官方 minirootfs 原始归档未经改写，SHA-256：`f31202c4070c4ef7d
 - **文件管理**：终端右上角菜单 → Linux 文件管理。通过 guest VFS 列目录、浏览父目录、创建目录/文本、编辑 UTF-8、导入副本、导出分享。目录最多返回 2000 项；文本预览/编辑上限 256 KiB，其他文件可导出。拒绝 `..`、特殊设备和符号链接。保存使用内容 SHA-256 前置条件和同目录临时文件原子替换。
 - **写回项目**：从关联项目的会话进入终端，打开 Linux 文本后点「写回项目」，输入项目相对路径；复用 `TFAIToolbox` 的 propose/apply/create 计划、`TFAIRuntimePolicy`、原生差异审批、Git 租约、哈希复核、备份和撤销。仅支持文本单文件，不能直接挂载项目目录，也不自动导回构建产物。当前没有将文件夹整批写回项目的入口。
 - **本地 MCP**：Agent → MCP 服务 → 导入 JSON。HTTP 原配置和钥匙串请求头保持兼容；STDIO 必须显式声明 transport，由用户在本会话确认启动。程序和依赖必须已安装在该会话的 Linux 内。使用独立原始 stdin/stdout/stderr，而非 PTY；参数直接传递给 guest exec，无宿主子进程、shell 字符串拼接或项目挂载。stderr 只留 16 KiB 本地内存尾部，不混入协议；单响应 8 MiB、30 秒超时，拒绝错误匹配，支持分片 JSON/通知和串行请求。关闭会话开关、删除服务或关闭 MCP 总开关会回收本地进程；App 重启不自动执行服务器。
-- **只读约束**：工具必须同时有 `readOnlyHint:true`、`destructiveHint:false`，通过工具名/参数检查并由用户逐项启用。声明不是可信执行隔离；服务器仍可修改自己的 Linux 沙盒文件，所以只运行可信服务。工具不能绕过 Dylix 的项目写入、构建和 Git 审批。暂不导入 STDIO `env` 或密钥参数。
+- **只读约束**：工具必须同时有 `readOnlyHint:true`、`destructiveHint:false`，通过工具名/参数检查并由用户逐项启用。声明不是可信执行隔离；服务器仍可修改自己的 Linux 沙盒文件，所以只运行可信服务。工具不能绕过 Workbench 的项目写入、构建和 Git 审批。暂不导入 STDIO `env` 或密钥参数。
 - **网页闭环**：先 `sandbox_preview` 打开真实进程端口，再 `sandbox_browser` 做 observe/click/type/select/scroll。页面按会话与进程保留，返回新快照、元素 ID、正文和坐标；旧快照、失效元素、跨会话、已停止服务器、外部地址、密码和文件输入会被拒绝。操作走人工审批，派发后自动重新观察，不能仅凭 dispatched 宣布业务成功。仅支持当前会话自己的本地开发预览，不是公共网站自动登录器。
 - **截图**：本地预览可人工分享截图；AI screenshot 仅在模型图片能力验证为 supported 时出现在 schema，且需要批准。JPEG 最多 120 KiB，仅作为下一轮临时图片输入，结果和聊天历史不保存图片正文。
 
@@ -92,13 +92,13 @@ STDIO 配置示例（路径需替换成你在 Linux 安装的服务器）：
 {"mcpServers":{"本地查询":{"transport":"stdio","command":"/usr/bin/python3","args":["-u","/workspace/server.py"]}}}
 ```
 
-验证覆盖生产 VFS、raw pipe、完整 MCP 发现/授权/调用、原生文件列表、WKWebView 操作与原有终端；项目写回底层另跑真实 toolbox 回归。模拟器 harness 的项目写回 UI 依赖只作链接替身，不能把它算成完整 Dylix 真机端到端验证。
+验证覆盖生产 VFS、raw pipe、完整 MCP 发现/授权/调用、原生文件列表、WKWebView 操作与原有终端；项目写回底层另跑真实 toolbox 回归。模拟器 harness 的项目写回 UI 依赖只作链接替身，不能把它算成完整 Workbench 真机端到端验证。
 
 ## Build 215：四项补齐
 
 ### 真实反编译与静态分析
 
-终端菜单「安装 Ghidra / radare2 逆向工具」会将官方 Alpine 签名的 16 个 aarch64 APK 安装到本会话 `/opt/dylix-reverse`。独立 musl loader 和库路径，不更新基础 Alpine 3.21 或其开发工具；归档 SHA-256、包校验、版本、来源和源配方 commit 见 `Resources/iSH/reverse-tools.json`。没有 `--allow-untrusted`，不运行 APK maintainer scripts。
+终端菜单「安装 Ghidra / radare2 逆向工具」会将官方 Alpine 签名的 16 个 aarch64 APK 安装到本会话 `/opt/workbench-reverse`。独立 musl loader 和库路径，不更新基础 Alpine 3.21 或其开发工具；归档 SHA-256、包校验、版本、来源和源配方 commit 见 `Resources/iSH/reverse-tools.json`。没有 `--allow-untrusted`，不运行 APK maintainer scripts。
 
 AI 的 `sandbox_reverse` 仅在用户选择了二进制附件且 Linux 可用时下发。先 install 并读取 process_id 的退出码，再选择 functions、decompile、cfg、xrefs、disassemble、strings、imports、sections 或 pcode。slice 可选择 FAT 的 ARM64/arm64e 切片（默认 0），先验证并提取为独立薄文件，避免引擎选错架构。地址必须来自对应切片的可执行节；加密映像会拒绝，输入只复制进会话沙盒，不执行输入二进制。使用 radare2 6.2.6 和 r2ghidra 6.2.6 的原生 Ghidra 引擎；无需 Java。
 
@@ -128,4 +128,4 @@ STDIO env 使用钥匙串与现有 HTTP 请求头同级保存，JSON 文件只�
 
 ARM64 iOS 模拟器中使用生产代码的 UIKit harness：104 项 Linux/PTY/文件/MCP/真实 WebKit DOM/截图/取消/重启检查通过；单独 17 项签名包安装和真实逆向引擎检查通过（含 ARM64e），测试 Mach-O 的算术函数恢复为 `return arg1 * 3 + 7;`，并验证 functions/CFG/xrefs/disassembly/P-code。真实项目工具 366 项、附件 107 项、原生二进制/导入 122 项通过。AIRuntime 审批与撤销另有 fixture 测试。测试结果随构建交付。
 
-这不是完整 Dylix ARM64 模拟器 App 或真机端到端测试：旧 LLVM simulator frameworks 仅有 x86_64。公开浏览器网络导航保护与已有模块保持，新增 DOM 事件及截图使用生产 helper 在真实 WKWebView 测试。设备性能、后台及键盘交互仍需用户设备验证。
+这不是完整 Workbench ARM64 模拟器 App 或真机端到端测试：旧 LLVM simulator frameworks 仅有 x86_64。公开浏览器网络导航保护与已有模块保持，新增 DOM 事件及截图使用生产 helper 在真实 WKWebView 测试。设备性能、后台及键盘交互仍需用户设备验证。

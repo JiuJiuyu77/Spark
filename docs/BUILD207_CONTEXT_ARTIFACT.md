@@ -2,7 +2,7 @@
 
 ## 现象
 
-长时间在同一项目会话中执行工具后，模型偶尔会把 `[DYLIX_CONTEXT_OFFLOADED]`、`arguments_ref`、`result_ref` 等历史压缩索引原样回复。该内容本来只用于模型上下文内部回读，不是用户回答。
+长时间在同一项目会话中执行工具后，模型偶尔会把 `[WORKBENCH_CONTEXT_OFFLOADED]`、`arguments_ref`、`result_ref` 等历史压缩索引原样回复。该内容本来只用于模型上下文内部回读，不是用户回答。
 
 ## 修复
 

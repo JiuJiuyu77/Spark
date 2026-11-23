@@ -21,7 +21,7 @@ parser.add_argument('--diagnostics', action='store_true')
 args = parser.parse_args()
 app = Path(tempfile.mkdtemp(prefix='flex-ui-smoke-')) / 'FlexAgentUISmoke.app'
 app.mkdir()
-bundle = 'app.dylix.tests.flex-agent-ui'
+bundle = 'app.workbench.tests.flex-agent-ui'
 plist = dict(CFBundleIdentifier=bundle, CFBundleName='FLEX Agent UI Smoke',
              CFBundleExecutable='FlexAgentUISmoke', CFBundlePackageType='APPL',
              CFBundleVersion='1', CFBundleShortVersionString='1.0',
@@ -29,9 +29,9 @@ plist = dict(CFBundleIdentifier=bundle, CFBundleName='FLEX Agent UI Smoke',
              UILaunchScreen={})
 (app / 'Info.plist').write_bytes(plistlib.dumps(plist))
 entitlements=app.parent/'sim-entitlements.plist'
-entitlements.write_bytes(plistlib.dumps({'application-identifier':'DYLIxTEST.'+bundle,'keychain-access-groups':['DYLIxTEST.'+bundle]}))
-sources = ['FLEXDylixTouchDriver.m', 'FLEXDylixChatViewController.m', 'FLEXDylixRuntime.m',
-           'FLEXDylixAddress.m', 'FLEXDylixConnection.m', 'FLEXDylixPreferences.m', 'FLEXDylixMarkdown.m', 'FLEXDylixStatusWindow.m', 'FLEXGlobalsEntry.m']
+entitlements.write_bytes(plistlib.dumps({'application-identifier':'WORKBENCHTEST.'+bundle,'keychain-access-groups':['WORKBENCHTEST.'+bundle]}))
+sources = ['FLEXWorkbenchTouchDriver.m', 'FLEXWorkbenchChatViewController.m', 'FLEXWorkbenchRuntime.m',
+           'FLEXWorkbenchAddress.m', 'FLEXWorkbenchConnection.m', 'FLEXWorkbenchPreferences.m', 'FLEXWorkbenchMarkdown.m', 'FLEXWorkbenchStatusWindow.m', 'FLEXGlobalsEntry.m']
 subprocess.run(['xcrun', '--sdk', 'iphonesimulator', 'clang', '-target',
                 'arm64-apple-ios15.0-simulator', '-fobjc-arc', '-fblocks', '-w',
                 '-I', str(args.flex), str(Path(__file__).with_name('FlexAgentUISmoke.m')),

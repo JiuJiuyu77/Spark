@@ -27,7 +27,7 @@ def check(condition, label):
     checks += 1
     print('PASS', label, flush=True)
 
-with tempfile.TemporaryDirectory(prefix='dylix-storage-regression-') as tmp:
+with tempfile.TemporaryDirectory(prefix='workbench-storage-regression-') as tmp:
     tmp = Path(tmp)
     helper = root / 'tests/PersonaStorageFixture.m'
 

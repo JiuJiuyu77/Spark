@@ -1,10 +1,10 @@
 import os,json,pathlib,urllib.request,concurrent.futures,time,re,ast,statistics
-out=pathlib.Path(os.environ.get('DYLIX_STYLE_OUT','/tmp/dylix271-style-live'));out.mkdir(exist_ok=True)
-port=json.load(open('/tmp/dylix270-live-gateway.json'))['port']
+out=pathlib.Path(os.environ.get('WORKBENCH_STYLE_OUT','/tmp/workbench271-style-live'));out.mkdir(exist_ok=True)
+port=json.load(open('/tmp/workbench270-live-gateway.json'))['port']
 questions={
  'exact':'0x10 转成十进制是多少？只回答数字，不要其它内容。',
  'json':'只输出一个 JSON 对象，且只包含这三个字段：budgetKiB 为整数 256，isModelTokenLimit 为 false，unit 为 "KiB"。不要 Markdown，不要解释。',
- 'explain':'解释 Dylix 的历史上下文压缩、原文回读和上下文保护大小分别是什么，它们有什么关系？是不是保护值越小越省钱？',
+ 'explain':'解释 Workbench 的历史上下文压缩、原文回读和上下文保护大小分别是什么，它们有什么关系？是不是保护值越小越省钱？',
  'code':'只输出一个 Python 代码块，不要解释。实现 clamp_budget_kib(value)：只接受 type(value) is int 且 64 <= value <= 16384，返回原值；其他输入统一抛 ValueError。不要导入模块，不要执行示例，不要额外函数。'
 }
 def judge(task,text):
@@ -34,7 +34,7 @@ def judge(task,text):
   except Exception:checks['valid_boundaries']=False;checks['invalid_types_and_range']=False
  return checks
 def trial(job):
- model,style,task,variant=job;captured=json.load(open('/tmp/dylix271-style-'+variant+'.json'));messages=captured[style]+[{'role':'user','content':questions[task]}];payload={'model':model,'messages':messages,'max_tokens':1200,'stream':False};start=time.monotonic()
+ model,style,task,variant=job;captured=json.load(open('/tmp/workbench271-style-'+variant+'.json'));messages=captured[style]+[{'role':'user','content':questions[task]}];payload={'model':model,'messages':messages,'max_tokens':1200,'stream':False};start=time.monotonic()
  try:
   r=json.load(urllib.request.urlopen(urllib.request.Request(f'http://127.0.0.1:{port}/chat',data=json.dumps(payload).encode(),headers={'Content-Type':'application/json'}),timeout=120));body=r['response'];text=body.get('choices',[{}])[0].get('message',{}).get('content') or '';status=r['http_status'];checks=judge(task,text) if status==200 else {}
  except Exception as e:body={};text='';status=0;checks={}

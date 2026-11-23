@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import io,json,shutil,struct,subprocess,tarfile,time
 from pathlib import Path
-R=Path(__file__).resolve().parents[1];O=R/'evidence/0.5.2-output-checkboxes';O.mkdir(exist_ok=True);B='com.xuegao.theosmobilecompiler'
+R=Path(__file__).resolve().parents[1];O=R/'evidence/0.5.2-output-checkboxes';O.mkdir(exist_ok=True);B='com.HuQing.Workbench'
 def sim(*args):return subprocess.check_output(['xcrun','simctl',*map(str,args)],text=True).strip()
-sim('install','booted',R/'build/simulator/TheosMobileCompiler.app');doc=Path(sim('get_app_container','booted',B,'data'))/'Documents'
+sim('install','booted',R/'build/simulator/Workbench.app');doc=Path(sim('get_app_container','booted',B,'data'))/'Documents'
 cases=[('all-custom',dict(packageSchemes=['rootless','rootful','roothide'],**{'outputPattern-deb':'MyPlugin','outputPattern-dylib':'MyLibrary'})),('pair',dict(packageSchemes=['rootful','roothide'],**{'outputPattern-dylib':'{product}_{architecture}'})),('single',dict(packageSchemes=['rootful'],**{'outputPattern-dylib':'{product}_{architecture}'})),('disabled',dict(package=False,packageSchemes=['rootless','rootful','roothide'],**{'outputPattern-dylib':'OnlyLib'})),('variable-names',dict(packageSchemes=['rootless','rootful','roothide'],**{'outputPattern-deb':'{name}_{architecture}','outputPattern-dylib':'{product}_{architecture}'}))]
 cases += [('deb-only',dict(packageSchemes=['rootless','rootful','roothide'],exportDylib=False))]
 results=[]

@@ -1,5 +1,5 @@
 #import <Foundation/Foundation.h>
-#define TFShareGroup @"group.com.xuegao.tweakforge.share"
+#define TFShareGroup @"group.com.xuegao.workbench.share"
 NSDictionary *TFIncomingStage(NSURL *url,NSError **error);
 NSDictionary *TFIncomingIdentify(NSString *path,NSError **error);
 #if __has_include(<UIKit/UIKit.h>)

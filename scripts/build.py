@@ -21,7 +21,7 @@ parser.add_argument('--identity', default='-')
 parser.add_argument('--profile', type=pathlib.Path)
 parser.add_argument('--share-profile', type=pathlib.Path, help='Provisioning profile for the Share Extension')
 parser.add_argument('--activity-profile', type=pathlib.Path, help='Provisioning profile for the Live Activity Extension')
-parser.add_argument('--bundle-id', default='com.xuegao.theosmobilecompiler')
+parser.add_argument('--bundle-id', default='com.HuQing.Workbench')
 args = parser.parse_args()
 profile_rights = None
 if not args.simulator and args.identity != '-':
@@ -37,7 +37,7 @@ platform = 'simulator' if args.simulator else 'device'
 sdk = 'iphonesimulator' if args.simulator else 'iphoneos'
 arch = 'x86_64' if args.simulator else 'arm64'
 installed_sdk = pathlib.Path(subprocess.check_output(['xcrun', '--sdk', sdk, '--show-sdk-path'], text=True).strip())
-bundled_sdk = pathlib.Path(os.environ.get('DYLIX_SDK_26_0', str(ROOT.parent / 'SDKDownloads/iOS-SDKs-26/iPhoneOS26.0.sdk')))
+bundled_sdk = pathlib.Path(os.environ.get('WORKBENCH_SDK_26_0', str(ROOT.parent / 'SDKDownloads/iOS-SDKs-26/iPhoneOS26.0.sdk')))
 try:
     actual_sdk, sdk_settings = select_sdk(sdk, installed_sdk, bundled_sdk, args.sdk_root)
 except ValueError as error:
@@ -46,7 +46,7 @@ if actual_sdk != installed_sdk.resolve():
     args.sdk_root = actual_sdk
 sysroot = str(actual_sdk)
 
-app = ROOT / 'build' / platform / 'TheosMobileCompiler.app'
+app = ROOT / 'build' / platform / 'Workbench.app'
 if app.exists():
     shutil.rmtree(app)
 app.mkdir(parents=True, exist_ok=True)
@@ -55,7 +55,7 @@ frameworks = app / 'Frameworks'
 frameworks.mkdir(exist_ok=True)
 names = ['ios_system', 'libLLVM', 'clang', 'lld'] + ([] if args.simulator else ['perl'])
 for name in names:
-    bundle = pathlib.Path(os.environ.get('DYLIX_TOOLCHAIN_ROOT', str(ROOT))) / 'Vendor' / (name + '.xcframework')
+    bundle = pathlib.Path(os.environ.get('WORKBENCH_TOOLCHAIN_ROOT', str(ROOT))) / 'Vendor' / (name + '.xcframework')
     info = plistlib.loads((bundle / 'Info.plist').read_bytes())
     match = next(x for x in info['AvailableLibraries']
                  if x['SupportedPlatform'] == 'ios' and arch in x['SupportedArchitectures']
@@ -139,22 +139,22 @@ for asset in (app / 'RemoteWeb' / 'monaco').rglob('*'):
         asset.with_name(asset.name + '.gz').write_bytes(gzip.compress(asset.read_bytes(), compresslevel=6, mtime=0))
 
 info = {
-    'CFBundleExecutable': 'TheosMobileCompiler', 'CFBundleIdentifier': args.bundle_id,
-    'CFBundleName': 'Dylix', 'CFBundleDisplayName': 'Dylix',
+    'CFBundleExecutable': 'Workbench', 'CFBundleIdentifier': args.bundle_id,
+    'CFBundleName': 'Workbench', 'CFBundleDisplayName': 'Workbench',
     'CFBundleDevelopmentRegion': 'zh-Hans', 'CFBundleLocalizations': ['zh-Hans', 'en'],
-    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.4', 'CFBundleVersion': '284', 'DylixEdition': 'opensource',
-    'CFBundleDocumentTypes': [{'CFBundleTypeName':'Dylix Files','CFBundleTypeRole':'Editor','LSHandlerRank':'Alternate','LSItemContentTypes':['public.data','public.archive','public.source-code']}],
-    'CFBundleURLTypes': [{'CFBundleURLName':'Dylix Incoming','CFBundleURLSchemes':['dylix', 'tweakforge']}],
-    'BGTaskSchedulerPermittedIdentifiers': ['com.xuegao.theosmobilecompiler.ai.processing'],
+    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.4', 'CFBundleVersion': '284', 'WorkbenchEdition': 'opensource',
+    'CFBundleDocumentTypes': [{'CFBundleTypeName':'Workbench Files','CFBundleTypeRole':'Editor','LSHandlerRank':'Alternate','LSItemContentTypes':['public.data','public.archive','public.source-code']}],
+    'CFBundleURLTypes': [{'CFBundleURLName':'Workbench Incoming','CFBundleURLSchemes':['workbench', 'workbench']}],
+    'BGTaskSchedulerPermittedIdentifiers': ['com.HuQing.Workbench.ai.processing'],
     'UIBackgroundModes': ['processing', 'audio'],
     'NSSupportsLiveActivities': True,
     'UIApplicationSceneManifest': {
         'UIApplicationSupportsMultipleScenes': False,
         'UISceneConfigurations': {
             'UIWindowSceneSessionRoleApplication': [{
-                'UISceneConfigurationName': 'Dylix',
+                'UISceneConfigurationName': 'Workbench',
                 'UISceneClassName': 'UIWindowScene',
-                'UISceneDelegateClassName': 'DylixSceneDelegate',
+                'UISceneDelegateClassName': 'WorkbenchSceneDelegate',
             }],
         },
     },
@@ -172,13 +172,13 @@ asset_result = subprocess.run(['xcrun', 'actool', '--compile', str(app), '--plat
                 '--output-partial-info-plist', str(icon_info),
                 str(ROOT / 'Resources/Assets.xcassets')])
 if asset_result.returncode:
-    previous_ipa = ROOT / 'build' / f"Dylix-1.0.5-build141-unsigned.ipa"
+    previous_ipa = ROOT / 'build' / f"Workbench-1.0.5-build141-unsigned.ipa"
     catalog = ROOT / 'Resources/Assets.xcassets'
     newest_asset = max((p.stat().st_mtime for p in catalog.rglob('*') if p.is_file()), default=0)
     if not previous_ipa.exists() or previous_ipa.stat().st_mtime < newest_asset or not icon_info.exists():
         raise SystemExit('Asset catalog compilation failed and no current packaged assets are available')
     with zipfile.ZipFile(previous_ipa) as previous:
-        (app / 'Assets.car').write_bytes(previous.read('Payload/TheosMobileCompiler.app/Assets.car'))
+        (app / 'Assets.car').write_bytes(previous.read('Payload/Workbench.app/Assets.car'))
     print('actool failed; reused unchanged Assets.car from the previous IPA', flush=True)
 info.update(plistlib.loads(icon_info.read_bytes()))
 (app / 'Info.plist').write_bytes(plistlib.dumps(info))
@@ -198,14 +198,14 @@ print('Build SDK: ' + sysroot + ' (' + sdk_version + ')', flush=True)
 gitlib = ROOT / 'build' / ('git-' + platform) / 'libgit2.a'
 if not gitlib.exists():
     subprocess.run(['python3', str(ROOT / 'scripts/build_git.py'), '--platform', platform], check=True)
-classdumplib = ROOT / 'build' / ('classdump-' + platform) / 'libtweakforge_classdump.a'
+classdumplib = ROOT / 'build' / ('classdump-' + platform) / 'libworkbench_classdump.a'
 subprocess.run(['python3', str(ROOT / 'scripts/build_classdump.py'), '--platform', platform], check=True)
 cmd = ['xcrun', '--sdk', sdk, 'clang', '-arch', arch, '-isysroot', sysroot,
        '-mios-simulator-version-min=15.0' if args.simulator else '-miphoneos-version-min=15.0',
        '-fobjc-arc', '-fmodules', '-framework', 'Network', '-framework', 'CoreImage', '-I' + str(ROOT / 'Vendor/libgit2/include'), '-weak_framework', 'BackgroundTasks', '-framework', 'AVFoundation', '-framework', 'UserNotifications', '-framework', 'AuthenticationServices', '-framework', 'Security', '-framework', 'CoreFoundation', '-liconv', '-framework', 'UIKit', '-framework', 'CoreGraphics', '-framework', 'QuartzCore', '-framework', 'Foundation', '-framework', 'UniformTypeIdentifiers', '-framework', 'WebKit', '-framework', 'JavaScriptCore', '-larchive',
        '-F' + str(frameworks), '-framework', 'ios_system',
        '-Wl,-needed_framework,libLLVM',
-       '-Wl,-rpath,@executable_path/Frameworks', str(ROOT / 'App/main.m'), str(ROOT / 'App/RuntimeDiagnostics.m'), str(ROOT / 'App/ArchiveImport.m'), str(ROOT / 'App/TheosMakefile.m'), str(ROOT / 'App/DebPackage.m'), str(ROOT / 'App/OutputNaming.m'), str(ROOT / 'App/CompatibilityRepair.m'), str(ROOT / 'App/Studio.m'), str(ROOT / 'App/StorageSpace.m'), str(ROOT / 'App/ProjectSafety.m'), str(ROOT / 'App/ProjectTrash.m'), str(ROOT / 'App/GlassSupport.m'), str(ROOT / 'App/GitService.m'), str(ROOT / 'App/GitUI.m'), str(ROOT / 'App/GitHubRepositories.m'), str(ROOT / 'App/GitPATGuide.m'), str(ROOT / 'App/LinkSupport.m'), str(ROOT / 'App/HelpArticle.m'), str(ROOT / 'App/GitAutomation.m'), str(ROOT / 'App/GitDiffView.m'), str(gitlib), str(ROOT / 'Vendor/MBProgressHUD/MBProgressHUD.m'), '-o', str(app / 'TheosMobileCompiler')]
+       '-Wl,-rpath,@executable_path/Frameworks', str(ROOT / 'App/main.m'), str(ROOT / 'App/RuntimeDiagnostics.m'), str(ROOT / 'App/ArchiveImport.m'), str(ROOT / 'App/TheosMakefile.m'), str(ROOT / 'App/DebPackage.m'), str(ROOT / 'App/OutputNaming.m'), str(ROOT / 'App/CompatibilityRepair.m'), str(ROOT / 'App/Studio.m'), str(ROOT / 'App/StorageSpace.m'), str(ROOT / 'App/ProjectSafety.m'), str(ROOT / 'App/ProjectTrash.m'), str(ROOT / 'App/GlassSupport.m'), str(ROOT / 'App/GitService.m'), str(ROOT / 'App/GitUI.m'), str(ROOT / 'App/GitHubRepositories.m'), str(ROOT / 'App/GitPATGuide.m'), str(ROOT / 'App/LinkSupport.m'), str(ROOT / 'App/HelpArticle.m'), str(ROOT / 'App/GitAutomation.m'), str(ROOT / 'App/GitDiffView.m'), str(gitlib), str(ROOT / 'Vendor/MBProgressHUD/MBProgressHUD.m'), '-o', str(app / 'Workbench')]
 # iSH host objects are ARM64 only; never link macOS or device archives into a simulator.
 ish_enabled = arch == 'arm64'
 if ish_enabled:
@@ -223,13 +223,13 @@ if ish_enabled:
         if hashlib.sha256(library.read_bytes()).hexdigest() != digest:
             raise SystemExit('iSH library digest mismatch: ' + name)
         cmd.append(str(library))
-    cmd.extend(['-DDYLIX_HAS_ISH=1', '-I' + str(ROOT / 'Vendor/iSH'), '-I' + str(ish_dir / 'meson'), '-lsqlite3', '-lresolv'])
+    cmd.extend(['-DWORKBENCH_HAS_ISH=1', '-I' + str(ROOT / 'Vendor/iSH'), '-I' + str(ish_dir / 'meson'), '-lsqlite3', '-lresolv'])
     shutil.copy2(ROOT / 'Vendor/iSH/LICENSE.md', app / 'iSH-LICENSE.md')
     shutil.copy2(ROOT / 'Vendor/iSH/LICENSE.IOS', app / 'iSH-LICENSE.IOS')
     shutil.copy2(ROOT / 'Vendor/iSH/DYLIX-NOTICE.md', app / 'iSH-NOTICE.md')
     shutil.copy2(manifest_path, app / 'iSH/runtime-manifest.json')
 else:
-    cmd.append('-DDYLIX_HAS_ISH=0')
+    cmd.append('-DWORKBENCH_HAS_ISH=0')
 cmd.extend(str(p) for p in sorted((ROOT / 'App/AI').rglob('*.m')))
 if args.simulator:
     for regression in ['Integration165IOSRegression.m', 'AgentIOSRegression.m', 'ToolRegistryIOSRegression.m']:
@@ -237,7 +237,7 @@ if args.simulator:
         if source.exists():
             cmd.append(str(source))
             if regression == 'Integration165IOSRegression.m':
-                cmd.append('-DDYLIX_HAS_INTEGRATION165=1')
+                cmd.append('-DWORKBENCH_HAS_INTEGRATION165=1')
 cmd.extend(str(p) for p in sorted((ROOT / 'App/Remote').glob('*.m')))
 cmd.append(str(ROOT / 'App/SDKResources.m'))
 cmd.extend(str(p) for p in sorted((ROOT / 'App/Incoming').glob('*.m')))
@@ -263,11 +263,11 @@ for name in names:
     subprocess.run(['codesign', '--force', '--sign', args.identity, str(frameworks / (name + '.framework'))], check=True)
 # Share Extension passes copied files through an explicitly entitled App Group.
 # Re-signing must preserve matching group rights in both provisioning profiles.
-share = app / 'PlugIns/TweakForgeShare.appex'
+share = app / 'PlugIns/WorkbenchShare.appex'
 share.mkdir(parents=True, exist_ok=True)
 share_info = {
- 'CFBundleExecutable':'TweakForgeShare','CFBundleIdentifier':args.bundle_id + '.share',
- 'CFBundleName':'TweakForgeShare','CFBundleDisplayName':'Dylix','CFBundlePackageType':'XPC!',
+ 'CFBundleExecutable':'WorkbenchShare','CFBundleIdentifier':args.bundle_id + '.share',
+ 'CFBundleName':'WorkbenchShare','CFBundleDisplayName':'Workbench','CFBundlePackageType':'XPC!',
  'CFBundleShortVersionString':'1.1.4','CFBundleVersion':info['CFBundleVersion'],
  'MinimumOSVersion':'15.0','UIDeviceFamily':[1,2],
  'CFBundleSupportedPlatforms':info['CFBundleSupportedPlatforms'],
@@ -280,14 +280,14 @@ share_info = {
 share_cmd=['xcrun','--sdk',sdk,'clang','-arch',arch,'-isysroot',sysroot,
  '-mios-simulator-version-min=15.0' if args.simulator else '-miphoneos-version-min=15.0',
  '-fobjc-arc','-fapplication-extension','-framework','UIKit','-framework','Foundation','-framework','UniformTypeIdentifiers',
- '-Wl,-e,_NSExtensionMain',str(ROOT / 'ShareExtension/ShareViewController.m'),str(ROOT / 'ShareExtension/TFShareLauncher.m'),str(ROOT / 'ShareExtension/TFShareFileProvider.m'),str(ROOT / 'ShareExtension/TFShareFolderArchive.m'),'-larchive',str(ROOT / 'App/Incoming/TFShareTransfer.m'),str(ROOT / 'App/Incoming/TFShareGroups.m'),'-o',str(share / 'TweakForgeShare')]
+ '-Wl,-e,_NSExtensionMain',str(ROOT / 'ShareExtension/ShareViewController.m'),str(ROOT / 'ShareExtension/TFShareLauncher.m'),str(ROOT / 'ShareExtension/TFShareFileProvider.m'),str(ROOT / 'ShareExtension/TFShareFolderArchive.m'),'-larchive',str(ROOT / 'App/Incoming/TFShareTransfer.m'),str(ROOT / 'App/Incoming/TFShareGroups.m'),'-o',str(share / 'WorkbenchShare')]
 if args.sdk_root:
     share_cmd.append('-F' + str(pathlib.Path(sysroot) / 'System/Library/SubFrameworks'))
 if args.share_profile:
     shutil.copy2(args.share_profile, share / 'embedded.mobileprovision')
 subprocess.run(share_cmd,check=True)
 share_entitlements=ROOT / 'build' / platform / 'share-entitlements.plist'
-share_entitlements.write_bytes(plistlib.dumps(profile_rights[1] if profile_rights else {'com.apple.security.application-groups':['group.com.xuegao.tweakforge.share']}))
+share_entitlements.write_bytes(plistlib.dumps(profile_rights[1] if profile_rights else {'com.apple.security.application-groups':['group.com.xuegao.workbench.share']}))
 sign_flags=[] if args.simulator else ['--entitlements',str(share_entitlements)]
 subprocess.run(['codesign','--force','--sign',args.identity,*sign_flags,str(share)],check=True)
 activity_flags=[]
@@ -303,7 +303,7 @@ subprocess.run(['python3',str(ROOT / 'scripts/build_live_activity.py'),'--app',s
 subprocess.run(['codesign','--force','--sign',args.identity,*main_sign_flags,str(app)],check=True)
 if not args.simulator:
     package_kind = 'signed' if profile_rights else 'unsigned'
-    ipa = ROOT / 'build' / f"Dylix-{info['CFBundleShortVersionString']}-build{info['CFBundleVersion']}-opensource-{package_kind}.ipa"
+    ipa = ROOT / 'build' / f"Workbench-{info['CFBundleShortVersionString']}-build{info['CFBundleVersion']}-opensource-{package_kind}.ipa"
     with zipfile.ZipFile(ipa, 'w', zipfile.ZIP_DEFLATED) as out:
         for path in app.rglob('*'):
             if path.is_file(): out.write(path, pathlib.Path('Payload') / app.name / path.relative_to(app))

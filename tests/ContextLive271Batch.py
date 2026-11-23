@@ -1,5 +1,5 @@
 import os,json,pathlib,subprocess,hashlib,concurrent.futures,time,sys,shutil
-out=pathlib.Path(os.environ.get('DYLIX_LIVE_OUT','/tmp/dylix270-live-results'));out.mkdir(exist_ok=True)
+out=pathlib.Path(os.environ.get('WORKBENCH_LIVE_OUT','/tmp/workbench270-live-results'));out.mkdir(exist_ok=True)
 def sha(s):return hashlib.sha256(s.encode()).hexdigest()
 def trial(model,scenario,seed,variant):
  tag=f'{model}-{scenario}-{seed}-{variant}';folder=out/tag;folder.mkdir(exist_ok=True)
@@ -31,9 +31,9 @@ def trial(model,scenario,seed,variant):
  if scenario=='correction':
   new+=77;expected=actual.replace(f'int target_{seed}(void) {{ return {old}; }}',f'int target_{seed}(void) {{ return {new}; }}');messages.append({'role':'user','content':f'Correction: change target_{seed} to return {new} instead. The earlier requested final value is obsolete. Still preserve all unrelated code and run acceptance tests.'})
  config={'budgetKiB':budget,'file':str(file),'expected':expected,'model':model,'scenario':scenario,'seed':seed,'variant':variant,'messages':messages,'report':str(folder/'result.json')};path=folder/'config.json';path.write_text(json.dumps(config));start=time.monotonic()
- binary=folder/('live-'+tag);shutil.copy2(os.environ.get('DYLIX_LIVE_BINARY_PREFIX','/tmp/dylix271-live-')+variant,binary)
+ binary=folder/('live-'+tag);shutil.copy2(os.environ.get('WORKBENCH_LIVE_BINARY_PREFIX','/tmp/workbench271-live-')+variant,binary)
  with open(folder/'runner.log','w') as f:
-  try:r=subprocess.run([str(binary)],env={**os.environ,'DYLIX_LIVE_CONFIG':str(path)},stdout=f,stderr=f,timeout=950);code=r.returncode
+  try:r=subprocess.run([str(binary)],env={**os.environ,'WORKBENCH_LIVE_CONFIG':str(path)},stdout=f,stderr=f,timeout=950);code=r.returncode
   except subprocess.TimeoutExpired:code=124
  if (folder/'result.json').exists():result=json.load(open(folder/'result.json'))
  else:result={'model':model,'scenario':scenario,'seed':seed,'variant':variant,'state':'runner_failure','requests':[]}

@@ -28,9 +28,9 @@
 ## 本地修改与归属
 
 - REipa 固定上游 revision `b0d4759451ed20796892a059fa53d9dbb130af61`，包含本地边界检查/大镜像/增量导出修改；详情见 Vendor/REipa/README-TweakForge.md，源码完整保留。
-- libgit2 完整来源及 COPYING 在 Vendor/libgit2；其 GPLv2 linking exception 不将 Dylix 主程序强制改为 GPLv2。
+- libgit2 完整来源及 COPYING 在 Vendor/libgit2；其 GPLv2 linking exception 不将 Workbench 主程序强制改为 GPLv2。
 - Logos 的实际源码在 Resources/logos，使用 GPL-3.0-or-later。
-- 原生 AI 交互研究参考不代表复制代码或链接其运行时，见 AI-Research.txt；另参考 OpenMinis（https://github.com/OpenMinis/OpenMinis）的流式呈现与生命周期设计，Dylix 使用自己的 UIKit 实现。
+- 原生 AI 交互研究参考不代表复制代码或链接其运行时，见 AI-Research.txt；另参考 OpenMinis（https://github.com/OpenMinis/OpenMinis）的流式呈现与生命周期设计，Workbench 使用自己的 UIKit 实现。
 - 仓库中的 Apple SDK 16.4 / 26.0 与 Apple 系统 framework 保留 Apple 条款，不属于本项目 GPL 许可授权范围。
 - 不分发用户项目、参考 macOS Perl 副本、设备日志、模型会话或用户附件。内置 FLEX 插件与随包示例另见下方许可和对应源码。
 
@@ -38,7 +38,7 @@
 
 Release 的工具链包包含 ios_system、LLVM/Clang/LLD、Perl 对应 xcframework 和许可证。来源、版本与包/文件摘要见 dependencies.lock.json；它不包含 Apple SDK。Apache/BSD/Artistic 等第三方组件继续适用原条款。
 
-## Dylix Remote
+## Workbench Remote
 
 原生服务、Web UI 与 SVG 图标为本项目原创实现，适用仓库 GPL-3.0-or-later；TLS使用Apple系统Network/Security，无第三方TLS库。
 
@@ -59,13 +59,13 @@ Build152：远程工作台轻量编辑器与文件预览复用已列出的highli
 
 ## FLEX 插件与现场工具
 
-- FLEX 上游 https://github.com/FLEXTool/FLEX ，BSD-3-Clause，原文保留于 Resources/ThirdPartyNotices/FLEX-LICENSE.txt；FLEX++ 修改及 Dylix 桥接的当前完整对应源码随 1.1.0 Release 的 FLEX-1.0.1-source.zip 提供；原 1.0.0 对应源码保留于 1.0.8 Release。
+- FLEX 上游 https://github.com/FLEXTool/FLEX ，BSD-3-Clause，原文保留于 Resources/ThirdPartyNotices/FLEX-LICENSE.txt；FLEX++ 修改及 Workbench 桥接的当前完整对应源码随 1.1.0 Release 的 FLEX-1.0.1-source.zip 提供；原 1.0.0 对应源码保留于 1.0.8 Release。
 - Capstone 相关许可保留于 Resources/ThirdPartyNotices/Capstone-LICENSE.txt，源文件头部声明继续保留。
-- 进程内触摸适配的 KIF / EarlGrey 来源及 Apache-2.0 原文见 FLEXTouch-NOTICE 和 FLEXTouch-DylixTouch-APACHE-2.0.txt。
+- 进程内触摸适配的 KIF / EarlGrey 来源及 Apache-2.0 原文见 FLEXTouch-NOTICE 和 FLEXTouch-WorkbenchTouch-APACHE-2.0.txt。
 
 ## Build212 内嵌 Linux 终端
 
-- iSH ARM64：OpenMinis/ish-arm64，revision `c5c264da19148512167aa493d7bd4e50aae1b74e`，GPLv3 与 LICENSE.IOS。完整对应源码、原始声明和 Dylix 修改清单保存在 `Vendor/iSH`。App 携带 `iSH-LICENSE.md`、`iSH-LICENSE.IOS`、`iSH-NOTICE.md` 和完整 GPL 文本 `Dylix-LICENSE.txt`。
+- iSH ARM64：OpenMinis/ish-arm64，revision `c5c264da19148512167aa493d7bd4e50aae1b74e`，GPLv3 与 LICENSE.IOS。完整对应源码、原始声明和 Workbench 修改清单保存在 `Vendor/iSH`。App 携带 `iSH-LICENSE.md`、`iSH-LICENSE.IOS`、`iSH-NOTICE.md` 和完整 GPL 文本 `Dylix-LICENSE.txt`。
 - Alpine minirootfs 3.21.0 aarch64：官方原始归档，许可证按各包元数据保留，SHA-256 与下载来源见 `Vendor/iSH/DYLIX-NOTICE.md`。
 - @xterm/xterm 5.5.0 与 @xterm/addon-fit 0.10.0：MIT，原始版权与许可保存在 `Resources/Terminal/xterm-LICENSE`、`addon-fit-LICENSE`，随离线页面一起打包。
 - 原生 Objective-C 适配层研究了 OpenMinis / Kelivo 的内核、fakefs 与 PTY 接口结构；未复制 Swift/Flutter 页面。iSH 自身仍保留完整上游声明，不冒称原创内核。实现与测试见 `docs/ISH_SANDBOX_INTEGRATION.md`。
@@ -79,4 +79,4 @@ Build152：远程工作台轻量编辑器与文件预览复用已列出的highli
 - radare2 6.2.6 / radare2-libs：GPL-3.0-or-later、LGPL-2.0-or-later、LGPL-2.1-or-later（文件级声明为准）。原始来源 https://github.com/radareorg/radare2/tree/6.2.6 ，原文见 Resources/ThirdPartyNotices/radare2-LICENSE.txt。
 - r2ghidra 6.2.6：LGPL-3.0-only；Ghidra native 0.7.2：Apache-2.0。来源 https://github.com/radareorg/r2ghidra/tree/6.2.6 和 https://github.com/radareorg/ghidra-native/tree/0.7.2 。原始许可证及 GPL/LGPL 全文随包保留于 ThirdPartyNotices；不将引擎冒称为本项目原创。
 - 使用未修改的官方 Alpine edge aarch64 签名 APK，在 guest 内通过独立 loader/prefix 执行，未链接进 iOS 主程序。全部 16 包的版本、URL、SHA-256、license、origin、精确 aports commit 与源配方 URL 在 Resources/iSH/reverse-tools.json。完整引擎来源及 Alpine 补丁见 Vendor/ReverseTools，源代码获取以固定版本与校验值为准。
-- 原生 Objective-C 适配、权限/选择校验、结果分页和 UI 由 Dylix 实现；未复制 OpenMinis 的 Swift 实现。
+- 原生 Objective-C 适配、权限/选择校验、结果分页和 UI 由 Workbench 实现；未复制 OpenMinis 的 Swift 实现。

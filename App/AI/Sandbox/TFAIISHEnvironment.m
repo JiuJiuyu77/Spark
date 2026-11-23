@@ -2,7 +2,7 @@
 #import <sys/stat.h>
 #import <sqlite3.h>
 #import <unistd.h>
-static NSError *EnvError(NSString *text){return [NSError errorWithDomain:@"Dylix.ISH.Environment" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
+static NSError *EnvError(NSString *text){return [NSError errorWithDomain:@"Workbench.ISH.Environment" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
 static BOOL Key(NSString *key){return [key isKindOfClass:NSString.class]&&key.length==64&&[key rangeOfCharacterFromSet:[[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdef"] invertedSet]].location==NSNotFound;}
 static BOOL PlainDirectory(NSString *path){struct stat st;return !lstat(path.fileSystemRepresentation,&st)&&S_ISDIR(st.st_mode)&&!S_ISLNK(st.st_mode);}
 static BOOL SafeBase(NSString *base){return base.isAbsolutePath&&[base isEqual:base.stringByStandardizingPath]&&[base isEqual:base.stringByResolvingSymlinksInPath]&&PlainDirectory(base);}
@@ -18,7 +18,7 @@ static NSDictionary *MeasureTree(NSString *path){
  return @{@"bytes":@(bytes),@"files":@(files)};
 }
 static BOOL CanonicalDirectory(NSString *path){return PlainDirectory(path)&&[path isEqual:path.stringByResolvingSymlinksInPath];}
-static BOOL ValidRoot(NSString *path){return CanonicalDirectory(path)&&PlainDirectory([path stringByAppendingPathComponent:@"data"])&&Regular([path stringByAppendingPathComponent:@"meta.db"])&&Regular([path stringByAppendingPathComponent:@".dylix-rootfs-v1"]);}
+static BOOL ValidRoot(NSString *path){return CanonicalDirectory(path)&&PlainDirectory([path stringByAppendingPathComponent:@"data"])&&Regular([path stringByAppendingPathComponent:@"meta.db"])&&Regular([path stringByAppendingPathComponent:@".workbench-rootfs-v1"]);}
 static BOOL DatabaseValid(NSString *root){
  sqlite3 *db=NULL;sqlite3_stmt *stmt=NULL;BOOL ok=NO;
  if(sqlite3_open_v2([root stringByAppendingPathComponent:@"meta.db"].fileSystemRepresentation,&db,SQLITE_OPEN_READONLY,NULL)==SQLITE_OK&&sqlite3_prepare_v2(db,"PRAGMA quick_check",-1,&stmt,NULL)==SQLITE_OK&&sqlite3_step(stmt)==SQLITE_ROW){const char *value=(const char *)sqlite3_column_text(stmt,0);ok=value&&!strcmp(value,"ok");}
@@ -47,7 +47,7 @@ static BOOL CopyRoot(NSString *from,NSString *to,NSError **error){
  return ok;
 }
 @implementation TFAIISHEnvironment
-+ (NSString *)basePath{return [NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject.stringByResolvingSymlinksInPath stringByAppendingPathComponent:@"Dylix/iSH-v1"];}
++ (NSString *)basePath{return [NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject.stringByResolvingSymlinksInPath stringByAppendingPathComponent:@"Workbench/iSH-v1"];}
 + (NSString *)sharedKey{return @"b3699d2b0a236797eb0b19394441f1795d2bdd9a55103d75a13783a4bc276d3c";}
 + (BOOL)prepareSharedAtBase:(NSString *)base error:(NSError **)error{@synchronized(self){
  if(!SafeBase(base)){if(error)*error=EnvError(@"共享环境目录不安全，旧数据已保留。");return NO;}NSFileManager *fm=NSFileManager.defaultManager;NSString *target=[base stringByAppendingPathComponent:self.sharedKey],*record=[base stringByAppendingPathComponent:@"shared-environment.plist"];BOOL hasRecord=[fm fileExistsAtPath:record];NSDictionary *plan=Regular(record)?[NSDictionary dictionaryWithContentsOfFile:record]:nil;
@@ -57,7 +57,7 @@ static BOOL CopyRoot(NSString *from,NSString *to,NSError **error){
  NSString *sourceKey=plan[@"sourceKey"];
  if(!plan){unsigned long long best=0;for(NSString *key in [[fm contentsOfDirectoryAtPath:base error:nil] sortedArrayUsingSelector:@selector(compare:)]){NSString *root=[base stringByAppendingPathComponent:key];if(!Key(key)||[key isEqual:self.sharedKey]||!ValidRoot(root)||!DatabaseValid(root))continue;
   NSString *db=[root stringByAppendingPathComponent:@"data/lib/apk/db/installed"];NSDictionary *attrs=[fm attributesOfItemAtPath:db error:nil];NSString *packages=[attrs[NSFileSize] unsignedLongLongValue]<=16*1024*1024?[NSString stringWithContentsOfFile:db encoding:NSUTF8StringEncoding error:nil]:nil;
-  unsigned long long score=1+[[packages componentsSeparatedByString:@"\nP:"] count]*10;for(NSString *path in @[@"data/usr/bin/python3",@"data/usr/bin/node",@"data/usr/bin/git",@"data/opt/dylix-reverse/usr/bin/radare2"]){if([fm fileExistsAtPath:[root stringByAppendingPathComponent:path]])score+=100;}
+  unsigned long long score=1+[[packages componentsSeparatedByString:@"\nP:"] count]*10;for(NSString *path in @[@"data/usr/bin/python3",@"data/usr/bin/node",@"data/usr/bin/git",@"data/opt/workbench-reverse/usr/bin/radare2"]){if([fm fileExistsAtPath:[root stringByAppendingPathComponent:path]])score+=100;}
   score+=[[fm contentsOfDirectoryAtPath:[root stringByAppendingPathComponent:@"data/usr/local/bin"] error:nil] count]*10;if(!sourceKey||score>best){sourceKey=key;best=score;}
  }
  plan=@{@"format":@1,@"state":sourceKey?@"pending":@"complete",@"sourceKey":sourceKey?:@"",@"createdAt":NSDate.date};if(!WriteRecord(plan,record,error))return NO;}
@@ -66,7 +66,7 @@ static BOOL CopyRoot(NSString *from,NSString *to,NSError **error){
 }}
 + (NSDictionary *)inventoryAtBase:(NSString *)base{@synchronized(self){
  NSMutableArray *sessions=[NSMutableArray new],*snapshots=[NSMutableArray new];if(!SafeBase(base))return @{@"sessions":sessions,@"snapshots":snapshots,@"bytes":@0,@"pending":@{},@"version":@"Alpine 3.21.0"};
- for(NSString *name in [[NSFileManager.defaultManager contentsOfDirectoryAtPath:base error:nil] sortedArrayUsingSelector:@selector(compare:)]){NSString *path=[base stringByAppendingPathComponent:name];if(!Key(name)||!PlainDirectory(path))continue;NSMutableDictionary *entry=[MeasureTree(path) mutableCopy];entry[@"key"]=name;entry[@"shared"]=@([name isEqual:self.sharedKey]);entry[@"archiveSHA256"]=[NSString stringWithContentsOfFile:[path stringByAppendingPathComponent:@".dylix-rootfs-v1"] encoding:NSUTF8StringEncoding error:nil]?:@"";entry[@"version"]=[entry[@"archiveSHA256"] isEqual:@"74eaa1f80aceb35a69f26a7772cd22848a51921323a32b2ae057b2a4c8188fd5"]?@"Alpine 3.22.0":@"Alpine 3.21.0";entry[@"valid"]=@(ValidRoot(path));entry[@"createdAt"]=[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil][NSFileCreationDate]?:NSDate.distantPast;[sessions addObject:entry];}
+ for(NSString *name in [[NSFileManager.defaultManager contentsOfDirectoryAtPath:base error:nil] sortedArrayUsingSelector:@selector(compare:)]){NSString *path=[base stringByAppendingPathComponent:name];if(!Key(name)||!PlainDirectory(path))continue;NSMutableDictionary *entry=[MeasureTree(path) mutableCopy];entry[@"key"]=name;entry[@"shared"]=@([name isEqual:self.sharedKey]);entry[@"archiveSHA256"]=[NSString stringWithContentsOfFile:[path stringByAppendingPathComponent:@".workbench-rootfs-v1"] encoding:NSUTF8StringEncoding error:nil]?:@"";entry[@"version"]=[entry[@"archiveSHA256"] isEqual:@"74eaa1f80aceb35a69f26a7772cd22848a51921323a32b2ae057b2a4c8188fd5"]?@"Alpine 3.22.0":@"Alpine 3.21.0";entry[@"valid"]=@(ValidRoot(path));entry[@"createdAt"]=[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil][NSFileCreationDate]?:NSDate.distantPast;[sessions addObject:entry];}
  NSString *backup=[base stringByAppendingPathComponent:@"snapshots"];if(CanonicalDirectory(backup))for(NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:backup error:nil]){if(![[NSUUID alloc]initWithUUIDString:name])continue;NSString *path=[backup stringByAppendingPathComponent:name];if(!CanonicalDirectory(path)||!Regular([path stringByAppendingPathComponent:@"snapshot.plist"]))continue;NSDictionary *meta=[NSDictionary dictionaryWithContentsOfFile:[path stringByAppendingPathComponent:@"snapshot.plist"]];if(!Key(meta[@"sessionKey"])||!ValidRoot([path stringByAppendingPathComponent:@"rootfs"]))continue;NSMutableDictionary *entry=[MeasureTree(path) mutableCopy];entry[@"id"]=name;entry[@"sessionKey"]=meta[@"sessionKey"];entry[@"createdAt"]=[meta[@"createdAt"] isKindOfClass:NSDate.class]?meta[@"createdAt"]:NSDate.distantPast;[snapshots addObject:entry];}
  [snapshots sortUsingComparator:^NSComparisonResult(NSDictionary *a,NSDictionary *b){return [b[@"createdAt"] compare:a[@"createdAt"]];}];NSString *pending=[base stringByAppendingPathComponent:@"pending-maintenance.plist"];
  return @{@"version":@"Alpine 3.21.0",@"bytes":MeasureTree(base)[@"bytes"],@"sessions":sessions,@"snapshots":snapshots,@"pending":Regular(pending)?([NSDictionary dictionaryWithContentsOfFile:pending]?:@{}):@{}};

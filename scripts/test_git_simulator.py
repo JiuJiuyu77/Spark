@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Authenticated smart-HTTP round trip inside the iOS application + Keychain."""
 import http.server,threading,tempfile,pathlib,subprocess,os,urllib.parse,base64,json,time
-R=pathlib.Path(__file__).resolve().parents[1];OUT=R/'evidence/0.6.0-git';OUT.mkdir(parents=True,exist_ok=True);B='com.xuegao.theosmobilecompiler'
+R=pathlib.Path(__file__).resolve().parents[1];OUT=R/'evidence/0.6.0-git';OUT.mkdir(parents=True,exist_ok=True);B='com.HuQing.Workbench'
 def run(*args):return subprocess.check_output(args,text=True,stderr=subprocess.DEVNULL).strip()
 with tempfile.TemporaryDirectory(prefix='tf-git-ios-http-') as tmp:
  root=pathlib.Path(tmp);bare=root/'repo.git';run('git','init','--bare','--initial-branch=main',str(bare));run('git','-C',str(bare),'config','http.receivepack','true');seed=root/'seed';seed.mkdir();run('git','-C',str(seed),'init','--initial-branch=main');(seed/'test.m').write_text('int example = 1;\n');run('git','-C',str(seed),'add','.');run('git','-C',str(seed),'-c','user.name=Test','-c','user.email=test@example.com','commit','-m','base');run('git','-C',str(seed),'remote','add','origin',str(bare));run('git','-C',str(seed),'push','origin','main')
@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix='tf-git-ios-http-') as tmp:
    for k,v in headers:self.send_header(k,v)
    self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
  server=http.server.ThreadingHTTPServer(('127.0.0.1',0),Handler);threading.Thread(target=server.serve_forever,daemon=True).start();url=f'http://127.0.0.1:{server.server_port}/repo.git'
- run('xcrun','simctl','install','booted',str(R/'build/simulator/TheosMobileCompiler.app'));doc=pathlib.Path(run('xcrun','simctl','get_app_container','booted',B,'data'))/'Documents';report=doc/'git-ui-test.json'
+ run('xcrun','simctl','install','booted',str(R/'build/simulator/Workbench.app'));doc=pathlib.Path(run('xcrun','simctl','get_app_container','booted',B,'data'))/'Documents';report=doc/'git-ui-test.json'
  if report.exists():report.unlink()
  run('xcrun','simctl','launch','--terminate-running-process','booted',B,'--git-ui-test','--git-test','--git-auth-url',url,'--git-https-test')
  deadline=time.monotonic()+90

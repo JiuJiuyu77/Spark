@@ -1,4 +1,4 @@
-/* TweakForge read-only review. All source HTML is escaped by diff2html / highlight.js. */
+/* Workbench read-only review. All source HTML is escaped by diff2html / highlight.js. */
 'use strict';
 let payload={}, mode=innerWidth>=700?'side-by-side':'line-by-line', hunks=[], current=-1;
 const $=id=>document.getElementById(id), reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;

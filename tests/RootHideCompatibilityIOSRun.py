@@ -4,8 +4,8 @@ import io, json, os, plistlib, struct, subprocess, tarfile, tempfile, time, hash
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'evidence/1.0.9-build203-signing'
-DEVICE=os.environ.get('DYLIX_SIM_DEVICE','booted')
-APP='com.xuegao.theosmobilecompiler'
+DEVICE=os.environ.get('WORKBENCH_SIM_DEVICE','booted')
+APP='com.HuQing.Workbench'
 def sim(*args):
     return subprocess.check_output(['xcrun','simctl',*map(str,args)],text=True).strip()
 def macho(data):
@@ -34,17 +34,17 @@ def unpack(path):
         entry=next(m for m in tf.getmembers() if m.name.endswith('.dylib') and m.isfile())
         image=tf.extractfile(entry).read()
     return control,image
-sim('install',DEVICE,ROOT/'build/simulator/TheosMobileCompiler.app')
+sim('install',DEVICE,ROOT/'build/simulator/Workbench.app')
 doc=Path(sim('get_app_container',DEVICE,APP,'data'))/'Documents'
 OUT.mkdir(parents=True,exist_ok=True)
 results=[]
 for label,schemes,policy in [('multi-release',['rootless','rootful','roothide'],'auto'),('multi-debug',['rootless','rootful','roothide'],'keep'),('native-library-alias',['roothide'],'auto'),('standalone-release',['rootless'],'auto'),('standalone-debug',['rootless'],'keep')]:
-    with tempfile.TemporaryDirectory(prefix='dylix193-') as temp:
+    with tempfile.TemporaryDirectory(prefix='workbench193-') as temp:
         project=Path(temp)
         # Resolves a real Substrate symbol. Nothing is hooked or executed by this test.
         (project/'Fixture.c').write_text('extern void MSHookFunction(void*,void*,void**);\nvoid link_fixture(void) { MSHookFunction((void*)0,(void*)0,(void**)0); }\n')
         (project/'MobileCompiler.json').write_text(json.dumps(dict(name='RootHide linkage',productName='Fixture',sources=['Fixture.c'],package=not label.startswith('standalone'),exportDylib=True,packageSchemes=schemes,frameworks=[] if label=='native-library-alias' else ['CydiaSubstrate'],libraries=['substrate'] if label=='native-library-alias' else [],symbolPolicy=policy,optimization='release-speed')))
-        (project/'control').write_text('Package: local.dylix.nativefixture\nName: NativeFixture\nVersion: 1.0.0\nArchitecture: iphoneos-arm64\nMaintainer: Test\nDescription: Isolated native RootHide linkage test\nDepends: mobilesubstrate, firmware (>= 15.0)\n')
+        (project/'control').write_text('Package: local.workbench.nativefixture\nName: NativeFixture\nVersion: 1.0.0\nArchitecture: iphoneos-arm64\nMaintainer: Test\nDescription: Isolated native RootHide linkage test\nDepends: mobilesubstrate, firmware (>= 15.0)\n')
         (project/'Fixture.plist').write_bytes(plistlib.dumps({'Filter':{'Bundles':['com.example.fixture']}}))
         before=set(doc.glob('Build-*'))
         sim('launch','--terminate-running-process',DEVICE,APP,'--self-test-project','--test-project-path',project)
@@ -93,7 +93,7 @@ for label,schemes,policy in [('multi-release',['rootless','rootful','roothide'],
                 assert not any('/.jbroot/' in p for p in info['dependencies']),info
             if shutil.which('dpkg-deb'):
                 check=subprocess.run(['dpkg-deb','--field',str(path)],capture_output=True,text=True)
-                assert check.returncode==0 and 'Package: local.dylix.nativefixture' in check.stdout,check.stderr
+                assert check.returncode==0 and 'Package: local.workbench.nativefixture' in check.stdout,check.stderr
                 # Sileo reads dpkg-deb --field, then passes the package to APT/dpkg.
                 (dest/(package['scheme']+'-sileo-fields.txt')).write_text(check.stdout)
             info.update(label=label,scheme=package['scheme'],file=package['name'],sha256=hashlib.sha256(path.read_bytes()).hexdigest())

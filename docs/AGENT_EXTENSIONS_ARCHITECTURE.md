@@ -15,7 +15,7 @@
 1. Resources/AIProviders声明目录与模型族思考规则；兼容原8个id，新增kimi/xai/custom；testResults为能力证据。
 2. TFAIOAuth：官方ASWebAuthenticationSession+PKCE；Google刷新单次化、钥匙串、退出吊销；OpenRouter官方授权换key不虚构refresh token。
 3. 会话连接切换验证、服务商/模型/实测能力显示；失败保留旧连接。
-4. 项目.dylix/skills元数据目录及按需只读正文；四份独立撰写插件开发技能，不执行脚本。
+4. 项目.workbench/skills元数据目录及按需只读正文；四份独立撰写插件开发技能，不执行脚本。
 5. HTTP MCP初始化/工具发现/只读调用，按会话选择；写工具不进入扩展执行路径，仍需使用原工具和原审批。
 6. 非持久WKWebView只读正文/链接提取；禁止Agent下载/表单/登录动作、持久Cookie保存和外部scheme。
 7. 项目MEMORY.md用户编辑与本地长会话摘要；摘要只落本地，不自动发送给模型。

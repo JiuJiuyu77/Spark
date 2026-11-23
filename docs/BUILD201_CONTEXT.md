@@ -13,14 +13,14 @@ Build200 的工具批次折叠和普通 AI 长回复卸载仅在最终文本预�
 1. OpenMinis：核对远端 HEAD 与本地源码均为 `1a71df0f381cefde80bf912b723de6f9831bc177`。`ContextPolicy.swift` 将触发水位、目标水位、最终边界分开，并考虑固定上下文成本；`ContextTrimPlanner` 按完整迭代做卸载、骨架化、旧步骤索引，保留最近轮次，操作发送副本而不是原始会话。`AIChatViewModel+Compaction.swift` 还会在压缩后处理保留尾部中的大结果。其稳定切点/缓存复用、模型语义摘要是更完整的架构，不在本轮整体移植。
    - https://github.com/OpenMinis/OpenMinis/blob/1a71df0f381cefde80bf912b723de6f9831bc177/src/ios/Agent/Chat/ContextPolicy.swift
    - https://github.com/OpenMinis/OpenMinis/blob/1a71df0f381cefde80bf912b723de6f9831bc177/src/ios/Agent/Chat/AIChatViewModel%2BCompaction.swift
-2. Codex-X：核对远端 HEAD 与本地源码均为 `1a0ae707c6efde28727c0e4448d53dc262720bad`。`context_config.rs` 分开配置 `model_context_window` 与 `model_auto_compact_token_limit`，是面向 Codex 运行时的配置，不是可直接搬进 Dylix 的 iOS 压缩实现。没有照搬其 1M/900K 数字，也不据此宣称 Dylix 模型的官方窗口大小。
+2. Codex-X：核对远端 HEAD 与本地源码均为 `1a0ae707c6efde28727c0e4448d53dc262720bad`。`context_config.rs` 分开配置 `model_context_window` 与 `model_auto_compact_token_limit`，是面向 Codex 运行时的配置，不是可直接搬进 Workbench 的 iOS 压缩实现。没有照搬其 1M/900K 数字，也不据此宣称 Workbench 模型的官方窗口大小。
    - https://github.com/yynxxxxx/Codex-X/blob/1a0ae707c6efde28727c0e4448d53dc262720bad/apps/desktop/src-tauri/src/context_config.rs
 3. nanoMuse：核对远端 HEAD 为 `8b32d43c946db2bbef6fae39c48a9fc608ebd8e9`，检查其仓库中的 Minis 衍生 ContextPolicy 与工具配对测试。它与 Minis 有共享实现来源，不能当作独立方案的第二份证据，也没有复制代码。
    - https://github.com/nano-muse/nanoMuse/tree/8b32d43c946db2bbef6fae39c48a9fc608ebd8e9
 
 本次 GitHub API 树接口受未认证限流，改用公开 Git 远端 HEAD 和已有对应 checkout 核对；未使用用户 PAT/API Key。
 
-## Dylix 变更
+## Workbench 变更
 
 - 可整理旧历史采用独立 **64 KiB 目标**，不随用户的保护上限增大；这是旧消息 JSON 的保留目标，不是全部请求大小或 token 窗口。
 - 旧的完整工具批次按时间转成紧凑事实记录：保留工具名、调用标识、原参数/结果引用，以及原文中明确给出的状态、错误、构建/提案标识等。所有摘录标记为不完整，不根据“无 error”推断成功，也不重放旧写操作。整条回执带卸载标记，不能作为项目源码重放。

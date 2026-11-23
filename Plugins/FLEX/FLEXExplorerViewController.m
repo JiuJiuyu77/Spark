@@ -20,7 +20,7 @@
 #import "FLEXTabsViewController.h"
 #import "FLEXWindowManagerController.h"
 #import "FLEXViewControllersViewController.h"
-#import "FLEXDylixChatViewController.h"
+#import "FLEXWorkbenchChatViewController.h"
 #import "NSUserDefaults+FLEX.h"
 
 // x功能模块
@@ -68,7 +68,7 @@ typedef NS_ENUM(NSUInteger, FLEXExplorerMode) {
 @property (nonatomic) NSMutableSet<UIView *> *observedViews;
 
 @property (nonatomic) NSArray<UIMenuItem *> *appMenuItems;
-@property (nonatomic) UINavigationController *dylixNavigation;
+@property (nonatomic) UINavigationController *workbenchNavigation;
 
 @end
 
@@ -390,7 +390,7 @@ typedef NS_ENUM(NSUInteger, FLEXExplorerMode) {
     [toolbar.decryptItem addTarget:self action:@selector(decryptButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
     [toolbar.filzaItem addTarget:self action:@selector(filzaButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
     [toolbar.protectionItem addTarget:self action:@selector(protectionButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-    [toolbar.dylixItem addTarget:self action:@selector(dylixButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [toolbar.workbenchItem addTarget:self action:@selector(workbenchButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
 }
 
 - (void)selectButtonTapped:(FLEXExplorerToolbarItem *)sender {
@@ -559,25 +559,25 @@ typedef NS_ENUM(NSUInteger, FLEXExplorerMode) {
     [UCAppProtectionTool presentProtectionPanelFromViewController:self completion:nil];
 }
 
-- (void)dylixButtonTapped:(FLEXExplorerToolbarItem *)sender {
+- (void)workbenchButtonTapped:(FLEXExplorerToolbarItem *)sender {
     id object = self.selectedView ?: FLEXUtility.appKeyWindow;
     NSString *name = object ? NSStringFromClass([object class]) : @"当前宿主";
-    NSString *report = [NSString stringWithFormat:@"App: %@\nCurrent FLEX selection: %@\nUse this runtime evidence to locate the UI owner and implement the requested behavior in the Dylix plugin project. A temporary FLEX view change is not a plugin implementation.",
+    NSString *report = [NSString stringWithFormat:@"App: %@\nCurrent FLEX selection: %@\nUse this runtime evidence to locate the UI owner and implement the requested behavior in the Workbench plugin project. A temporary FLEX view change is not a plugin implementation.",
         NSBundle.mainBundle.bundleIdentifier ?: @"unknown", name];
-    [self showDylixChatForObject:object report:report className:name];
+    [self showWorkbenchChatForObject:object report:report className:name];
 }
 
-- (void)showDylixChatForObject:(id)object report:(NSString *)report className:(NSString *)name {
-    if (!self.dylixNavigation) {
-        FLEXDylixChatViewController *chat = [[FLEXDylixChatViewController alloc] initWithReport:report className:name];
+- (void)showWorkbenchChatForObject:(id)object report:(NSString *)report className:(NSString *)name {
+    if (!self.workbenchNavigation) {
+        FLEXWorkbenchChatViewController *chat = [[FLEXWorkbenchChatViewController alloc] initWithReport:report className:name];
         chat.selectedObject = object;
-        self.dylixNavigation = [[UINavigationController alloc] initWithRootViewController:chat];
-        self.dylixNavigation.modalPresentationStyle = UIModalPresentationFullScreen;
+        self.workbenchNavigation = [[UINavigationController alloc] initWithRootViewController:chat];
+        self.workbenchNavigation.modalPresentationStyle = UIModalPresentationFullScreen;
     } else {
-        FLEXDylixChatViewController *chat = (FLEXDylixChatViewController *)self.dylixNavigation.viewControllers.firstObject;
+        FLEXWorkbenchChatViewController *chat = (FLEXWorkbenchChatViewController *)self.workbenchNavigation.viewControllers.firstObject;
         [chat updateReport:report className:name selectedObject:object];
     }
-    [self presentTool:^UINavigationController *{ return self.dylixNavigation; } completion:nil];
+    [self presentTool:^UINavigationController *{ return self.workbenchNavigation; } completion:nil];
 }
 
 - (void)updateButtonStates {

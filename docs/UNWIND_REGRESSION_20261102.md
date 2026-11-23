@@ -1,6 +1,6 @@
 # ARM64 异常展开回归（2026-11-02）
 
-Dylix 直接进入 Clang cc1，遗漏了 Darwin 驱动默认的非叶函数帧指针设置。
+Workbench 直接进入 Clang cc1，遗漏了 Darwin 驱动默认的非叶函数帧指针设置。
 这会生成 DWARF fallback；内置 LLD 14 对此样例的 FDE/LSDA 链接错误。
 同一个 Clang 14 对象用 Apple ld 链接后，FDE/LSDA 地址正确。
 LLVM 14 上游 InputFiles.cpp 也有忽略 eh_frame SUBTRACTOR relocation 的路径，
@@ -23,7 +23,7 @@ SDK 16.4，deployment 15.0，arm64；28 个对象成功链接。
 设备目标 dylib UUID：4C4C44E0-5555-3144-A1B3-E9F760583F15。
 
 真机反馈：用户确认上述 UUID 的修正测试 dylib 注入抖音后不再闪退。
-此结果来自用户反馈；修正后的手机端 Dylix 重新构建仍需同配置回归。
+此结果来自用户反馈；修正后的手机端 Workbench 重新构建仍需同配置回归。
 本次使用 x86_64 模拟器版工具框架，输出 arm64；设备版框架本身仍需真机回归。
 补齐驱动参数解决了已复现路径，LLD 14 对其他 DWARF fallback 输入的处理仍待升级验证。
 IPS usedImages.size 表示镜像映射范围，不能与磁盘文件大小直接比较。

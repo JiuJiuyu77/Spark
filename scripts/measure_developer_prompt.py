@@ -10,7 +10,7 @@ method=toolbox.split('+ (NSArray<NSDictionary *> *)schemas {',1)[1].split('\n- (
 web=(root/'App/AI/Tools/TFAIWebTools.m').read_text()
 webhelper=next(line for line in web.splitlines() if line.startswith('static NSDictionary *Schema(')).replace('Schema(', 'WebSchema(')
 webmethod=next(line for line in web.splitlines() if line.startswith('+ (NSArray *)schemas{')).replace('+ (NSArray *)schemas{','static NSArray *WebSchemas(void){',1).replace('Schema(', 'WebSchema(')
-legacy=(baseline/'TheosMobileCompiler/App/AI/Core/AIRuntime.m').read_text()
+legacy=(baseline/'Workbench/App/AI/Core/AIRuntime.m').read_text()
 oldsystem=re.findall(r'\[self.messages addObject:@\{@"role":@"system",@"content":@"((?:[^"\\]|\\.)*)"\}\];',legacy)
 assert len(oldsystem)==5,len(oldsystem)
 source='''#import <Foundation/Foundation.h>
@@ -38,7 +38,7 @@ int main(int argc,const char **argv){@autoreleasepool{
  NSData *data=[NSJSONSerialization dataWithJSONObject:results options:NSJSONWritingPrettyPrinted error:nil];[data writeToFile:[NSString stringWithUTF8String:argv[1]] atomically:YES];
 }return 0;}
 '''
-replacements={'BASELINE':str(baseline/'TheosMobileCompiler/App/AI/Core/TFAIDeveloperPrompt.h'),'CURRENT':str(root/'App/AI/Core/TFAIDeveloperPrompt.h'),'HELPERS':helpers,'WEBHELPER':webhelper,'WEBMETHOD':webmethod,'METHOD':method,'OLD_SYSTEMS':','.join('@"'+value+'"' for value in oldsystem)}
+replacements={'BASELINE':str(baseline/'Workbench/App/AI/Core/TFAIDeveloperPrompt.h'),'CURRENT':str(root/'App/AI/Core/TFAIDeveloperPrompt.h'),'HELPERS':helpers,'WEBHELPER':webhelper,'WEBMETHOD':webmethod,'METHOD':method,'OLD_SYSTEMS':','.join('@"'+value+'"' for value in oldsystem)}
 for key,value in replacements.items():source=source.replace(key,value)
 args.output.parent.mkdir(parents=True,exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='tf-prompt-measure-') as tmp:

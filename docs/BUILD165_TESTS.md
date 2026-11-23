@@ -4,7 +4,7 @@
 
 ## 导入崩溃证据
 
-用户提供的 `TheosMobileCompiler-2026-11-04-055347.ips` 实际运行版本为 1.0.7（160）。主镜像 UUID `535BA470-5198-3D59-811A-6C04F0B58D5E`，与保存的 build160 发布 IPA 一致。
+用户提供的 `Workbench-2026-11-04-055347.ips` 实际运行版本为 1.0.7（160）。主镜像 UUID `535BA470-5198-3D59-811A-6C04F0B58D5E`，与保存的 build160 发布 IPA 一致。
 
 主线程 `EXC_BAD_ACCESS / SIGSEGV`，地址 0；栈为 `objc_setAssociatedObject +88 → TFStudioImportReceived +168 → TFReceiveController tableView:didSelectRowAtIndexPath: 的 dismiss completion`。故障寄存器 x0 为 0。旧接收页仅取 `self.presentingViewController`；push 进入的接收历史页没有 presenter，子页面的 presenter 也可能归属外层导航容器。随后给空 host 绑定 importer 触发崩溃。这份日志支持页面归属错误，未发现证据指向编译器或项目源码。
 
@@ -15,7 +15,7 @@
 - `tests/Integration165IOSRegression.m`：13 项、0失败。实际 iOS 模拟器运行接收页 delegate 和生产导入器，完成弹窗源码、push 历史源码、ZIP 项目三条导入，检查编辑器内真实文件和 importer 释放；检查空 host / 非本地 URL 防护。另用真实 NSURLSession 验证 HTTP 官方兼容端点夹具的模型发现及对话 User-Agent。
 - `tests/provider_v4Run.py`：125 项、0失败。新增 25 项覆盖 User-Agent 默认/标准化/非法字符、HTTP 默认拒绝/显式允许/撤销、OAuth HTTPS、真实 transport HTTP 请求与发现、80/443/自订端口同源重定向、UA 持久化及能力结果失效。原 100 项服务商协议回归全部通过。
 - `tests/ToolRegistryRuntimeRun.py`：12 项实际运行时测试通过。新增 Remote 不下发 C 档 schema，已有 C schema 的远程调用同样被 preflight 拒绝；浏览器确认不替代手机隔离档确认。
-- 人设页使用 Dylix 金色强调、纸感浅色/石墨深色，改为“运行状态 / 配置库 / 检查与管理”；配置选择按钮与总开关分离。模拟器目视检查两主题及新增编辑页，保留原 JSON、内置库、选中状态与注入引擎。
+- 人设页使用 Workbench 金色强调、纸感浅色/石墨深色，改为“运行状态 / 配置库 / 检查与管理”；配置选择按钮与总开关分离。模拟器目视检查两主题及新增编辑页，保留原 JSON、内置库、选中状态与注入引擎。
 
 ## 回归
 

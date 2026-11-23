@@ -7,7 +7,7 @@ R=Path(__file__).resolve().parents[1]
 OUT=R/'evidence/rules-upstream-expansion';OUT.mkdir(parents=True,exist_ok=True)
 CLI=os.environ.get('TMC_RULE_CLI','/private/tmp/tmc-upstream-rules-cli')
 PROBE=os.environ.get('TMC_EMBEDDED_PROBE','/private/tmp/tmc-embedded-rule-probe')
-FRAMEWORKS=(R/'build/simulator/TheosMobileCompiler.app/Frameworks').resolve()
+FRAMEWORKS=(R/'build/simulator/Workbench.app/Frameworks').resolve()
 catalog=json.loads((R/'Resources/CompatibilityRules/rules.json').read_text())
 assert len({r['id'] for r in catalog['rules']})==len(catalog['rules'])==44
 for r in catalog['rules'][26:]:

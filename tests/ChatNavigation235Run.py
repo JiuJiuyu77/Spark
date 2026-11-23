@@ -3,7 +3,7 @@ from pathlib import Path
 import argparse,json,os,shutil,subprocess,time
 root=Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser();parser.add_argument('--skip-build',action='store_true');parser.add_argument('--device',action='append');args=parser.parse_args()
-env=os.environ.copy();env.setdefault('DYLIX_SDK_26_0',str(root.parents[2]/'SDKDownloads/iOS-SDKs-26/iPhoneOS26.0.sdk'))
+env=os.environ.copy();env.setdefault('WORKBENCH_SDK_26_0',str(root.parents[2]/'SDKDownloads/iOS-SDKs-26/iPhoneOS26.0.sdk'))
 def run(*cmd):return subprocess.run([str(x) for x in cmd],check=True,env=env,capture_output=True,text=True).stdout.strip()
 if not args.skip_build:run('python3',root/'scripts/build.py','--simulator')
 if args.device:devices=args.device
@@ -15,9 +15,9 @@ else:
 assert devices,'Boot an iPhone or iPad simulator first'
 out=root/'build/ui235';out.mkdir(parents=True,exist_ok=True)
 for device in devices:
- run('xcrun','simctl','install',device,root/'build/simulator/TheosMobileCompiler.app')
- data=Path(run('xcrun','simctl','get_app_container',device,'com.xuegao.theosmobilecompiler','data'))/'Documents';result=data/'ui235-results.json';result.unlink(missing_ok=True)
- run('xcrun','simctl','launch','--terminate-running-process',device,'com.xuegao.theosmobilecompiler','--ui235-tests')
+ run('xcrun','simctl','install',device,root/'build/simulator/Workbench.app')
+ data=Path(run('xcrun','simctl','get_app_container',device,'com.HuQing.Workbench','data'))/'Documents';result=data/'ui235-results.json';result.unlink(missing_ok=True)
+ run('xcrun','simctl','launch','--terminate-running-process',device,'com.HuQing.Workbench','--ui235-tests')
  deadline=time.monotonic()+40
  while not result.exists() and time.monotonic()<deadline:time.sleep(.2)
  assert result.exists(),f'{device}: integration test timed out'

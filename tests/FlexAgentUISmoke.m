@@ -1,16 +1,16 @@
 #import <UIKit/UIKit.h>
-#import "FLEXDylixChatViewController.h"
-#import "FLEXDylixStatusWindow.h"
-#import "FLEXDylixRuntime.h"
-#import "FLEXDylixPreferences.h"
-#import "FLEXDylixConnection.h"
+#import "FLEXWorkbenchChatViewController.h"
+#import "FLEXWorkbenchStatusWindow.h"
+#import "FLEXWorkbenchRuntime.h"
+#import "FLEXWorkbenchPreferences.h"
+#import "FLEXWorkbenchConnection.h"
 #import <errno.h>
 #import "FLEXGlobalsEntry.h"
-#import "FLEXDylixTouchDriver.h"
+#import "FLEXWorkbenchTouchDriver.h"
 #import "x/ClassDump/UCClassSearchViewController.h"
 #import "x/ClassDump/UCClassDumpTool.h"
 
-// Runs the production chat/runtime in UIKit. Only the Dylix HTTP transport and
+// Runs the production chat/runtime in UIKit. Only the Workbench HTTP transport and
 // unrelated FLEX services are fixtures; this is not a target-App device test.
 static UIWindow *HostWindow;
 static NSMutableArray *Checks;
@@ -90,7 +90,7 @@ NSString *const kFLEXKeychainClassKey=@"class";
 @implementation FLEXGlobalsViewController
 + (FLEXGlobalsEntry *)globalsEntryForRow:(FLEXGlobalsRow)row {return [FLEXGlobalsEntry entryWithNameFuture:^{return [NSString stringWithFormat:@"Native fixture %lu",(unsigned long)row];} viewControllerFuture:^{return [FLEXLiveObjectsController new];}];}
 @end
-@interface FLEXDylixChatViewController (Smoke)
+@interface FLEXWorkbenchChatViewController (Smoke)
 - (void)finishAgentCommand:(NSDictionary *)command allowed:(BOOL)allowed;
 - (void)stopAgentTapped;
 - (void)closeTapped;
@@ -102,7 +102,7 @@ NSString *const kFLEXKeychainClassKey=@"class";
 - (void)refreshAgentStatus;
 - (void)workspace:(NSString *)action arguments:(NSDictionary *)arguments completion:(void(^)(NSDictionary *,NSError *))done;
 @end
-@interface SmokeChat : FLEXDylixChatViewController
+@interface SmokeChat : FLEXWorkbenchChatViewController
 @property NSMutableDictionary *replies;
 @property NSUInteger polls, cancels;
 @property BOOL routingFixture;
@@ -117,7 +117,7 @@ NSString *const kFLEXKeychainClassKey=@"class";
   [self.restoreActions addObject:action];
   if([action isEqual:@"projects"]){done(@{@"projects":@[@{@"id":@"persist-project",@"name":@"Saved project"}]},nil);return;}
   if([action isEqual:@"ai_connections"]){done(@{@"connections":@[@{@"id":@"persist-connection",@"model":@"gpt-6.1-sol"}]},nil);return;}
-  if([action isEqual:@"ai_read"]){done(@{@"id":@"persist-session",@"title":@"Saved conversation",@"messages":@[@{@"role":@"assistant",@"content":@"History from Dylix"}]},nil);return;}
+  if([action isEqual:@"ai_read"]){done(@{@"id":@"persist-session",@"title":@"Saved conversation",@"messages":@[@{@"role":@"assistant",@"content":@"History from Workbench"}]},nil);return;}
  }
  if(self.routingFixture){
   if([action isEqual:@"flex_publish"]){done(@{},nil);return;}
@@ -211,7 +211,7 @@ static NSDictionary *Command(SmokeChat *chat, NSString *op, NSDictionary *args) 
   UINavigationController *nav=[[UINavigationController alloc]initWithRootViewController:chat];
   [FLEXManager.sharedManager presentTool:^{return nav;} completion:nil];
   Check(Await(^{return chat.viewIfLoaded.window&&!nav.isBeingPresented;},3),@"diagnostic chat presented in UIKit");
-  NSError *failure=FLEXDylixConnectionError(@"192.168.20.10",9432,@"/api/v1/pair",@"connect",ECONNREFUSED,0);
+  NSError *failure=FLEXWorkbenchConnectionError(@"192.168.20.10",9432,@"/api/v1/pair",@"connect",ECONNREFUSED,0);
   [chat performSelector:NSSelectorFromString(@"showError:") withObject:failure];
   Check(Await(^{return chat.presentedViewController!=nil&&!chat.presentedViewController.isBeingPresented;},2),@"detailed connection error alert presented");
   UIAlertController *alert=(id)chat.presentedViewController;
@@ -232,13 +232,13 @@ static NSDictionary *Command(SmokeChat *chat, NSString *op, NSDictionary *args) 
  if(phase){
   NSError *storageError=nil;
   if([phase isEqual:@"write"]){
-   Check([FLEXDylixPreferences clearAll:&storageError],@"clear isolated fixture preferences");
+   Check([FLEXWorkbenchPreferences clearAll:&storageError],@"clear isolated fixture preferences");
    NSDictionary *state=@{@"host":@"192.168.20.10",@"port":@9432,@"authorizationCode":@"98765432",@"token":@"fixture-token",@"csrf":@"fixture-csrf",@"projectID":@"persist-project",@"projectName":@"Saved project",@"connectionID":@"persist-connection",@"modelID":@"gpt-6.1-sol",@"modelName":@"Saved model",@"sessionID":@"persist-session",@"sessionTitle":@"Saved conversation",@"messages":@[@{@"text":@"must-not-persist"}],@"permissionGranted":@YES};
-   Check([FLEXDylixPreferences saveState:state error:&storageError],@"persist production connection state with real simulator Keychain");Check([[FLEXDylixPreferences loadState][@"host"] isEqual:@"192.168.20.10"],@"saved metadata reloads in the same process");
-   NSDictionary *public=[NSDictionary dictionaryWithContentsOfFile:[[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"FLEXDylix"] stringByAppendingPathComponent:@"connection.plist"]];
+   Check([FLEXWorkbenchPreferences saveState:state error:&storageError],@"persist production connection state with real simulator Keychain");Check([[FLEXWorkbenchPreferences loadState][@"host"] isEqual:@"192.168.20.10"],@"saved metadata reloads in the same process");
+   NSDictionary *public=[NSDictionary dictionaryWithContentsOfFile:[[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"FLEXWorkbench"] stringByAppendingPathComponent:@"connection.plist"]];
    Check(!public[@"token"]&&!public[@"csrf"]&&!public[@"authorizationCode"]&&!public[@"messages"]&&!public[@"permissionGranted"],@"preferences contain neither credentials nor chat messages or permission grants");
   }else if([phase isEqual:@"read"]){
-   NSDictionary *state=[FLEXDylixPreferences loadState];Check([state[@"host"] isEqual:@"192.168.20.10"]&&[state[@"port"] isEqual:@9432],@"IP and actual port survive process restart and covering install");
+   NSDictionary *state=[FLEXWorkbenchPreferences loadState];Check([state[@"host"] isEqual:@"192.168.20.10"]&&[state[@"port"] isEqual:@9432],@"IP and actual port survive process restart and covering install");
    Check([state[@"authorizationCode"] isEqual:@"98765432"]&&[state[@"token"] isEqual:@"fixture-token"],@"pairing code and token survive in Keychain");
    SmokeChat *chat=[[SmokeChat alloc]initWithReport:@"fixture" className:@"UIWindow"];chat.restorationFixture=YES;chat.restoreActions=[NSMutableArray new];[chat loadViewIfNeeded];
    Check([[chat valueForKey:@"projectID"] isEqual:@"persist-project"]&&[[chat valueForKey:@"modelID"] isEqual:@"gpt-6.1-sol"]&&[[chat valueForKey:@"sessionID"] isEqual:@"persist-session"],@"fresh production chat restores project, exact model and conversation");
@@ -246,17 +246,17 @@ static NSDictionary *Command(SmokeChat *chat, NSString *op, NSDictionary *args) 
    [chat performSelector:NSSelectorFromString(@"resumeSavedConnection")];
    Check(![[chat valueForKey:@"needsConnectionValidation"] boolValue]&&[[chat valueForKey:@"csrf"] isEqual:@"restored-csrf"],@"restored connection validates token and refreshes CSRF");
    Check([chat.restoreActions isEqual:@[@"projects",@"ai_connections",@"ai_read"]],@"restoration verifies project and raw model then fetches real conversation history");
-   Check([[[chat valueForKey:@"messages"] firstObject][@"text"] isEqual:@"History from Dylix"],@"history rehydrates from authenticated Dylix response");
+   Check([[[chat valueForKey:@"messages"] firstObject][@"text"] isEqual:@"History from Workbench"],@"history rehydrates from authenticated Workbench response");
   }else if([phase isEqual:@"disconnect"]){
-   Check([FLEXDylixPreferences clearAuthorization:&storageError],@"explicit disconnect removes saved credentials");
+   Check([FLEXWorkbenchPreferences clearAuthorization:&storageError],@"explicit disconnect removes saved credentials");
   }else if([phase isEqual:@"cleared"]){
-   NSDictionary *state=[FLEXDylixPreferences loadState];Check(!state[@"token"]&&!state[@"csrf"]&&!state[@"authorizationCode"],@"credentials stay cleared after restart");
+   NSDictionary *state=[FLEXWorkbenchPreferences loadState];Check(!state[@"token"]&&!state[@"csrf"]&&!state[@"authorizationCode"],@"credentials stay cleared after restart");
    Check([state[@"host"] isEqual:@"192.168.20.10"]&&[state[@"projectID"] isEqual:@"persist-project"]&&[state[@"modelID"] isEqual:@"gpt-6.1-sol"]&&[state[@"sessionID"] isEqual:@"persist-session"],@"explicit disconnect retains endpoint and previous selections");
-   [FLEXDylixPreferences clearAll:nil];
+   [FLEXWorkbenchPreferences clearAll:nil];
   }else Check(NO,@"recognized preferences test phase");
   [self writeSmokeReport];return;
  }
- [FLEXDylixPreferences clearAll:nil];
+ [FLEXWorkbenchPreferences clearAll:nil];
  SmokeChat *chat=[[SmokeChat alloc]initWithReport:@"fixture" className:@"UIWindow"];chat.replies=[NSMutableDictionary new];chat.selectedObject=HostWindow;
  [chat setValue:@"127.0.0.1" forKey:@"host"];[chat setValue:@8787 forKey:@"port"];[chat setValue:@"test-token" forKey:@"token"];[chat setValue:@"test-csrf" forKey:@"csrf"];[chat setValue:@"test-session" forKey:@"sessionID"];
  UINavigationController *nav=[[UINavigationController alloc]initWithRootViewController:chat];nav.modalPresentationStyle=UIModalPresentationFullScreen;
@@ -293,7 +293,7 @@ static NSDictionary *Command(SmokeChat *chat, NSString *op, NSDictionary *args) 
  Check(Await(^{return chat.replies[isolated]!=nil;},3)&&[chat.replies[isolated][@"error"] length]>0,@"other conversation cannot reuse current conversation grant");
  chat.routingFixture=NO;
  [chat setValue:@YES forKey:@"busy"];[chat setValue:@"job-fixture" forKey:@"jobID"];
- NSTimer *timer=[chat valueForKey:@"agentTimer"];FLEXDylixRuntime *runtime=[chat valueForKey:@"runtime"];
+ NSTimer *timer=[chat valueForKey:@"agentTimer"];FLEXWorkbenchRuntime *runtime=[chat valueForKey:@"runtime"];
  NSString *logPath=[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/flex-large-log.txt"];
  NSMutableString *log=[NSMutableString new];for(NSUInteger i=0;i<80000;i++)[log appendString:@"中文日志 abc\n"];[log appendString:@"LATEST-END"];
  NSData *logData=[log dataUsingEncoding:NSUTF8StringEncoding];[logData writeToFile:logPath atomically:YES];
@@ -326,13 +326,13 @@ static NSDictionary *Command(SmokeChat *chat, NSString *op, NSDictionary *args) 
  Check([[chat valueForKey:@"sessionID"] isEqual:@"test-session"]&&[[chat valueForKey:@"jobID"] isEqual:@"job-fixture"],@"minimize preserves session and task");
  Check(timer==[chat valueForKey:@"agentTimer"]&&timer.valid,@"same polling timer survives minimize");
  [chat showConnectionState:2];
- FLEXDylixStatusWindow *status=[chat valueForKey:@"statusWindow"];
+ FLEXWorkbenchStatusWindow *status=[chat valueForKey:@"statusWindow"];
  Check(status&&!status.hidden,@"minimize shows a separate live status capsule");
  Check(!status.isKeyWindow&&HostWindow.isKeyWindow,@"status window never steals host key window");
  Check([status hitTest:CGPointMake(1,1) withEvent:nil]==nil,@"outside capsule touches pass through to target app");
  Check([status hitTest:status.capsule.center withEvent:nil]!=nil,@"capsule has its own usable touch target");
  [runtime setValue:status.capsule forKey:@"selectedObject"];NSDictionary *target=[runtime execute:@"screen_elements" arguments:@{} error:nil];
- BOOL capsuleInTarget=NO;for(NSDictionary *item in target[@"elements"])if([item[@"accessibilityID"] isEqual:@"dylix.agent.status"])capsuleInTarget=YES;
+ BOOL capsuleInTarget=NO;for(NSDictionary *item in target[@"elements"])if([item[@"accessibilityID"] isEqual:@"workbench.agent.status"])capsuleInTarget=YES;
  Check(!capsuleInTarget&&target[@"elements"]!=nil,@"selecting an agent overlay cannot turn it into target App evidence");[runtime setValue:HostWindow forKey:@"selectedObject"];
  status.capsule.frame=CGRectMake(-900,9000,184,60);[status clampToSafeArea];
  Check(CGRectContainsRect(status.bounds,status.capsule.frame),@"dragged capsule clamps inside visible screen");
@@ -369,7 +369,7 @@ static NSDictionary *Command(SmokeChat *chat, NSString *op, NSDictionary *args) 
  targetScrollResult=[runtime execute:@"scroll_view" arguments:@{@"id":targetScrollID?:@"",@"direction":@"down",@"pages":@0.5} error:nil];Check([targetScrollResult[@"scrolled"] boolValue]&&![targetScrollResult[@"reachedBoundary"] boolValue]&&fabs([targetScrollResult[@"delta"][@"y"] doubleValue]-50)<.01,@"target downward scroll reports actual displacement from negative inset");
  CGFloat previousY=self.targetScroll.contentOffset.y;targetScrollResult=[runtime execute:@"scroll_view" arguments:@{@"id":targetScrollID?:@"",@"direction":@"right",@"pages":@0.5} error:nil];Check([targetScrollResult[@"scrolled"] boolValue]&&fabs([targetScrollResult[@"delta"][@"x"] doubleValue]-80)<.01&&self.targetScroll.contentOffset.y==previousY,@"horizontal scrolling preserves the unrelated vertical offset");
  targetScrollResult=[runtime execute:@"scroll_view" arguments:@{@"id":targetScrollID?:@"",@"direction":@"up",@"pages":@0.75} error:nil];Check([targetScrollResult[@"scrolled"] boolValue]&&[targetScrollResult[@"reachedBoundary"] boolValue]&&fabs(self.targetScroll.contentOffset.y+6)<.01,@"target scroll can move and reach top boundary in the same request");
- FLEXDylixTouchDriver *driver=[FLEXDylixTouchDriver new];NSDictionary *backend=[FLEXDylixTouchDriver backendCapabilities];
+ FLEXWorkbenchTouchDriver *driver=[FLEXWorkbenchTouchDriver new];NSDictionary *backend=[FLEXWorkbenchTouchDriver backendCapabilities];
  NSLog(@"Touch backend probe %@",backend);Check([backend[@"available"] boolValue],@"in-process touch backend probes actual system interfaces");
  __block BOOL gestureDone=NO;__block NSString *gestureError=nil;
  NSArray *start=@[[NSValue valueWithCGPoint:CGPointMake(100,300)],[NSValue valueWithCGPoint:CGPointMake(100,300)]];

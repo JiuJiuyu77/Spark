@@ -54,7 +54,7 @@ def audit(path, scheme, image):
     assert entries['.'].isdir()
     return {'scheme': scheme, 'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest(), 'entries': len(entries), 'compression': 'gzip', 'architecture': arch}
 
-with tempfile.TemporaryDirectory(prefix='dylix-deb-issue2-') as tmp:
+with tempfile.TemporaryDirectory(prefix='workbench-deb-issue2-') as tmp:
     work = Path(tmp); project = work/'project'; project.mkdir()
     out = args.output.resolve() if args.output else work/'output'; out.mkdir(parents=True, exist_ok=True)
     # A real arm64 dylib, without external framework dependencies.

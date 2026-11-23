@@ -5,21 +5,21 @@
 static NSArray *MirrorSources(void){
  NSMutableArray *rows=[NSMutableArray new];
  for(NSArray *source in @[@[@"Alpine 官方 CDN",@"https://dl-cdn.alpinelinux.org/alpine"],@[@"Alpine 官方主站",@"https://dl-3.alpinelinux.org/alpine"],@[@"清华镜像",@"https://mirrors.tuna.tsinghua.edu.cn/alpine"]]){
- NSString *base=source[1];[rows addObject:@{@"group":@"apk",@"name":source[0],@"url":[base stringByAppendingString:@"/v3.21/main/aarch64/APKINDEX.tar.gz"],@"command":[NSString stringWithFormat:@"set -e; v=$(cut -d. -f1,2 /etc/alpine-release); test \"$v\" = 3.21 -o \"$v\" = 3.22; test -f /etc/apk/repositories; cp -p /etc/apk/repositories /etc/apk/repositories.dylix-backup; printf '%@/v%%s/main\\n%@/v%%s/community\\n' \"$v\" \"$v\" > /etc/apk/repositories; cat /etc/apk/repositories",base,base]}];}
+ NSString *base=source[1];[rows addObject:@{@"group":@"apk",@"name":source[0],@"url":[base stringByAppendingString:@"/v3.21/main/aarch64/APKINDEX.tar.gz"],@"command":[NSString stringWithFormat:@"set -e; v=$(cut -d. -f1,2 /etc/alpine-release); test \"$v\" = 3.21 -o \"$v\" = 3.22; test -f /etc/apk/repositories; cp -p /etc/apk/repositories /etc/apk/repositories.workbench-backup; printf '%@/v%%s/main\\n%@/v%%s/community\\n' \"$v\" \"$v\" > /etc/apk/repositories; cat /etc/apk/repositories",base,base]}];}
  for(NSArray *source in @[@[@"PyPI 官方",@"https://pypi.org/simple"],@[@"清华 PyPI 镜像",@"https://pypi.tuna.tsinghua.edu.cn/simple"]]){
- NSString *base=source[1];[rows addObject:@{@"group":@"pip",@"name":source[0],@"url":[base stringByAppendingString:@"/pip/"],@"command":[NSString stringWithFormat:@"set -e; command -v python3 >/dev/null; mkdir -p ~/.config/pip; if test -f ~/.config/pip/pip.conf; then cp -p ~/.config/pip/pip.conf ~/.config/pip/pip.conf.dylix-backup; fi; python3 -m pip config set global.index-url %@",base]}];}
+ NSString *base=source[1];[rows addObject:@{@"group":@"pip",@"name":source[0],@"url":[base stringByAppendingString:@"/pip/"],@"command":[NSString stringWithFormat:@"set -e; command -v python3 >/dev/null; mkdir -p ~/.config/pip; if test -f ~/.config/pip/pip.conf; then cp -p ~/.config/pip/pip.conf ~/.config/pip/pip.conf.workbench-backup; fi; python3 -m pip config set global.index-url %@",base]}];}
  for(NSArray *source in @[@[@"npm 官方",@"https://registry.npmjs.org/"],@[@"npmmirror",@"https://registry.npmmirror.com/"]]){
- NSString *base=source[1];[rows addObject:@{@"group":@"npm",@"name":source[0],@"url":[base stringByAppendingString:@"npm"],@"command":[NSString stringWithFormat:@"set -e; command -v npm >/dev/null; if test -f ~/.npmrc; then cp -p ~/.npmrc ~/.npmrc.dylix-backup; fi; npm config set registry %@; npm config get registry",base]}];}
+ NSString *base=source[1];[rows addObject:@{@"group":@"npm",@"name":source[0],@"url":[base stringByAppendingString:@"npm"],@"command":[NSString stringWithFormat:@"set -e; command -v npm >/dev/null; if test -f ~/.npmrc; then cp -p ~/.npmrc ~/.npmrc.workbench-backup; fi; npm config set registry %@; npm config get registry",base]}];}
  return rows;
 }
-@interface DylixMirrorPage : UITableViewController
+@interface WorkbenchMirrorPage : UITableViewController
 @property NSString *session;
 @property NSArray *sources;
 @property NSMutableDictionary *results,*latencies;
 @property NSURLSession *network;
 @property NSUInteger generation;
 @end
-@implementation DylixMirrorPage
+@implementation WorkbenchMirrorPage
 - (void)viewDidLoad{[super viewDidLoad];self.title=@"包源测速与选择";self.sources=MirrorSources();self.results=[NSMutableDictionary new];self.latencies=[NSMutableDictionary new];self.tableView.rowHeight=UITableViewAutomaticDimension;self.tableView.estimatedRowHeight=80;self.navigationItem.rightBarButtonItem=AIBar(@"speedometer",@"测试所有包源",self,@selector(probe));NSURLSessionConfiguration *config=NSURLSessionConfiguration.ephemeralSessionConfiguration;config.timeoutIntervalForRequest=12;config.HTTPCookieStorage=nil;config.URLCache=nil;self.network=[NSURLSession sessionWithConfiguration:config];}
 - (void)dealloc{[self.network invalidateAndCancel];}
 - (NSDictionary *)fastest:(NSString *)group{NSDictionary *winner=nil;double best=DBL_MAX;for(NSDictionary *row in self.sources)if([row[@"group"] isEqual:group]&&self.latencies[row[@"url"]]){double value=[self.latencies[row[@"url"]] doubleValue];if(value<best){best=value;winner=row;}}return winner;}
@@ -33,4 +33,4 @@ static NSArray *MirrorSources(void){
 - (UITableViewCell *)tableView:(UITableView *)t cellForRowAtIndexPath:(NSIndexPath *)i{NSArray *rows=[self rows:i.section];if(i.row==rows.count){NSDictionary *fastest=[self fastest:[self group:i.section]];UITableViewCell *cell=AICell(@"应用本组最快源",fastest?fastest[@"name"]:@"先测试，按成功连接耗时选择",@"bolt");cell.userInteractionEnabled=fastest!=nil;cell.textLabel.enabled=fastest!=nil;return cell;}NSDictionary *row=rows[i.row];return AICell(row[@"name"],[NSString stringWithFormat:@"%@\n%@",self.results[row[@"url"]]?:@"尚未测试",row[@"url"]],@"network");}
 - (void)tableView:(UITableView *)t didSelectRowAtIndexPath:(NSIndexPath *)i{[t deselectRowAtIndexPath:i animated:YES];NSArray *rows=[self rows:i.section];NSDictionary *row=i.row==rows.count?[self fastest:[self group:i.section]]:rows[i.row];if(!row)return;UIAlertController *confirm=[UIAlertController alertControllerWithTitle:@"应用到当前 Linux 会话？" message:[NSString stringWithFormat:@"%@\n%@\n仅更改此包管理器的来源，不安装软件。",row[@"name"],row[@"url"]] preferredStyle:UIAlertControllerStyleAlert];[confirm addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];[confirm addAction:[UIAlertAction actionWithTitle:@"备份并应用" style:UIAlertActionStyleDefault handler:^(id a){[TFAIISHRuntime.shared execute:row[@"command"] session:self.session timeout:20 output:nil completion:^(NSDictionary *result,NSError *error){BOOL ok=!error&&[result[@"exit_code"] intValue]==0;AIAlert(self,ok?@"已应用":@"未成功应用",error.localizedDescription?:result[@"output"]?:@"请检查终端工具安装状态");}];}]];[self presentViewController:confirm animated:YES completion:nil];}
 @end
-UIViewController *TFAIISHMirrorController(NSString *session){DylixMirrorPage *page=[[DylixMirrorPage alloc]initWithStyle:UITableViewStyleInsetGrouped];page.session=session;return page;}
+UIViewController *TFAIISHMirrorController(NSString *session){WorkbenchMirrorPage *page=[[WorkbenchMirrorPage alloc]initWithStyle:UITableViewStyleInsetGrouped];page.session=session;return page;}

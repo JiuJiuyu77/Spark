@@ -15,8 +15,8 @@ def run(*argv):
     return subprocess.check_output([str(x) for x in argv], text=True).strip()
 
 for device in args.device:
-    bundle = 'com.xuegao.theosmobilecompiler'
-    run('xcrun', 'simctl', 'install', device, root / 'build/simulator/TheosMobileCompiler.app')
+    bundle = 'com.HuQing.Workbench'
+    run('xcrun', 'simctl', 'install', device, root / 'build/simulator/Workbench.app')
     documents = Path(run('xcrun', 'simctl', 'get_app_container', device, bundle, 'data')) / 'Documents'
     result = documents / 'mounted246-results.json'
     result.unlink(missing_ok=True)

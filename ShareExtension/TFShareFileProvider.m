@@ -3,7 +3,7 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 static NSError *FileError(NSString *message) {
-    return [NSError errorWithDomain:@"TweakForge.Share" code:3 userInfo:@{NSLocalizedDescriptionKey:message}];
+    return [NSError errorWithDomain:@"Workbench.Share" code:3 userInfo:@{NSLocalizedDescriptionKey:message}];
 }
 BOOL TFShareProviderHasFile(NSItemProvider *provider) {
     return [provider hasItemConformingToTypeIdentifier:UTTypeFileURL.identifier] ||

@@ -37,7 +37,7 @@
 - (void)presentTool:(UINavigationController *(^)(void))future
          completion:(void (^)(void))completion;
 
-- (void)showDylixChatForObject:(id)object report:(NSString *)report className:(NSString *)className;
+- (void)showWorkbenchChatForObject:(id)object report:(NSString *)report className:(NSString *)className;
 
 // Keyboard shortcut helpers
 

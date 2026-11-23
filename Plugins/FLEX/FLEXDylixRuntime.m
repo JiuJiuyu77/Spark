@@ -1,4 +1,4 @@
-#import "FLEXDylixRuntime.h"
+#import "FLEXWorkbenchRuntime.h"
 #import "FLEXNetworkRecorder.h"
 #import "FLEXNetworkObserver.h"
 #import "FLEXNetworkTransaction.h"
@@ -7,7 +7,7 @@
 #import "FLEXManager+Private.h"
 #import "FLEXGlobalsEntry.h"
 #import "FLEXGlobalsViewController.h"
-#import "FLEXDylixTouchDriver.h"
+#import "FLEXWorkbenchTouchDriver.h"
 #import "x/ClassDump/UCClassSearchViewController.h"
 #import "x/ClassDump/UCClassDumpTool.h"
 #import <objc/runtime.h>
@@ -29,16 +29,16 @@ static NSDictionary *DXBody(NSData *body) {
  return text?@{@"available":@YES,@"text":text,@"totalBytes":@(body.length),@"truncated":@(body.length>length)}:@{@"available":@YES,@"binary":@YES,@"totalBytes":@(body.length)};
 }
 
-@interface FLEXDylixRuntime ()
+@interface FLEXWorkbenchRuntime ()
 @property NSMapTable<NSString *, id> *views;
 @property NSMapTable<UIView *, NSString *> *viewIDs;
 @property NSDictionary *undoState;
 @property NSTimeInterval lastCaptureAt;
-@property FLEXDylixTouchDriver *touchDriver;
+@property FLEXWorkbenchTouchDriver *touchDriver;
 @property NSUInteger inputGeneration;
 @end
 
-@implementation FLEXDylixRuntime
+@implementation FLEXWorkbenchRuntime
 - (BOOL)agentCanOpenRow:(NSUInteger)row {
  // Keep credential viewers and arbitrary-address/method entry points manual.
  return row<FLEXGlobalsRowCount && ![@[@(FLEXGlobalsRowAddressInspector),@(FLEXGlobalsRowAppKeychainItems),@(FLEXGlobalsRowCookies),@(FLEXGlobalsRowUserDefaults),@(FLEXGlobalsRowPasteboard),@(FLEXGlobalsRowPushNotifications)] containsObject:@(row)];
@@ -56,7 +56,7 @@ static NSDictionary *DXBody(NSData *body) {
   @{@"id":@"extension.headers",@"name":@"xx.h · 类头文件",@"agentOpenSupported":@(NSClassFromString(@"UCClassSearchViewController")!=nil),@"source":@"FLEX++ native extension"},
   @{@"id":@"extension.disassembly",@"name":@"反汇编 · 类/方法列表",@"agentOpenSupported":@(NSClassFromString(@"UCClassSearchViewController")!=nil),@"source":@"FLEX++ native extension"},
   @{@"id":@"extension.filza",@"name":@"Filza",@"agentOpenSupported":@NO,@"reason":@"文件写入与系统目录操作继续走既有人工流程",@"source":@"FLEX++ native extension"},
-  @{@"id":@"extension.capture",@"name":@"抓取",@"agentOpenSupported":@NO,@"reason":@"二进制复制/注入继续走 Dylix 暂存流程",@"source":@"FLEX++ native extension"},
+  @{@"id":@"extension.capture",@"name":@"抓取",@"agentOpenSupported":@NO,@"reason":@"二进制复制/注入继续走 Workbench 暂存流程",@"source":@"FLEX++ native extension"},
   @{@"id":@"extension.protection",@"name":@"保护",@"agentOpenSupported":@NO,@"reason":@"开启入口会立即改变宿主状态；不作为只读导航入口",@"source":@"FLEX++ native extension"}])[items addObject:item];
  return items;
 }
@@ -75,7 +75,7 @@ static NSDictionary *DXBody(NSData *body) {
  UIWindow *window=FLEXManager.sharedManager.explorerWindow;
  if(window.hidden)return nil;
  UIViewController *controller=[self visibleControllerInWindow:window path:[NSMutableArray new]];
- if([DXClass(controller) containsString:@"DylixChat"])return nil;
+ if([DXClass(controller) containsString:@"WorkbenchChat"])return nil;
  return controller;
 }
 - (BOOL)allowsRowSelection:(UIViewController *)controller {
@@ -90,7 +90,7 @@ static NSDictionary *DXBody(NSData *body) {
 }
 - (void)cancelPendingInput {self.inputGeneration++;[self.touchDriver cancel];}
 - (void)performGesture:(NSDictionary *)arguments completion:(void (^)(NSDictionary *,NSString *))completion {
- if(!self.touchDriver)self.touchDriver=[FLEXDylixTouchDriver new];
+ if(!self.touchDriver)self.touchDriver=[FLEXWorkbenchTouchDriver new];
  if(self.touchDriver.running){completion(nil,@"另一个触摸序列仍在进行");return;}
  if(!FLEXManager.sharedManager.isHidden){completion(nil,@"FLEX 覆盖层仍可见。请先 minimize_chat(surface=target)，查询 chat_status.targetReady=true 后再操作，避免手势落在聊天或 FLEX 覆盖层");return;}
  NSString *kind=arguments[@"kind"];NSArray *kinds=@[@"tap",@"double_tap",@"long_press",@"swipe",@"drag",@"pinch",@"rotate"];
@@ -123,7 +123,7 @@ static NSDictionary *DXBody(NSData *body) {
 - (instancetype)init { if ((self=[super init])) { _views=[NSMapTable strongToWeakObjectsMapTable]; _viewIDs=[NSMapTable weakToStrongObjectsMapTable]; } return self; }
 - (BOOL)isTargetWindow:(UIWindow *)window {
  if(!window||window.hidden||window.alpha<.01||window==FLEXManager.sharedManager.explorerWindow)return NO;
- for(NSString *name in @[@"FLEXWindow",@"FLEXDylixStatusWindow",@"FLEXDoKitFloatingWindow"]){Class cls=NSClassFromString(name);if(cls&&[window isKindOfClass:cls])return NO;}
+ for(NSString *name in @[@"FLEXWindow",@"FLEXWorkbenchStatusWindow",@"FLEXDoKitFloatingWindow"]){Class cls=NSClassFromString(name);if(cls&&[window isKindOfClass:cls])return NO;}
  return YES;
 }
 - (UIWindow *)window {
@@ -322,7 +322,7 @@ static NSDictionary *DXBody(NSData *body) {
  NSAssert(NSThread.isMainThread,@"FLEX runtime must run on main thread");
  if (![operation isKindOfClass:NSString.class] || ![arguments isKindOfClass:NSDictionary.class]) { if(error)*error=@"命令格式错误"; return nil; }
  if([operation isEqual:@"tool_catalog"])return @{@"tools":[self toolCatalog],@"arbitraryMethodInvocation":@NO};
- if([operation isEqual:@"gesture_capabilities"])return [FLEXDylixTouchDriver backendCapabilities];
+ if([operation isEqual:@"gesture_capabilities"])return [FLEXWorkbenchTouchDriver backendCapabilities];
  if([operation isEqual:@"input_text"]){
   NSString *identifier=arguments[@"id"],*text=arguments[@"text"];UIView *view=[identifier isKindOfClass:NSString.class]?[self.views objectForKey:identifier]:nil;
   if(![text isKindOfClass:NSString.class]||text.length>4096||![self isVisibleInput:view]||(![view isKindOfClass:UITextField.class]&&![view isKindOfClass:UITextView.class])){if(error)*error=@"仅能输入当前目标 App 的可见文本框（最多 4096 字符）";return nil;}
@@ -388,7 +388,7 @@ static NSDictionary *DXBody(NSData *body) {
   bar.text=query;id<UISearchBarDelegate> delegate=bar.delegate;if([delegate respondsToSelector:@selector(searchBar:textDidChange:)])[delegate searchBar:bar textDidChange:query];
   [bar resignFirstResponder];return @{@"searched":@YES,@"query":query,@"requeryRequired":@YES};
  }
- if ([operation isEqual:@"capabilities"]) return @{@"read":@[@"gesture_capabilities",@"tool_catalog",@"chat_status",@"current",@"screen_elements",@"hit_test",@"view_tree",@"object_info",@"select_object",@"class_search",@"class_info",@"runtime_images",@"network_list",@"cookies_list",@"sandbox_list",@"defaults_keys"],@"approvalRequired":@[@"class_header",@"input_text",@"set_control_value",@"flex_ui_state",@"minimize_chat",@"restore_chat",@"open_tool",@"navigate_back",@"dismiss_tool",@"select_row",@"set_search",@"flex_scroll",@"capture_screen",@"network_detail",@"sandbox_read",@"defaults_get",@"keychain_list",@"activate_control",@"scroll_view",@"set_view",@"set_network_recording",@"undo"],@"gestureBackend":[FLEXDylixTouchDriver backendCapabilities],@"networkRecordingEnabled":@(FLEXNetworkObserver.isEnabled),@"limits":@{@"viewNodes":@120,@"screenElements":@100,@"screenshotBytes":@(120*1024),@"networkRecords":@50,@"fileBytes":@524288,@"fileDefaultBytes":@131072,@"filePagination":@YES,@"fileTail":@YES,@"resultBytes":@4194304},@"arbitraryMethodInvocation":@NO};
+ if ([operation isEqual:@"capabilities"]) return @{@"read":@[@"gesture_capabilities",@"tool_catalog",@"chat_status",@"current",@"screen_elements",@"hit_test",@"view_tree",@"object_info",@"select_object",@"class_search",@"class_info",@"runtime_images",@"network_list",@"cookies_list",@"sandbox_list",@"defaults_keys"],@"approvalRequired":@[@"class_header",@"input_text",@"set_control_value",@"flex_ui_state",@"minimize_chat",@"restore_chat",@"open_tool",@"navigate_back",@"dismiss_tool",@"select_row",@"set_search",@"flex_scroll",@"capture_screen",@"network_detail",@"sandbox_read",@"defaults_get",@"keychain_list",@"activate_control",@"scroll_view",@"set_view",@"set_network_recording",@"undo"],@"gestureBackend":[FLEXWorkbenchTouchDriver backendCapabilities],@"networkRecordingEnabled":@(FLEXNetworkObserver.isEnabled),@"limits":@{@"viewNodes":@120,@"screenElements":@100,@"screenshotBytes":@(120*1024),@"networkRecords":@50,@"fileBytes":@524288,@"fileDefaultBytes":@131072,@"filePagination":@YES,@"fileTail":@YES,@"resultBytes":@4194304},@"arbitraryMethodInvocation":@NO};
  if ([operation isEqual:@"capture_screen"]) {
   BOOL flex=[arguments[@"surface"] isEqual:@"flex"];
   if(flex&&![self flexVisibleController]){if(error)*error=@"FLEX 功能页不可见，请先收起会话并打开工具页";return nil;}

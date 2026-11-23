@@ -2,7 +2,7 @@
 
 ## 故障
 
-从系统「文件」分享 KOOKNoAds.xm 后，Dylix 接收记录变成「file URL / 167 字节」，新建项目提示「工程没有配置可编译的源码文件」。用户原始文件实际为 6784 字节。旧扩展对所有 provider 请求 public.data 文件表示，可能把 public.file-url 的地址文本物化为附件，丢失真实文件名与内容。
+从系统「文件」分享 KOOKNoAds.xm 后，Workbench 接收记录变成「file URL / 167 字节」，新建项目提示「工程没有配置可编译的源码文件」。用户原始文件实际为 6784 字节。旧扩展对所有 provider 请求 public.data 文件表示，可能把 public.file-url 的地址文本物化为附件，丢失真实文件名与内容。
 
 ## 源码对照
 

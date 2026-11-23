@@ -5,8 +5,8 @@
 static NSString *const TFConnectionsKey=@"TFAI.Connections.v1";
 static NSString *const TFDefaultKey=@"TFAI.DefaultConnection.v1";
 static NSString *const TFOverridesKey=@"TFAI.ProjectConnections.v1";
-static NSMutableDictionary *KeyQuery(NSString *identifier){return [@{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:@"com.xuegao.tweakforge.ai.connection.v1",(__bridge id)kSecAttrAccount:identifier} mutableCopy];}
-static NSMutableDictionary *HeaderQuery(NSString *identifier){NSMutableDictionary *q=KeyQuery(identifier);q[(__bridge id)kSecAttrService]=@"com.xuegao.tweakforge.ai.headers.v1";return q;}
+static NSMutableDictionary *KeyQuery(NSString *identifier){return [@{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:@"com.xuegao.workbench.ai.connection.v1",(__bridge id)kSecAttrAccount:identifier} mutableCopy];}
+static NSMutableDictionary *HeaderQuery(NSString *identifier){NSMutableDictionary *q=KeyQuery(identifier);q[(__bridge id)kSecAttrService]=@"com.xuegao.workbench.ai.headers.v1";return q;}
 @implementation TFAIConnections
 + (NSDictionary *)customHeaders:(NSString *)identifier error:(NSError **)error{
  if(!identifier.length)return @{};NSMutableDictionary *q=HeaderQuery(identifier);q[(__bridge id)kSecReturnData]=@YES;q[(__bridge id)kSecMatchLimit]=(__bridge id)kSecMatchLimitOne;CFTypeRef result=NULL;OSStatus status=SecItemCopyMatching((__bridge CFDictionaryRef)q,&result);

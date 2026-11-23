@@ -1,8 +1,8 @@
-#import "FLEXDylixPreferences.h"
+#import "FLEXWorkbenchPreferences.h"
 #import <Security/Security.h>
 
-static NSString *const DXPreferencesKey=@"FLEX.Dylix.Connection.v1";
-static NSString *DXStatePath(void){NSString *base=NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject;return [[base stringByAppendingPathComponent:@"FLEXDylix"] stringByAppendingPathComponent:@"connection.plist"];}
+static NSString *const DXPreferencesKey=@"FLEX.Workbench.Connection.v1";
+static NSString *DXStatePath(void){NSString *base=NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject;return [[base stringByAppendingPathComponent:@"FLEXWorkbench"] stringByAppendingPathComponent:@"connection.plist"];}
 static NSDictionary *DXMetadata(void){
  NSString *path=DXStatePath();if([NSFileManager.defaultManager fileExistsAtPath:path]){id object=[NSDictionary dictionaryWithContentsOfFile:path];return [object isKindOfClass:NSDictionary.class]?object:@{};}
  // One-time import for versions that stored only non-secret preferences.
@@ -10,8 +10,8 @@ static NSDictionary *DXMetadata(void){
 }
 static NSArray *DXPublicKeys(void){return @[@"host",@"port",@"projectID",@"projectName",@"connectionID",@"modelID",@"modelName",@"sessionID",@"sessionTitle"];}
 static NSArray *DXSecretKeys(void){return @[@"authorizationCode",@"token",@"csrf"];}
-static NSMutableDictionary *DXSecretQuery(void){return [@{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:@"FLEX.Dylix.ConnectionSecrets.v1",(__bridge id)kSecAttrAccount:NSBundle.mainBundle.bundleIdentifier?:@"host"} mutableCopy];}
-static NSError *DXStorageError(OSStatus status){return [NSError errorWithDomain:@"FLEX.Dylix.Storage" code:status userInfo:@{NSLocalizedDescriptionKey:@"连接配置的安全存储失败，请检查目标 App 的签名和钥匙串权限；本次连接仍可继续使用。"}];}
+static NSMutableDictionary *DXSecretQuery(void){return [@{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:@"FLEX.Workbench.ConnectionSecrets.v1",(__bridge id)kSecAttrAccount:NSBundle.mainBundle.bundleIdentifier?:@"host"} mutableCopy];}
+static NSError *DXStorageError(OSStatus status){return [NSError errorWithDomain:@"FLEX.Workbench.Storage" code:status userInfo:@{NSLocalizedDescriptionKey:@"连接配置的安全存储失败，请检查目标 App 的签名和钥匙串权限；本次连接仍可继续使用。"}];}
 static NSDictionary *DXCachedSecrets;
 static NSDictionary *DXReadSecrets(void){
  if(DXCachedSecrets)return DXCachedSecrets;
@@ -22,7 +22,7 @@ static NSDictionary *DXReadSecrets(void){
  else if(status==errSecItemNotFound)DXCachedSecrets=@{};
  return DXCachedSecrets?:@{};
 }
-@implementation FLEXDylixPreferences
+@implementation FLEXWorkbenchPreferences
 + (NSDictionary *)loadState {@synchronized(self){
  id raw=DXMetadata();NSMutableDictionary *state=[NSMutableDictionary new];
  if([raw isKindOfClass:NSDictionary.class])for(NSString *key in DXPublicKeys()){id value=raw[key];if(([key isEqual:@"port"]&&[value isKindOfClass:NSNumber.class]&&[value unsignedIntegerValue]>0&&[value unsignedIntegerValue]<=65535)||(![key isEqual:@"port"]&&[value isKindOfClass:NSString.class]&&[value length]<=2048))state[key]=value;}

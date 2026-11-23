@@ -1,4 +1,4 @@
-#import "FLEXDylixMarkdown.h"
+#import "FLEXWorkbenchMarkdown.h"
 
 static NSString *DXTrim(NSString *value) { return [value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]; }
 
@@ -27,7 +27,7 @@ static void DXAppendInline(NSMutableAttributedString *output, NSString *line, NS
  }
 }
 
-NSAttributedString *FLEXDylixRenderMarkdown(NSString *source, UIColor *color) {
+NSAttributedString *FLEXWorkbenchRenderMarkdown(NSString *source, UIColor *color) {
  if(!source.length)return [[NSAttributedString alloc]initWithString:@"正在回复…" attributes:@{NSFontAttributeName:[UIFont systemFontOfSize:15],NSForegroundColorAttributeName:color?:UIColor.labelColor}];
  NSMutableAttributedString *output=[NSMutableAttributedString new];NSArray *lines=[source componentsSeparatedByString:@"\n"];NSArray *headers=nil;BOOL code=NO;UIColor *ink=color?:UIColor.labelColor;
  for(NSUInteger n=0;n<lines.count;n++){

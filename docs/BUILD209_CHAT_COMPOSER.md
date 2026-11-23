@@ -4,11 +4,11 @@
 
 ## SDK 核对与构建默认值
 
-Build 208 实际主程序使用 `iphoneos18.2`；包内携带 SDK26.zip 是供用户项目使用的 SDK 资源，不能证明 Dylix 自身使用 SDK26 构建。
+Build 208 实际主程序使用 `iphoneos18.2`；包内携带 SDK26.zip 是供用户项目使用的 SDK 资源，不能证明 Workbench 自身使用 SDK26 构建。
 
 Build 209 主程序及 Share 扩展使用真实 iPhoneOS26.0.sdk 编译和链接，并同时检查 Info.plist 与 Mach-O LC_BUILD_VERSION 的 SDK；最低部署目标保持 iOS15.0。
 
-设备版脚本默认选用已安装的 SDK26+；旧 Xcode 则选用 `DYLIX_SDK_26_0` 或约定目录中的 SDK26，找不到时停止构建，绝不静默降级。`--sdk-root` 仍可显式指定兼容测试目标。模拟器使用本机已安装的模拟器 SDK。
+设备版脚本默认选用已安装的 SDK26+；旧 Xcode 则选用 `WORKBENCH_SDK_26_0` 或约定目录中的 SDK26，找不到时停止构建，绝不静默降级。`--sdk-root` 仍可显式指定兼容测试目标。模拟器使用本机已安装的模拟器 SDK。
 
 LiveActivity 的 Swift framework／widget 仍由当前已安装的 Swift 编译器及 iOS18.2 SDK 独立编译，最低 iOS16.2；没有将它们伪报成 SDK26。预编译工具链和其他框架保持原样。
 

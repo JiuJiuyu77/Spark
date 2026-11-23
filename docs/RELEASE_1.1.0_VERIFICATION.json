@@ -8,7 +8,7 @@
   "flexVersion": "1.0.1",
   "packages": {
     "private": {
-      "file": "Dylix-1.1.0-build211.ipa",
+      "file": "Workbench-1.1.0-build211.ipa",
       "bytes": 139992538,
       "sha256": "2ba0522ded155a60918f1da1c7da8526cbf951b5bc895cceb8819befe6f8a0ad",
       "signatureValid": true,
@@ -18,11 +18,11 @@
           "version": "1.1.0",
           "build": "211"
         },
-        "PlugIns/TweakForgeShare.appex/Info.plist": {
+        "PlugIns/WorkbenchShare.appex/Info.plist": {
           "version": "1.1.0",
           "build": "211"
         },
-        "PlugIns/TweakForgeActivity.appex/Info.plist": {
+        "PlugIns/WorkbenchActivity.appex/Info.plist": {
           "version": "1.1.0",
           "build": "211"
         },
@@ -49,7 +49,7 @@
       "flexManifestAndHashesVerified": true
     },
     "public": {
-      "file": "Dylix-1.1.0-build211-public.ipa",
+      "file": "Workbench-1.1.0-build211-public.ipa",
       "bytes": 139899010,
       "sha256": "a1c30fb28289645cfa441dd7082e4c709ed09a52421210fdfb102184601ac4d9",
       "signatureValid": true,
@@ -59,11 +59,11 @@
           "version": "1.1.0",
           "build": "211"
         },
-        "PlugIns/TweakForgeShare.appex/Info.plist": {
+        "PlugIns/WorkbenchShare.appex/Info.plist": {
           "version": "1.1.0",
           "build": "211"
         },
-        "PlugIns/TweakForgeActivity.appex/Info.plist": {
+        "PlugIns/WorkbenchActivity.appex/Info.plist": {
           "version": "1.1.0",
           "build": "211"
         },

@@ -1,4 +1,4 @@
-# FLEX AI 自主交互：1.0.15 / Dylix build 183
+# FLEX AI 自主交互：1.0.15 / Workbench build 183
 
 日期：2026-11-05。本文记录实际读过的上游源码、选择依据、实现范围和验证限制。
 
@@ -21,11 +21,11 @@
    - 固定提交 `afeb9cd03af16c7f3cea23633c82d715642c4e58`。
    - 已核对原 `appium/WebDriverAgent` 迁移说明和新仓 README。其运行路线依赖 XCTest.framework，适合独立自动化测试服务，不能直接作为当前注入型 FLEX dylib 的内置依赖。没有复制其实现。
 
-前两项以 Apache-2.0 许可提供；适配部分的来源、提交和修改说明在 FLEX 的 ThirdPartyNotices/NOTICE，许可证随 deb、Dylix App 和本次交付附带。
+前两项以 Apache-2.0 许可提供；适配部分的来源、提交和修改说明在 FLEX 的 ThirdPartyNotices/NOTICE，许可证随 deb、Workbench App 和本次交付附带。
 
 ## 实际接入
 
-- `FLEXDylixTouchDriver`：主线程、60Hz、1–2 指异步路径；运行时探测固定私有接口和符号；前台、窗口与坐标校验；失败和停止时尽力发送 Cancel，清理 timer/触摸状态。
+- `FLEXWorkbenchTouchDriver`：主线程、60Hz、1–2 指异步路径；运行时探测固定私有接口和符号；前台、窗口与坐标校验；失败和停止时尽力发送 Cancel，清理 timer/触摸状态。
 - `gesture`：tap、double_tap、long_press、swipe、drag、pinch、rotate。操作前收起聊天并隐藏 FLEX 覆盖层。最长单次 3 秒，投递后必须重新读取页面或截图确认。
 - `gesture_capabilities`：区分接口探测与实际投递验证。不可用时明确返回原因。
 - `input_text`：当前目标 App 可见、非安全文本框；尊重原生 shouldChange 校验，文本不在工具结果里复述。UITextField 发送 editingChanged。
@@ -33,7 +33,7 @@
 - `extension.headers`、`extension.disassembly`：使用现有 UCClassSearchViewController 工厂打开真实页面；支持内嵌 UITableView 的搜索、滚动和已审查列表导航。
 - `class_header`：基于 UCClassDumpTool 读取运行时真实类头文件，支持按行分页。不是任意内存地址读取。
 - `flex_ui_state`：增加可见页面文字摘要；头文件全文通过 class_header 分页，摘要不能当成全文。
-- 插件上报 touchGestures 能力，Dylix 以绑定会话的快照决定是否下发 gesture schema。旧插件、断线或缺接口时不下发手势操作。
+- 插件上报 touchGestures 能力，Workbench 以绑定会话的快照决定是否下发 gesture schema。旧插件、断线或缺接口时不下发手势操作。
 - 会话收起后保留同一连接、任务和轮询；悬浮条恢复聊天或立即停止。停止也取消正在投递的手势，并阻止旧授权回调执行。
 
 ## 保留的明确边界

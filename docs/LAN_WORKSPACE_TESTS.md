@@ -1,4 +1,4 @@
-# Dylix Remote 当前发布验证
+# Workbench Remote 当前发布验证
 
 当前发布：**1.0.7（160）**。本次完整重跑422项检查及两种IPA包校验，详情见[Build160发布测试](BUILD160_TESTS.md)。下方按构建号保留开发阶段历史，不代表当前仍使用TLS或早期文件传输大小限制。当前协议见[API文档](LAN_WORKSPACE_API.md)。
 
@@ -14,12 +14,12 @@
 - `python3 tests/RemoteCoreRun.py`：61项核心检查，另有历史TLS工具OpenSSL检查（该工具仍保留，当前Remote不配置TLS）。
 - `node tests/RemoteIntegration.mjs`：81项，iOS18.3.1模拟器中的真实Network.framework HTTP服务。覆盖HttpOnly/SameSite cookie、配对/撤权、CSRF、Host/Origin、离线gzip与慢速读取、项目/文件、HTTP WebDAV、锁屏保护通知423、实际App切换。实际音频管理器验证AI结束后Remote继续持有，音频禁用后可暂停、前台恢复授权。
 - `python3 tests/RemoteBrowser.py`：61项，Chrome156，直接访问模拟器HTTP。Monaco真实保存、源码着色、文件预览/下载、AI模型/流式UI（确定性本地提供商测试夹具）、备用编辑器和重试。
-- `python3 tests/RemoteHTTPBrowser.py`：62项。使用仅本机测试relay将浏览器`http://dylix.test:随机端口`请求转发至真实模拟器服务，仅适配Host与同源Origin；未模拟API响应。Chrome未设置证书跳过或强制安全源标志，明确验证`isSecureContext=false`且无navigator.clipboard，再运行完整浏览器检查。此项验证普通HTTP网页能力，不宣称真实Wi-Fi吞吐或第三方挂载验收。
+- `python3 tests/RemoteHTTPBrowser.py`：62项。使用仅本机测试relay将浏览器`http://workbench.test:随机端口`请求转发至真实模拟器服务，仅适配Host与同源Origin；未模拟API响应。Chrome未设置证书跳过或强制安全源标志，明确验证`isSecureContext=false`且无navigator.clipboard，再运行完整浏览器检查。此项验证普通HTTP网页能力，不宣称真实Wi-Fi吞吐或第三方挂载验收。
 - 前台常亮回归见本次交付的awake日志。模拟器测试控制代码仅参与simulator编译，两个设备IPA中核对不存在回归参数/控制文件标记。
 
 边界：未在真机验收长时间锁屏、电话/音乐中断、所有iOS15设备、所有WebDAV客户端。HTTP不加密授权码、会话令牌与源码。音频辅助遵循全局设置及系统中断，App强制退出或系统挂起仍会断开；受保护文件锁定时保持423。迁移后旧Secure cookie需重新配对。
 
-# Dylix Remote · Build 153 验证记录
+# Workbench Remote · Build 153 验证记录
 
 日期：2026-11-03，1.0.6（153）。移除用户界面的证书/指纹单元格及复制/导出操作，保留HTTPS证书内部生命周期。原生设置分组只有一项后台状态；网页配对、设置及WebDAV权限弹窗同步清理手动核对指纹提示。
 
@@ -31,7 +31,7 @@
 
 ---
 
-# Dylix Remote · Build 152 验证记录
+# Workbench Remote · Build 152 验证记录
 
 日期：2026-11-03，1.0.6（152），本地交付，未更新GitHub。
 
@@ -47,7 +47,7 @@
 
 ---
 
-# Dylix Remote · Build 151 验证记录
+# Workbench Remote · Build 151 验证记录
 
 日期：2026-11-03，版本1.0.6（151）。本地交付，未发布GitHub。
 
@@ -61,7 +61,7 @@
 
 ---
 
-# Dylix Remote · Build 150 验证记录
+# Workbench Remote · Build 150 验证记录
 
 日期：2026-11-03，版本1.0.6（150）。本地开发交付，未推送 GitHub 或发布 Release。
 
@@ -85,7 +85,7 @@
 
 ---
 
-# Dylix Remote · Build 149 验证记录
+# Workbench Remote · Build 149 验证记录
 
 日期：2026-11-03，版本1.0.6（149）。本轮针对HTTPS、码直连和生命周期收尾；本地开发产物，未发布GitHub Release。主程序与分享扩展使用iOS26.0 SDK，最低iOS15；ActivityKit组件沿用当前Xcode的Swift SDK/最低16.2。内置插件编译默认SDK16.4、最低15.0保持不变。
 
@@ -104,18 +104,18 @@
 
 ```sh
 python3 scripts/build.py --simulator
-xcrun simctl install booted build/simulator/TheosMobileCompiler.app
-xcrun simctl launch booted com.xuegao.theosmobilecompiler --remote-test --remote-regression
+xcrun simctl install booted build/simulator/Workbench.app
+xcrun simctl launch booted com.HuQing.Workbench --remote-test --remote-regression
 python3 tests/RemoteCoreRun.py
 node tests/RemoteIntegration.mjs
 python3 tests/RemoteBrowser.py
 ```
 
-如App已启动，先simctl terminate再launch。当前测试设备为Dylix iPhone16ProMax / iOS18.3.1，loopback工作台18787、DAV18788。测试账户/证书存单次隔离目录，固定码使用独立Keychain账号。RemoteIntegration.py是新版Node套件兼容入口，不再执行148的HTTP/pending协议。浏览器测试需先跑SecureIntegration，后者创建专用临时项目与fixture标识；不修改真实用户工程，不调用真实模型。
+如App已启动，先simctl terminate再launch。当前测试设备为Workbench iPhone16ProMax / iOS18.3.1，loopback工作台18787、DAV18788。测试账户/证书存单次隔离目录，固定码使用独立Keychain账号。RemoteIntegration.py是新版Node套件兼容入口，不再执行148的HTTP/pending协议。浏览器测试需先跑SecureIntegration，后者创建专用临时项目与fixture标识；不修改真实用户工程，不调用真实模型。
 
 Node使用显式CA信任此自签叶证书并严格验证127.0.0.1 SAN；OpenSSL3独立验签。浏览器为隔离headless实例，仅以当前证书SPKI允许列表访问测试服务，不更改用户浏览器/系统信任库，不点击用户浏览器安全警告。此测试便利机制不属于App产品信任流程，客户端首次信任仍按手机证书指纹核对。系统Python/LibreSSL对自签非CA叶证书信任行为不同，故不使用其结果替代Node/OpenSSL验证。
 
-截图输出默认/tmp/dylix-remote-evidence，REMOTE_EVIDENCE_DIR可覆盖；REMOTE_CHROME可指定Chrome执行文件。手机设置页为模拟器真实UIKit界面。
+截图输出默认/tmp/workbench-remote-evidence，REMOTE_EVIDENCE_DIR可覆盖；REMOTE_CHROME可指定Chrome执行文件。手机设置页为模拟器真实UIKit界面。
 
 设备打包：
 

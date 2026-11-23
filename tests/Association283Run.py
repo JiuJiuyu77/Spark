@@ -2,7 +2,7 @@ from pathlib import Path
 import os,subprocess,tempfile
 root=Path(__file__).resolve().parents[1]
 env={**os.environ,'TOOLCHAINS':'com.apple.dt.toolchain.XcodeDefault'}
-with tempfile.TemporaryDirectory(prefix='dylix-association283-') as d:
+with tempfile.TemporaryDirectory(prefix='workbench-association283-') as d:
  p=Path(d);(p/'UIKit').mkdir();(p/'WebKit').mkdir()
  (p/'UIKit/UIKit.h').write_text('#import <Foundation/Foundation.h>\n@class UIViewController;\n')
  (p/'WebKit/WebKit.h').write_text('#import <Foundation/Foundation.h>\n@class WKWebView;\n')

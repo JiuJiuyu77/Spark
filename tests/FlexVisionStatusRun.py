@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 root = Path(__file__).resolve().parents[1]
-with tempfile.TemporaryDirectory(prefix='dylix-vision-status-') as d:
+with tempfile.TemporaryDirectory(prefix='workbench-vision-status-') as d:
     p = Path(d)
     (p/'UIKit').mkdir()
     (p/'WebKit').mkdir()
@@ -13,4 +13,4 @@ with tempfile.TemporaryDirectory(prefix='dylix-vision-status-') as d:
     files = ['tests/FlexVisionStatusTests.m', 'App/AI/Core/TFAIContextProjection.m', 'App/AI/Core/TFAIRecovery.m', 'App/AI/Usage/TFAIUsageStore.m', 'App/AI/Providers/TFAIRegistry.m', 'App/AI/Registry/TFAIToolRegistry.m', 'App/AI/Persona/TFAIPersona.m', 'App/Remote/DXFlexBridge.m']
     binary = p/'tests'
     subprocess.run(['xcrun', 'clang', '-isysroot', '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk', '-I'+str(p), '-fobjc-arc', '-fblocks', '-Wno-incomplete-implementation', '-Wno-nullability-completeness', *[str(root/f) for f in files], '-framework', 'Foundation', '-framework', 'ImageIO', '-framework', 'CoreGraphics', '-o', str(binary)], check=True)
-    subprocess.run([str(binary)], env={**os.environ, 'DYLIX_USAGE_TEST_DIRECTORY': str(p/'usage')}, check=True, timeout=60)
+    subprocess.run([str(binary)], env={**os.environ, 'WORKBENCH_USAGE_TEST_DIRECTORY': str(p/'usage')}, check=True, timeout=60)

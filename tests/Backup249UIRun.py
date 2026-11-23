@@ -5,8 +5,8 @@ root=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--device',action='append',required=True);args=p.parse_args()
 def run(*args):return subprocess.check_output(list(map(str,args)),text=True).strip()
 for device in args.device:
- bundle='com.xuegao.theosmobilecompiler'
- run('xcrun','simctl','install',device,root/'build/simulator/TheosMobileCompiler.app')
+ bundle='com.HuQing.Workbench'
+ run('xcrun','simctl','install',device,root/'build/simulator/Workbench.app')
  home=Path(run('xcrun','simctl','get_app_container',device,bundle,'data'))
  result=home/'Documents/backup249-results.json';result.unlink(missing_ok=True)
  run('xcrun','simctl','launch','--terminate-running-process',device,bundle,'--data-settings237','--backup249')

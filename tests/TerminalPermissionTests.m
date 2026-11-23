@@ -1,4 +1,4 @@
-#define DYLIX_TEST_REAL_POLICY 1
+#define WORKBENCH_TEST_REAL_POLICY 1
 #define main ExistingBudgetMain
 #import "AIRuntimeBudgetTests.m"
 #undef main

@@ -1,5 +1,5 @@
 import os,json,pathlib,subprocess,hashlib,concurrent.futures,time,sys
-out=pathlib.Path(os.environ.get('DYLIX_LIVE_OUT','/tmp/dylix270-live-results'));out.mkdir(exist_ok=True)
+out=pathlib.Path(os.environ.get('WORKBENCH_LIVE_OUT','/tmp/workbench270-live-results'));out.mkdir(exist_ok=True)
 def sha(s):return hashlib.sha256(s.encode()).hexdigest()
 def trial(model,scenario,seed,variant):
  tag=f'{model}-{scenario}-{seed}-{variant}';folder=out/tag;folder.mkdir(exist_ok=True)
@@ -19,7 +19,7 @@ def trial(model,scenario,seed,variant):
  if scenario=='stale':messages.append({'role':'user','content':'The file was changed externally after that historical read. Check the current target before proposing; the requested final value remains unchanged.'})
  config={'file':str(file),'expected':expected,'model':model,'scenario':scenario,'seed':seed,'variant':variant,'messages':messages,'report':str(folder/'result.json')};path=folder/'config.json';path.write_text(json.dumps(config));start=time.monotonic()
  with open(folder/'runner.log','w') as f:
-  try:r=subprocess.run([os.environ.get('DYLIX_LIVE_BINARY_PREFIX','/tmp/dylix270-live-')+variant],env={**os.environ,'DYLIX_LIVE_CONFIG':str(path)},stdout=f,stderr=f,timeout=950);code=r.returncode
+  try:r=subprocess.run([os.environ.get('WORKBENCH_LIVE_BINARY_PREFIX','/tmp/workbench270-live-')+variant],env={**os.environ,'WORKBENCH_LIVE_CONFIG':str(path)},stdout=f,stderr=f,timeout=950);code=r.returncode
   except subprocess.TimeoutExpired:code=124
  if (folder/'result.json').exists():result=json.load(open(folder/'result.json'))
  else:result={'model':model,'scenario':scenario,'seed':seed,'variant':variant,'state':'runner_failure','requests':[]}

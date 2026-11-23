@@ -7,7 +7,7 @@ description: 插件工程配置、Objective-C/Objective-C++、Logos 预处理、
 
 用 read_project_config、list_files、read_file、search_text 检查配置、Makefile、control、过滤 plist 和相邻实现。配置以当前构建器实际读取的文件为准，不假定修改 Makefile 就会改变 MobileCompiler.json。只使用本轮 schema 中存在的工具；缺少项目时先确认关联项目。
 
-识别源文件类型：.xm/.xmm 经过 Logos；.m 是 Objective-C；.mm 是 Objective-C++。确认 ARC、C++ 标准、SDK、最低部署版本、头文件目录、链接 framework/library 和目标架构。Linux 终端不是 iOS 宿主 shell，不用 guest clang 冒充 Dylix 的本机 Clang/LLD 构建。
+识别源文件类型：.xm/.xmm 经过 Logos；.m 是 Objective-C；.mm 是 Objective-C++。确认 ARC、C++ 标准、SDK、最低部署版本、头文件目录、链接 framework/library 和目标架构。Linux 终端不是 iOS 宿主 shell，不用 guest clang 冒充 Workbench 的本机 Clang/LLD 构建。
 
 ## Logos 与 ABI
 

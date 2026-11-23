@@ -1,13 +1,13 @@
 #import "TFAIISHRootCatalog.h"
 #import "TFAIISHRuntime.h"
 #import "../UI/TFAIUIHelpers.h"
-@interface DylixRootCatalogPage : UITableViewController
+@interface WorkbenchRootCatalogPage : UITableViewController
 @property NSString *session;
 @property double progress;
 @property BOOL downloading;
 @property NSMutableDictionary *cache;
 @end
-@implementation DylixRootCatalogPage
+@implementation WorkbenchRootCatalogPage
 - (void)viewDidLoad{[super viewDidLoad];self.title=@"官方 Linux 版本";self.cache=[NSMutableDictionary new];for(NSDictionary *row in TFAIISHRootCatalog.catalog)self.cache[row[@"id"]]=[TFAIISHRootCatalog cacheInfo:row[@"id"]];self.tableView.rowHeight=UITableViewAutomaticDimension;self.tableView.estimatedRowHeight=90;self.navigationItem.rightBarButtonItem=AIBar(@"xmark.circle",@"取消下载并保留续传",self,@selector(cancel));}
 - (void)cancel{[TFAIISHRootCatalog.shared cancelDownload];}
 - (NSInteger)tableView:(UITableView *)t numberOfRowsInSection:(NSInteger)s{return TFAIISHRootCatalog.catalog.count;}
@@ -17,4 +17,4 @@
 - (void)tableView:(UITableView *)t commitEditingStyle:(UITableViewCellEditingStyle)style forRowAtIndexPath:(NSIndexPath *)i{NSDictionary *row=TFAIISHRootCatalog.catalog[i.row];UIAlertController *confirm=[UIAlertController alertControllerWithTitle:@"删除已下载归档与续传数据？" message:@"不删除任何已安装环境、快照或项目。" preferredStyle:UIAlertControllerStyleAlert];[confirm addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];[confirm addAction:[UIAlertAction actionWithTitle:@"删除归档" style:UIAlertActionStyleDestructive handler:^(id a){NSError *error=nil;if(![TFAIISHRootCatalog removeArchive:row[@"id"] error:&error])AIAlert(self,@"未删除",error.localizedDescription);self.cache[row[@"id"]]=[TFAIISHRootCatalog cacheInfo:row[@"id"]];[self.tableView reloadData];}]];[self presentViewController:confirm animated:YES completion:nil];}
 - (void)tableView:(UITableView *)t didSelectRowAtIndexPath:(NSIndexPath *)i{if(self.downloading)return;NSDictionary *row=TFAIISHRootCatalog.catalog[i.row];UIAlertController *confirm=[UIAlertController alertControllerWithTitle:@"准备并预约切换 Linux 版本？" message:@"先校验官方归档并导入独立 fakefs，再安排下次重启切换。当前环境保持运行；切换前完整备份，可恢复快照。切换影响全部终端，已安装工具随所选环境变化；请先打开一次终端创建共享环境。" preferredStyle:UIAlertControllerStyleAlert];[confirm addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];[confirm addAction:[UIAlertAction actionWithTitle:@"准备版本" style:UIAlertActionStyleDefault handler:^(id a){void(^prepare)(void)=^{[TFAIISHRuntime.shared scheduleRootVersion:row[@"id"] session:self.session completion:^(NSError *error){AIAlert(self,error?@"未安排切换":@"已安排版本切换",error.localizedDescription?:@"重新启动 App 后打开终端执行；在环境页可取消安排或恢复快照。");}];};if([row[@"bundled"] boolValue]){prepare();return;}self.downloading=YES;[TFAIISHRootCatalog.shared download:row[@"id"] progress:^(double value){self.progress=value;[self.tableView reloadData];} completion:^(NSError *error){self.downloading=NO;self.cache[row[@"id"]]=[TFAIISHRootCatalog cacheInfo:row[@"id"]];[self.tableView reloadData];if(error)AIAlert(self,@"下载未完成",error.localizedDescription);else prepare();}];}]];[self presentViewController:confirm animated:YES completion:nil];}
 @end
-UIViewController *TFAIISHRootCatalogController(NSString *session){DylixRootCatalogPage *page=[[DylixRootCatalogPage alloc]initWithStyle:UITableViewStyleInsetGrouped];page.session=session;return page;}
+UIViewController *TFAIISHRootCatalogController(NSString *session){WorkbenchRootCatalogPage *page=[[WorkbenchRootCatalogPage alloc]initWithStyle:UITableViewStyleInsetGrouped];page.session=session;return page;}

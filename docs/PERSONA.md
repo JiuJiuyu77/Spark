@@ -30,13 +30,13 @@
 发送前剥离旧的人设块，再从干净的 developer 上下文重建；连续发送或工具轮次不会重复叠加。
 
 ```text
-<!-- dylix-persona:begin -->
+<!-- workbench-persona:begin -->
 正文及已配置的回复前缀约定
-<!-- dylix-persona:end -->
+<!-- workbench-persona:end -->
 ```
 
 正文在资源中逐字节保留。回复前缀是独立字段，在注入时附加约定，列表正文字节数不计入前缀。
-当前原文目录不配置固定尾注，避免在上游提示词全文后追加 Dylix 自写内容。历史存储中的尾注开关即使保留，也不会改变当前原文正文。
+当前原文目录不配置固定尾注，避免在上游提示词全文后追加 Workbench 自写内容。历史存储中的尾注开关即使保留，也不会改变当前原文正文。
 编辑内容包含保留标记时会提示移除，防止与注入边界混淆。
 
 ## 回复前缀与本地自检
@@ -48,7 +48,7 @@
 ## 数据与持久化
 
 记录字段：id(UUID)、name、body、mode、isBuiltin、updatedAt(Unix 秒)、builtinKey、summary、replyPrefix、selfCheckCommand、selfCheckReply、generation、modelPatterns、providerIDs、matchPriority。byteCount 实时按正文 UTF-8 计算，不保存冗余统计。
-`Library/Application Support/DylixPersona/personas.json` 继续使用 schemaVersion 2，包含 enabled、personas、activeID、hiddenBuiltins、tailEnabled、matchingMode；模型匹配元数据与 matchingMode 是向后兼容的增量字段，不要求提升 schema。
+`Library/Application Support/WorkbenchPersona/personas.json` 继续使用 schemaVersion 2，包含 enabled、personas、activeID、hiddenBuiltins、tailEnabled、matchingMode；模型匹配元数据与 matchingMode 是向后兼容的增量字段，不要求提升 schema。
 单个 activeID 保证手动选择互斥；matchingMode 为 auto 或 manual。hiddenBuiltins 记录删除，重启或升级后不会自动复活。schemaVersion 1/2 自动迁移：有有效 activeID 的旧存储进入手动模式，其余进入自动模式。
 目录升级前会在同级 `MigrationBackups` 目录保存原存储备份。目录版本提升时，同 UUID 且 updatedAt 为 0 的未编辑当前内置项会刷新为新出厂正文；用户编辑过的内置项、自建项、旧目录遗留项及 activeID 选择全部保留，缺失的新内置项会补入。旧目录遗留项没有 modelPatterns，因此自动模式不会选中；只有用户切换到手动模式并明确选择时才会继续使用。
 资源目录 `Personas/Builtins.json` 为只读出厂库，与本机 JSON 分开。没有把任何模拟器选择或编辑状态写入 IPA。

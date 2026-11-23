@@ -14,8 +14,8 @@ devices=json.loads(run('xcrun','simctl','list','devices','booted','--json'))
 for device in [d for group in devices['devices'].values() for d in group if 'iPhone' in d['name'] or 'iPad' in d['name']]:
  ident=device['udid']
  if args.device and ident!=args.device:continue
- bundle='com.xuegao.theosmobilecompiler'
- run('xcrun','simctl','install',ident,root/'build/simulator/TheosMobileCompiler.app')
+ bundle='com.HuQing.Workbench'
+ run('xcrun','simctl','install',ident,root/'build/simulator/Workbench.app')
  home=Path(run('xcrun','simctl','get_app_container',ident,bundle,'data'));result=home/'Documents/data-settings237.json';rows=[]
  for route in range(3):
   result.unlink(missing_ok=True)
@@ -24,16 +24,16 @@ for device in [d for group in devices['devices'].values() for d in group if 'iPh
  assert len(rows)==3 and all(r['passed'] for r in rows),rows
  run('xcrun','simctl','terminate',ident,bundle)
  # Real production startup applies this plan before opening any chat/project store.
- base=home/'Library/Application Support/DylixRestore';pending=base/'pending.json';assert not pending.exists()
+ base=home/'Library/Application Support/WorkbenchRestore';pending=base/'pending.json';assert not pending.exists()
  stage=base/str(uuid.uuid4());stage.mkdir(parents=True)
- project='Documents/Projects/Backup237Fixture/Tweak.xm';chat='Library/Application Support/TweakForgeAI/Sessions/general/backup237-fixture.json'
+ project='Documents/Projects/Backup237Fixture/Tweak.xm';chat='Library/Application Support/WorkbenchAI/Sessions/general/backup237-fixture.json'
  assert not (home/project).exists() and not (home/chat).exists()
  payloads={project:b'// COLD_START_RESTORE_OK\n',chat:json.dumps({'projectRoot':'/old/container/Documents/Projects/Backup237Fixture','messages':[]}).encode()}
  records=[]
  for path,data in payloads.items():
   file=stage/path;file.parent.mkdir(parents=True,exist_ok=True);file.write_bytes(data)
   records.append({'path':path,'category':'projects' if path==project else 'chats','sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data)})
- (stage/'manifest.json').write_text(json.dumps({'format':'dylixbak/1','sourceHome':'/old/container','categories':['projects','chats'],'files':records,'includesSecrets':False}))
+ (stage/'manifest.json').write_text(json.dumps({'format':'workbenchbak/1','sourceHome':'/old/container','categories':['projects','chats'],'files':records,'includesSecrets':False}))
  pending.write_text(json.dumps({'stage':stage.name,'categories':['projects','chats']}))
  run('xcrun','simctl','launch',ident,bundle)
  wait(lambda:not pending.exists());assert (home/project).read_bytes()==payloads[project]

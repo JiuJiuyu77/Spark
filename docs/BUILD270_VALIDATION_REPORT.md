@@ -1,4 +1,4 @@
-# Dylix Build270 回读与循环检验报告
+# Workbench Build270 回读与循环检验报告
 
 检验日期：2026-11-12。版本：1.1.2（270），上下文策略：270。
 对照基线：本轮开始时保存的 Build269 源码快照；使用独立目录编译，没有拿修改后的源码冒充旧版。
@@ -88,7 +88,7 @@ IPA 是本地发布版、ad-hoc 签名产物，文件名标记 unsigned；安装
 ```sh
 python3 tests/AgentContext270Run.py
 python3 tests/WorkingContext269Run.py
-DYLIX_RECOVERY_REPORT=/tmp/recovery270.json python3 tests/AgentRecovery270Run.py
+WORKBENCH_RECOVERY_REPORT=/tmp/recovery270.json python3 tests/AgentRecovery270Run.py
 python3 tests/ContextProjectionRun.py
 python3 tests/RunContinuity251Run.py
 python3 tests/AIRuntimeBudgetRun.py
@@ -97,10 +97,10 @@ python3 tests/RequestOptimization252Run.py
 python3 tests/SessionArchive239Run.py
 python3 tests/ToolRegistryRun.py
 python3 tests/TaskPlan269Run.py
-DYLIX_CONTEXT_BENCHMARK_REPORT=/tmp/projection270.json python3 tests/AgentContext270Benchmark.py
+WORKBENCH_CONTEXT_BENCHMARK_REPORT=/tmp/projection270.json python3 tests/AgentContext270Benchmark.py
 ```
 
-基线编译使用独立源码快照。恢复对照 runner 可用 DYLIX_TEST_SOURCE_ROOT 指向基线；源快照留在本机，报告不夹带私有源码或用户会话。真实导出回放需要用户本地原始会话 JSON，通过 DYLIX_LOOP_REPLAY_SESSION 提供。
+基线编译使用独立源码快照。恢复对照 runner 可用 WORKBENCH_TEST_SOURCE_ROOT 指向基线；源快照留在本机，报告不夹带私有源码或用户会话。真实导出回放需要用户本地原始会话 JSON，通过 WORKBENCH_LOOP_REPLAY_SESSION 提供。
 
 ## 尚不能下的结论
 

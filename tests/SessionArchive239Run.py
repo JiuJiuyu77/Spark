@@ -12,7 +12,7 @@ with tempfile.TemporaryDirectory(prefix='session239-') as temp:
     ]):
         p=work/f'bad{idx}.zip'
         with zipfile.ZipFile(p,'w') as z:
-            z.writestr('DylixSession.json',json.dumps({'format':'dylix-session/1'}))
+            z.writestr('WorkbenchSession.json',json.dumps({'format':'workbench-session/1'}))
             if 'session.json' not in entries:z.writestr('session.json',json.dumps({'messages':[]}))
             for k,v in entries.items():z.writestr(k,v)
         bad.append(str(p))

@@ -1,8 +1,8 @@
-// Copyright 2026 Dylix contributors.
+// Copyright 2026 Workbench contributors.
 // Event delivery design references KIF (Square) and Google EarlGrey.
 // Private UIKit/IOHID declarations and event composition are adapted from those
-// Apache-2.0 sources. See ThirdPartyNotices/DylixTouch-APACHE-2.0.txt and NOTICE.
-#import "FLEXDylixTouchDriver.h"
+// Apache-2.0 sources. See ThirdPartyNotices/WorkbenchTouch-APACHE-2.0.txt and NOTICE.
+#import "FLEXWorkbenchTouchDriver.h"
 #import <dlfcn.h>
 #import <mach/mach_time.h>
 #import <math.h>
@@ -40,7 +40,7 @@ static DXSetInteger SetInteger;
 - (UIEvent *)_touchesEvent;
 @end
 
-@interface FLEXDylixTouchDriver ()
+@interface FLEXWorkbenchTouchDriver ()
 @property (nonatomic) BOOL running;
 @property (nonatomic,weak) UIWindow *window;
 @property NSArray<NSArray<NSValue *> *> *paths;
@@ -52,7 +52,7 @@ static DXSetInteger SetInteger;
 @property (nonatomic,copy) void (^completion)(NSDictionary *,NSString *);
 @end
 
-@implementation FLEXDylixTouchDriver
+@implementation FLEXWorkbenchTouchDriver
 - (id)touchResponderInWindow:(UIWindow *)window point:(CGPoint)point {
  UIView *hit=[window hitTest:point withEvent:nil];
  // KIF's iOS 18+ hit-test route is needed by SwiftUI gesture containers.

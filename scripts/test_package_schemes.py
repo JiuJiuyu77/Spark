@@ -4,10 +4,10 @@ import json, subprocess, time, shutil, tarfile, io, struct
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'evidence/0.5.0-package-performance'
-BUNDLE='com.xuegao.theosmobilecompiler'
+BUNDLE='com.HuQing.Workbench'
 def sim(*args):
  return subprocess.check_output(['xcrun','simctl',*map(str,args)],text=True).strip()
-sim('install','booted',ROOT/'build/simulator/TheosMobileCompiler.app')
+sim('install','booted',ROOT/'build/simulator/Workbench.app')
 doc=Path(sim('get_app_container','booted',BUNDLE,'data'))/'Documents'
 results=[]
 for scheme in ['rootless','rootful','roothide']:

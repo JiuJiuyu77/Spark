@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 import subprocess, tempfile
-root=Path(os.environ.get('DYLIX_TEST_SOURCE_ROOT',str(Path(__file__).resolve().parents[1])))
+root=Path(os.environ.get('WORKBENCH_TEST_SOURCE_ROOT',str(Path(__file__).resolve().parents[1])))
 sdk=Path('/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk')
 sdk=str(sdk) if sdk.exists() else subprocess.check_output(['xcrun','--sdk','macosx','--show-sdk-path'],text=True).strip()
 with tempfile.TemporaryDirectory(prefix='tf-runtime-budget-') as temp:

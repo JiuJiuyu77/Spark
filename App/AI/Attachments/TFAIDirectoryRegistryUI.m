@@ -23,7 +23,7 @@ static char FolderDelegateLifetime;
 - (void)viewDidLoad{[super viewDidLoad];
  // Remove only the temporary diagnostics produced during folder-picker triage.
  dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{
-  NSString *root=[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"DylixDiagnostics"];
+  NSString *root=[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"WorkbenchDiagnostics"];
   for(NSString *name in @[@"FolderPicker",@"file-ui.log"])[NSFileManager.defaultManager removeItemAtPath:[root stringByAppendingPathComponent:name] error:nil];
  });
 self.title=self.entry?(self.relative.length?self.relative.lastPathComponent:self.entry[@"path"]):@"挂载文件夹";self.tableView.accessibilityIdentifier=@"authorized-directories";self.tableView.rowHeight=UITableViewAutomaticDimension;self.tableView.estimatedRowHeight=60;if(!self.entry){
@@ -37,7 +37,7 @@ self.title=self.entry?(self.relative.length?self.relative.lastPathComponent:self
  }
 }
 - (void)viewWillAppear:(BOOL)animated{[super viewWillAppear:animated];[self reload];}
-- (void)viewDidAppear:(BOOL)animated{[super viewDidAppear:animated];[self presentPendingError];if(!self.entry&&!self.signingEntryChecked){self.signingEntryChecked=YES;[self checkSigningForFolderWithCompletion:nil];}UIDocumentPickerViewController *picker=self.folderPicker;if(picker)dispatch_after(dispatch_time(DISPATCH_TIME_NOW,500*NSEC_PER_MSEC),dispatch_get_main_queue(),^{if(self.folderPicker==picker&&!self.authorizing&&!picker.presentingViewController&&!picker.view.window){self.folderPicker=nil;objc_setAssociatedObject(picker,&FolderDelegateLifetime,nil,OBJC_ASSOCIATION_RETAIN_NONATOMIC);NSError *e=[NSError errorWithDomain:@"Dylix.DirectoryPicker" code:2 userInfo:@{NSLocalizedDescriptionKey:@"系统选择器已关闭，但未返回文件夹。请从右上角“…”尝试独立窗口选择；若仍失败，请查看授权诊断。"}];[self showError:e];}});}
+- (void)viewDidAppear:(BOOL)animated{[super viewDidAppear:animated];[self presentPendingError];if(!self.entry&&!self.signingEntryChecked){self.signingEntryChecked=YES;[self checkSigningForFolderWithCompletion:nil];}UIDocumentPickerViewController *picker=self.folderPicker;if(picker)dispatch_after(dispatch_time(DISPATCH_TIME_NOW,500*NSEC_PER_MSEC),dispatch_get_main_queue(),^{if(self.folderPicker==picker&&!self.authorizing&&!picker.presentingViewController&&!picker.view.window){self.folderPicker=nil;objc_setAssociatedObject(picker,&FolderDelegateLifetime,nil,OBJC_ASSOCIATION_RETAIN_NONATOMIC);NSError *e=[NSError errorWithDomain:@"Workbench.DirectoryPicker" code:2 userInfo:@{NSLocalizedDescriptionKey:@"系统选择器已关闭，但未返回文件夹。请从右上角“…”尝试独立窗口选择；若仍失败，请查看授权诊断。"}];[self showError:e];}});}
 - (void)checkSigningForFolderWithCompletion:(void(^)(void))completion{
  if(self.checkingSigning||self.authorizing||self.folderPicker||self.presentedViewController||!self.view.window)return;
  self.checkingSigning=YES;
@@ -73,7 +73,7 @@ self.title=self.entry?(self.relative.length?self.relative.lastPathComponent:self
  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
   NSData *data=[NSJSONSerialization dataWithJSONObject:TFAIDirectoryPickerDiagnostics() options:NSJSONWritingPrettyPrinted|NSJSONWritingSortedKeys error:nil];
   NSString *identity=data?[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]:@"无法读取标识关系";
-  NSString *text=[NSString stringWithFormat:@"Dylix %@ (%@)\n系统：%@\n正在选择：%@\n正在保存授权：%@\n仅核对当前应用签名标识，不采集或保存授权日志。\n\n%@",NSBundle.mainBundle.infoDictionary[@"CFBundleShortVersionString"]?:@"",NSBundle.mainBundle.infoDictionary[@"CFBundleVersion"]?:@"",NSProcessInfo.processInfo.operatingSystemVersionString,choosing?@"是":@"否",saving?@"是":@"否",identity];
+  NSString *text=[NSString stringWithFormat:@"Workbench %@ (%@)\n系统：%@\n正在选择：%@\n正在保存授权：%@\n仅核对当前应用签名标识，不采集或保存授权日志。\n\n%@",NSBundle.mainBundle.infoDictionary[@"CFBundleShortVersionString"]?:@"",NSBundle.mainBundle.infoDictionary[@"CFBundleVersion"]?:@"",NSProcessInfo.processInfo.operatingSystemVersionString,choosing?@"是":@"否",saving?@"是":@"否",identity];
   dispatch_async(dispatch_get_main_queue(),^{
    if(!self.view.window||self.presentedViewController)return;
    UIAlertController *a=[UIAlertController alertControllerWithTitle:@"文件夹授权诊断" message:text preferredStyle:UIAlertControllerStyleAlert];[a addAction:[UIAlertAction actionWithTitle:@"关闭" style:UIAlertActionStyleCancel handler:nil]];[a addAction:[UIAlertAction actionWithTitle:@"复制诊断" style:UIAlertActionStyleDefault handler:^(id x){UIPasteboard.generalPasteboard.string=text;}]];[self presentViewController:a animated:YES completion:nil];
@@ -131,7 +131,7 @@ self.title=self.entry?(self.relative.length?self.relative.lastPathComponent:self
 - (void)documentPicker:(UIDocumentPickerViewController *)picker didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls{
  if(self.authorizing||picker!=self.folderPicker){return;}NSURL *url=urls.firstObject;
  if(!url){[self documentPickerWasCancelled:picker];return;}
- if(urls.count!=1){[self afterPickerDismisses:picker completion:^{self.folderPicker=nil;objc_setAssociatedObject(picker,&FolderDelegateLifetime,nil,OBJC_ASSOCIATION_RETAIN_NONATOMIC);[self showError:[NSError errorWithDomain:@"Dylix.DirectoryPicker" code:3 userInfo:@{NSLocalizedDescriptionKey:@"请一次只勾选一个文件夹，然后点确认。"}]];}];return;}
+ if(urls.count!=1){[self afterPickerDismisses:picker completion:^{self.folderPicker=nil;objc_setAssociatedObject(picker,&FolderDelegateLifetime,nil,OBJC_ASSOCIATION_RETAIN_NONATOMIC);[self showError:[NSError errorWithDomain:@"Workbench.DirectoryPicker" code:3 userInfo:@{NSLocalizedDescriptionKey:@"请一次只勾选一个文件夹，然后点确认。"}]];}];return;}
  self.authorizing=YES;self.authorizationMessage=@"正在保存文件夹授权…";[self updateAuthorizationUI];
  dispatch_after(dispatch_time(DISPATCH_TIME_NOW,15*NSEC_PER_SEC),dispatch_get_main_queue(),^{if(self.authorizing){self.authorizationMessage=@"正在等待系统文件提供方返回授权。可从右上角“…”查看授权诊断；云端文件夹请先确认已下载到本机。";[self.tableView reloadData];}});
  // Keep the selected URL and picker alive in this worker. Start immediately;
@@ -140,7 +140,7 @@ self.title=self.entry?(self.relative.length?self.relative.lastPathComponent:self
  BOOL scoped=[url startAccessingSecurityScopedResource];NSError *error=nil;
  NSDictionary *entry=[TFAIDirectoryRegistry add:url error:&error];
  if(scoped)[url stopAccessingSecurityScopedResource];
- if(!entry&&!error)error=[NSError errorWithDomain:@"Dylix.DirectoryPicker" code:1 userInfo:@{NSLocalizedDescriptionKey:@"无法保存文件夹授权，请确认文件提供方已下载该文件夹后重试。"}];
+ if(!entry&&!error)error=[NSError errorWithDomain:@"Workbench.DirectoryPicker" code:1 userInfo:@{NSLocalizedDescriptionKey:@"无法保存文件夹授权，请确认文件提供方已下载该文件夹后重试。"}];
  dispatch_async(dispatch_get_main_queue(),^{self.authorizing=NO;self.authorizationMessage=entry?[@"已挂载：" stringByAppendingString:entry[@"path"]?:@"文件夹"]:error.localizedDescription;[self updateAuthorizationUI];[self reload];if(error)[self showError:error];});
  });
  [self afterPickerDismisses:picker completion:^{if(self.folderPicker==picker)self.folderPicker=nil;objc_setAssociatedObject(picker,&FolderDelegateLifetime,nil,OBJC_ASSOCIATION_RETAIN_NONATOMIC);}];

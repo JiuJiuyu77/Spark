@@ -19,7 +19,7 @@
 - 缓存读取通常是输入的子集，思考是输出的子集，不再重复加到总量。无法获得某项数据时显示“未报告”，明确报告的 0 则显示 0。
 - 缓存命中率 = 同时报告输入与缓存读取的请求中，缓存读取之和 / 输入之和。加权统计，不平均各请求百分比；界面显示报告覆盖次数。
 - 缓存数量的单位是 **tokens**，不是手机磁盘字节，也不是服务商缓存池容量；现有接口无法提供后两者，不伪造这些数值。
-- 只覆盖本版本起由 Dylix AI 会话发出的模型请求，包括 Remote / FLEX 发起并由同一 Runtime 执行的会话。能力测试、模型发现、余额查询不混入会话统计。
+- 只覆盖本版本起由 Workbench AI 会话发出的模型请求，包括 Remote / FLEX 发起并由同一 Runtime 执行的会话。能力测试、模型发现、余额查询不混入会话统计。
 - 升级前没有逐请求用量记录的历史无法准确回填。此前保存的单次上下文诊断仍可在“上下文用量”查看，与累计消耗分开。
 
 日期按设备当前时区划分自然日，结束日期包含当日。请求归属发起日期；模型和连接名称记录发起时快照，不随后续切换而改变。
@@ -28,7 +28,7 @@
 
 `AIRuntime` 创建请求 → `TFAIStreamDecoder` 输出原始 usage → `TFAIUsageStore` 归一化并更新 → 本地原子 JSON 文件 → 原生 UIKit 汇总页。
 
-记录位于 Application Support / Dylix / AIUsage-v1，按请求写入小文件，串行队列处理。重启可读，未结束的旧记录视为中断；损坏记录跳过并提示。仅保存请求 UUID、项目 / 会话 ID、时间、连接 / 模型标识、计数和完成状态，不存正文、工具内容、API Key、访问地址或 OAuth Token。统计不会自动上传。
+记录位于 Application Support / Workbench / AIUsage-v1，按请求写入小文件，串行队列处理。重启可读，未结束的旧记录视为中断；损坏记录跳过并提示。仅保存请求 UUID、项目 / 会话 ID、时间、连接 / 模型标识、计数和完成状态，不存正文、工具内容、API Key、访问地址或 OAuth Token。统计不会自动上传。
 
 Chat 流默认请求 `stream_options.include_usage`。旧中转若拒绝此参数，可在该连接关闭“请求流式用量”。不通过自动重发模型请求来探测兼容性，避免额外计费。
 
@@ -49,7 +49,7 @@ Chat 流默认请求 `stream_options.include_usage`。旧中转若拒绝此参�
 
 只研究结构，Objective-C 实现独立编写；没有复制 Swift / Rust / TS 代码或预置人设文本，没有新增第三方依赖。
 
-- Codex-X，MIT，研究快照 `1a0ae707c6efde28727c0e4448d53dc262720bad`：`apps/desktop/src/pages/UsageStatisticsPage.tsx`、`usageTypes.ts`、`src-tauri/src/usage.rs`、`provider_balance.rs`。参考逐请求归因、日期分组、余额适配 / 缓存 / 状态表达；Dylix 不采用其 Codex rollout 文件扫描器。
+- Codex-X，MIT，研究快照 `1a0ae707c6efde28727c0e4448d53dc262720bad`：`apps/desktop/src/pages/UsageStatisticsPage.tsx`、`usageTypes.ts`、`src-tauri/src/usage.rs`、`provider_balance.rs`。参考逐请求归因、日期分组、余额适配 / 缓存 / 状态表达；Workbench 不采用其 Codex rollout 文件扫描器。
 - https://github.com/yynxxxxx/Codex-X
 - https://api-docs.deepseek.com/api/get-user-balance
 - https://github.com/siliconflow/siliconcloud/blob/main/openapi.yaml

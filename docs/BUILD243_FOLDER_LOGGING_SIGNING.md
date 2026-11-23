@@ -2,7 +2,7 @@
 
 ## 实际证据
 
-用户 build242 日志显示 applicationIdentifierMatchesBundleID=false，但 profileAllowsSignedApplicationIdentifier=true：签名权利属于描述文件授权的应用，却不属于 Info.plist 的实际 Bundle ID。App Group 可用不能证明应用标识正确。用户这份描述文件固定授权 app.panda1248.maroon8441；Dylix 当前标识为 com.xuegao.theosmobilecompiler。
+用户 build242 日志显示 applicationIdentifierMatchesBundleID=false，但 profileAllowsSignedApplicationIdentifier=true：签名权利属于描述文件授权的应用，却不属于 Info.plist 的实际 Bundle ID。App Group 可用不能证明应用标识正确。用户这份描述文件固定授权 app.panda1248.maroon8441；Workbench 当前标识为 com.HuQing.Workbench。
 
 Picker 展示、delegate 存活，但只有取消回调，没有目录选择回调。没有取得明确的系统拒绝错误；签名冲突是已确认异常，不等于目录故障根因已完全证明。
 
@@ -18,9 +18,9 @@ Picker 展示、delegate 存活，但只有取消回调，没有目录选择回�
 
 优先保留原 Bundle ID，使用签名团队实际授权该标识的描述文件：
 
-1. com.xuegao.theosmobilecompiler
-2. com.xuegao.theosmobilecompiler.share
-3. com.xuegao.theosmobilecompiler.activity
+1. com.HuQing.Workbench
+2. com.HuQing.Workbench.share
+3. com.HuQing.Workbench.activity
 
 主应用和分享扩展必须具有至少一个共同、实际获授权的 App Group。每个 executable 的 application-identifier 必须等于该 profile 的 ApplicationIdentifierPrefix + '.' + 对应 CFBundleIdentifier。只有 P12 证书不能创造这些权限。
 
@@ -32,7 +32,7 @@ Picker 展示、delegate 存活，但只有取消回调，没有目录选择回�
 
 ```
 python3 scripts/build.py --identity '<Keychain 中的签名身份>' \
-  --bundle-id com.xuegao.theosmobilecompiler \
+  --bundle-id com.HuQing.Workbench \
   --profile Main.mobileprovision \
   --share-profile Share.mobileprovision \
   --activity-profile Activity.mobileprovision
@@ -51,9 +51,9 @@ python3 scripts/build.py --identity '<Keychain 中的签名身份>' \
 
 ## 用户真机对照验证（2026-11-10 补充）
 
-用户提供 `Dylix-文件夹授权日志(1).log` 与 `(2).log`。两次均为 build243、iOS27.0.1 /24A446、normal模式。
+用户提供 `Workbench-文件夹授权日志(1).log` 与 `(2).log`。两次均为 build243、iOS27.0.1 /24A446、normal模式。
 
-- 修改前：Bundle ID 为 com.xuegao.theosmobilecompiler，签名应用标识为 KRSJ6N3F5J.app.panda1248.maroon8441，identityStatus=mismatch；9.7秒后仅取消，无 selection_callback。
+- 修改前：Bundle ID 为 com.HuQing.Workbench，签名应用标识为 KRSJ6N3F5J.app.panda1248.maroon8441，identityStatus=mismatch；9.7秒后仅取消，无 selection_callback。
 - 用户报告只将软件包 Bundle ID 改为 app.panda1248.maroon8441 后可正常授权；新日志显示 identityStatus=metadata_consistent、applicationIdentifierMatchesBundleID=true。
 - 10:18:40Z 连续出现 folder.selection_callback → folder.scope_started → folder.registration_started → folder.registration_saved，确认系统返回目录、安全作用域开启并保存授权。
 

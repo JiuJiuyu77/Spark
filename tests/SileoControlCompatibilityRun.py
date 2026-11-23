@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Test-only: run the upstream Sileo C parser against dpkg-deb --field output.
 Usage: python3 tests/SileoControlCompatibilityRun.py /path/to/Sileo-roothide package.deb ...
-Upstream is compiled in place; no upstream implementation is copied into Dylix.
+Upstream is compiled in place; no upstream implementation is copied into Workbench.
 """
 import json, subprocess, sys, tempfile
 from pathlib import Path
 source=Path(sys.argv[1])/'Sileo/Backend/Control File Parser'
 assert (source/'ControlFileParserFast.c').is_file()
-with tempfile.TemporaryDirectory(prefix='dylix-sileo-control-') as temp:
+with tempfile.TemporaryDirectory(prefix='workbench-sileo-control-') as temp:
     temp=Path(temp)
     (temp/'main.m').write_text('''#import <Foundation/Foundation.h>
 #import "ControlFileParserFast.h"

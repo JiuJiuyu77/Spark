@@ -2,7 +2,7 @@
 
 ## 接入方式
 
-参考 OpenMinis 的 ConfigRegistry 统一注册思想，Dylix 的应用操作由 TFAIActionRegistry 定义，read_app_state 返回实际可用工具、可编辑设置、操作参数和附件限制。执行调用实际连接、Git、存储和会话服务；不是仅在提示词中宣称支持。实现为本项目代码，没有复制上游实现。
+参考 OpenMinis 的 ConfigRegistry 统一注册思想，Workbench 的应用操作由 TFAIActionRegistry 定义，read_app_state 返回实际可用工具、可编辑设置、操作参数和附件限制。执行调用实际连接、Git、存储和会话服务；不是仅在提示词中宣称支持。实现为本项目代码，没有复制上游实现。
 
 研究版本：OpenMinis 1a71df0f381cefde80bf912b723de6f9831bc177。重点阅读 src/ios/Shared/Config/ConfigRegistry.swift、src/ios/Agent/Chat/AIChatViewModel+Attachments.swift 和 src/ios/Shared/ExternalFileImporter.swift。
 
@@ -28,7 +28,7 @@
 
 OpenMinis 所核对的 addFileAttachment 和 ExternalFileImporter 是先用安全作用域/协调器把文件复制到本机，再登记附件；这两条导入路径没有统一的 20 MB 检查。这不等于每个模型服务都支持无限附件，也不应把其云同步大小限制当成聊天附件上限。
 
-Dylix 原来外部导入把目录、非普通文件、权限读取失败和超过20 MB合成同一句提示，并且外部24 MB批次与内部128 MB不一致。现统一校验并逐文件说明失败原因；成功的兄弟文件保留。文件夹只建立授权，不批量上传内容。
+Workbench 原来外部导入把目录、非普通文件、权限读取失败和超过20 MB合成同一句提示，并且外部24 MB批次与内部128 MB不一致。现统一校验并逐文件说明失败原因；成功的兄弟文件保留。文件夹只建立授权，不批量上传内容。
 
 当前本机文本/原图单文件20 MB，deb/dylib检查输入64 MB，每批最多80项且原始总量128 MB；IPA继续走独立头文件工具。实际发送图片会缩放压缩到每张2 MB，发送总量4 MB。文本本机快照与目录授权只发送清单，通过工具按需读取，不把完整本机字节数计作请求体。
 

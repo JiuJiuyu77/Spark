@@ -19,12 +19,12 @@ def run(*args):
 
 
 def main():
-    app = ROOT / 'build/simulator/TheosMobileCompiler.app'
+    app = ROOT / 'build/simulator/Workbench.app'
     source = (ROOT / 'App/main.m').read_text()
     assert '@"-mframe-pointer=non-leaf"' in source
     assert '@"-funwind-tables=1"' in source
     sdk = run('xcrun', '--sdk', 'iphonesimulator', '--show-sdk-path').strip()
-    with tempfile.TemporaryDirectory(prefix='dylix-symbol-regression-') as temporary:
+    with tempfile.TemporaryDirectory(prefix='workbench-symbol-regression-') as temporary:
         work = pathlib.Path(temporary)
         bundle = work / 'Tool.app'
         bundle.mkdir()
@@ -60,7 +60,7 @@ int main(int argc,char **argv) { @autoreleasepool {
 - (id)valueForKey:(id)key;
 @end
 extern "C" __attribute__((noinline)) int objc_probe(id obj) {
- @try { [obj valueForKey:@"DylixMissingKey"]; return 0; }
+ @try { [obj valueForKey:@"WorkbenchMissingKey"]; return 0; }
  @catch(id exception) { return 42; }
 }
 static volatile int cleaned;
@@ -99,14 +99,14 @@ int main(int argc,char **argv) { @autoreleasepool {
                  '-framework', 'Foundation', str(obj), '-o', str(dylib)],
             ]
             command_file = work / 'commands.json'
-            if os.environ.get('DYLIX_FULL_LINK_COMMANDS'):
-                commands=[json.loads(pathlib.Path(os.environ['DYLIX_FULL_LINK_COMMANDS']).read_text())[-1]]
+            if os.environ.get('WORKBENCH_FULL_LINK_COMMANDS'):
+                commands=[json.loads(pathlib.Path(os.environ['WORKBENCH_FULL_LINK_COMMANDS']).read_text())[-1]]
                 commands[0][commands[0].index('-o')+1]=str(dylib)
             command_file.write_text(json.dumps(commands))
             run('xcrun', 'simctl', 'spawn', 'booted', bundle / 'Tool', command_file)
             run('codesign', '--verify', '--strict', dylib)
             processing=json.loads(pathlib.Path(str(dylib)+'.processing.json').read_text());assert processing[0]['savedBytes']>0;results[variant] = {'bytes':dylib.stat().st_size,'processing':processing}
-            for mode in ([] if os.environ.get('DYLIX_FULL_LINK_COMMANDS') else ['objc', 'cpp']):
+            for mode in ([] if os.environ.get('WORKBENCH_FULL_LINK_COMMANDS') else ['objc', 'cpp']):
                 process = subprocess.run(['xcrun', 'simctl', 'spawn', 'booted', str(work / 'Runner'),
                                           str(dylib)] + (['cpp'] if mode == 'cpp' else []),
                                          capture_output=True, text=True, timeout=30)

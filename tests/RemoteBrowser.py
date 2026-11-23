@@ -3,8 +3,8 @@
 import json,pathlib,subprocess,time,os,base64,hashlib,tempfile
 from playwright.sync_api import sync_playwright,expect
 root=pathlib.Path(__file__).resolve().parents[1]
-output=pathlib.Path(os.environ.get('REMOTE_EVIDENCE_DIR','/tmp/dylix-remote-evidence'));output.mkdir(parents=True,exist_ok=True)
-container=pathlib.Path(subprocess.check_output(['xcrun','simctl','get_app_container','booted','com.xuegao.theosmobilecompiler','data'],text=True).strip())/'Documents'
+output=pathlib.Path(os.environ.get('REMOTE_EVIDENCE_DIR','/tmp/workbench-remote-evidence'));output.mkdir(parents=True,exist_ok=True)
+container=pathlib.Path(subprocess.check_output(['xcrun','simctl','get_app_container','booted','com.HuQing.Workbench','data'],text=True).strip())/'Documents'
 def state():return json.loads((container/'RemoteTestState.json').read_text())
 def command(action,**kw):
  p=container/'RemoteTestCommand.json';tmp=p.with_suffix('.tmp');tmp.write_text(json.dumps(dict(action=action,**kw)));tmp.replace(p)
@@ -20,7 +20,7 @@ def check(condition,name):
 with sync_playwright() as p:
  executable=os.environ.get('REMOTE_CHROME','/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
  origin=os.environ.get('REMOTE_BROWSER_ORIGIN',state()['url'])
- browser=p.chromium.launch(headless=True,executable_path=executable,args=['--host-resolver-rules=MAP dylix.test 127.0.0.1','--no-proxy-server'] if os.environ.get('REMOTE_EXPECT_INSECURE') else [])
+ browser=p.chromium.launch(headless=True,executable_path=executable,args=['--host-resolver-rules=MAP workbench.test 127.0.0.1','--no-proxy-server'] if os.environ.get('REMOTE_EXPECT_INSECURE') else [])
  context=browser.new_context(viewport={'width':1440,'height':1000},color_scheme='dark');page=context.new_page();errors=[];external=[]
  page.on('pageerror',lambda e:(errors.append(str(e)),print('BROWSER PAGE ERROR:',e.stack,flush=True)))
  page.on('request',lambda r:external.append(r.url) if not r.url.startswith(origin+'/') and not r.url.startswith(('data:','blob:')) else None)
@@ -44,7 +44,7 @@ with sync_playwright() as p:
  check(page.locator('.sidebar .brand-icon').evaluate('img=>img.complete&&img.naturalWidth===180'),'sidebar uses actual bundled application icon')
  check(page.evaluate("[fileBytes(0),fileBytes(1536),fileBytes(2*1024**2),fileBytes(3*1024**3)]")==['0 B','1.5 KB','2.0 MB','3.0 GB'],'file sizes use appropriate B/KB/MB/GB units')
  page.route('**/api/v1/status',lambda route:route.abort());page.evaluate('refresh()');expect(page.locator('#sidebar-connection')).to_have_attribute('data-state','disconnected',timeout=15000);check(page.locator('#sidebar-connection-label').inner_text()=='连接中断','sidebar reflects real failed status request');page.unroute('**/api/v1/status');page.evaluate('refresh()');expect(page.locator('#sidebar-connection-label')).to_have_text('已连接',timeout=15000);check(True,'sidebar recovers after connection resumes')
- check(page.evaluate("!document.cookie.includes('DylixRemoteSession')"),'JS cannot read session cookie')
+ check(page.evaluate("!document.cookie.includes('WorkbenchRemoteSession')"),'JS cannot read session cookie')
  check(page.evaluate("""async()=>{const prior=Object.getOwnPropertyDescriptor(navigator,'clipboard');Object.defineProperty(navigator,'clipboard',{value:undefined,configurable:true});const exec=document.execCommand;let captured='';document.execCommand=command=>{captured=document.querySelector('textarea[style*=opacity]').value;return command==='copy';};try{await copyText('HTTP复制回退');return captured==='HTTP复制回退'&&!document.querySelector('textarea[style*=opacity]');}finally{document.execCommand=exec;if(prior)Object.defineProperty(navigator,'clipboard',prior);else delete navigator.clipboard;}}"""),'HTTP copy fallback works without navigator.clipboard and cleans temporary field')
  if page.locator('html').get_attribute('data-theme')!='dark':page.locator('#theme-toggle').click();expect(page.locator('html')).to_have_attribute('data-theme','dark')
  page.screenshot(path=str(output/'overview-dark.png'),full_page=True,animations="disabled")
@@ -69,7 +69,7 @@ with sync_playwright() as p:
  nav_width=page.locator('.sidebar').bounding_box()['width']
  page.locator('#navigation-toggle').click();expect(page.locator('#navigation-toggle')).to_have_attribute('aria-expanded','false')
  check(page.locator('.sidebar').bounding_box()['width']<nav_width,'navigation folds into an icon rail')
- check(page.evaluate("localStorage.getItem('DylixRemoteNavigationCollapsed')==='1'"),'navigation choice is remembered')
+ check(page.evaluate("localStorage.getItem('WorkbenchRemoteNavigationCollapsed')==='1'"),'navigation choice is remembered')
  page.locator('#navigation-toggle').click();expect(page.locator('#navigation-toggle')).to_have_attribute('aria-expanded','true')
  width=page.locator('#monaco-editor').bounding_box()['width']
  page.locator('#editor-tree-toggle').click();expect(page.locator('#file-tree')).not_to_be_visible()
@@ -297,8 +297,8 @@ with sync_playwright() as p:
  check(True,'repeated editor/file browser switching preserves usable UI')
  page.locator('[data-id="editor"]').click();expect(page.locator('.monaco-editor').first).to_be_visible(timeout=15000)
  # Tokenization is tested against actual bundled Monaco, rather than a language label.
- check(page.evaluate("new Set(monaco.editor.tokenize('%hook Foo\\n- (void)test { NSString *name = @\"Dylix\"; int n = 42; }\\n%end','logos').flat().map(t=>t.type)).size >= 6"),'Logos syntax produces distinct token classes')
- check(page.evaluate("monaco.editor.tokenize('NSString *name = @\"Dylix\";', 'objective-c')[0].some(t=>t.type.startsWith('type'))"),'Objective-C has a real tokenizer')
+ check(page.evaluate("new Set(monaco.editor.tokenize('%hook Foo\\n- (void)test { NSString *name = @\"Workbench\"; int n = 42; }\\n%end','logos').flat().map(t=>t.type)).size >= 6"),'Logos syntax produces distinct token classes')
+ check(page.evaluate("monaco.editor.tokenize('NSString *name = @\"Workbench\";', 'objective-c')[0].some(t=>t.type.startsWith('type'))"),'Objective-C has a real tokenizer')
  page.locator('#editor-language').select_option('cpp');check(page.evaluate("editor.getModel().getLanguageId()")=='cpp','language picker changes actual Monaco model')
  page.locator('#editor-language').select_option('objective-c')
  page.locator('#theme-toggle').click();check(page.evaluate("document.querySelector('.monaco-editor').className.includes('vs-dark')"),'editor theme follows workbench')

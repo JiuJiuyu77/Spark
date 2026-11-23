@@ -2,7 +2,7 @@
 #import "TFAIClassDumpExecution.h"
 #import "TFAIClassDump.h"
 #import <CommonCrypto/CommonDigest.h>
-static NSError *Failure(NSString *s){return [NSError errorWithDomain:@"TweakForge.ClassDumpExecution" code:1 userInfo:@{NSLocalizedDescriptionKey:s}];}
+static NSError *Failure(NSString *s){return [NSError errorWithDomain:@"Workbench.ClassDumpExecution" code:1 userInfo:@{NSLocalizedDescriptionKey:s}];}
 static BOOL UUID(id value){return [value isKindOfClass:NSString.class]&&[[NSUUID alloc]initWithUUIDString:value]!=nil;}
 static NSString *Docs(void){return NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject;}
 static BOOL Regular(NSString *path){return [[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil][NSFileType] isEqual:NSFileTypeRegular];}

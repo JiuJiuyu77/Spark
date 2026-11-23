@@ -113,13 +113,13 @@
     dispatch_once(&onceToken, ^{
         NSDictionary<NSNumber *, NSArray<FLEXGlobalsEntry *> *> *rowsBySection = @{
             @(FLEXGlobalsSectionProcessAndEvents) : @[
-                [FLEXGlobalsEntry entryWithNameFuture:^{ return @"Dylix AI 联动"; }
+                [FLEXGlobalsEntry entryWithNameFuture:^{ return @"Workbench AI 联动"; }
                     action:^(__kindof UITableViewController *host) {
                         UIWindow *window = FLEXUtility.appKeyWindow;
                         NSString *name = window ? NSStringFromClass(window.class) : @"当前宿主";
                         NSString *report = [NSString stringWithFormat:@"App: %@\nCurrent window: %@\nOpen FLEX view hierarchy or select an object for more context.",
                             NSBundle.mainBundle.bundleIdentifier ?: @"unknown", name];
-                        [FLEXManager.sharedManager.explorerViewController showDylixChatForObject:window report:report className:name];
+                        [FLEXManager.sharedManager.explorerViewController showWorkbenchChatForObject:window report:report className:name];
                     }],
                 [self globalsEntryForRow:FLEXGlobalsRowNetworkHistory],
                 [self globalsEntryForRow:FLEXGlobalsRowSystemLog],

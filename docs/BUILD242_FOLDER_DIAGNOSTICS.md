@@ -6,10 +6,10 @@ build 241 / iOS 27.0.1 (24A446)，普通和显式多选两种路径都只有 cho
 
 ## 本轮实现
 
-- 点击 + / 独立窗口选择时创建 Documents/DylixDiagnostics/FolderPicker/<时间>-<随机编号>.log，逐条追加并同步落盘。保留最近12次，每份最多1 MiB。
+- 点击 + / 独立窗口选择时创建 Documents/WorkbenchDiagnostics/FolderPicker/<时间>-<随机编号>.log，逐条追加并同步落盘。保留最近12次，每份最多1 MiB。
 - 记录系统/构建/模式、展示守卫、Picker 和 Delegate 存活、窗口/场景状态、App 活动状态、选择/取消/保存阶段、嵌套 NSError 的 domain/code/经清理描述。
 - 选择器停留期间每15秒记录一次，最长约5分钟；选择完成、取消、回到前台时也采集。
-- 通过公开 OSLogStoreCurrentProcessIdentifier 尝试采集 Dylix 本进程中包含 documentpicker/documentmanager/fileprovider/sandbox/security-scoped/entitlement 的系统消息；按时间和条数限制，去重，记录读取成功或错误信息。
+- 通过公开 OSLogStoreCurrentProcessIdentifier 尝试采集 Workbench 本进程中包含 documentpicker/documentmanager/fileprovider/sandbox/security-scoped/entitlement 的系统消息；按时间和条数限制，去重，记录读取成功或错误信息。
 - 日志明确声明：普通 App 无法用 iOS 公开 API 读取 Files、fileproviderd 等其他进程的完整日志。读取到0条不等于系统无故障。不使用私有 entitlement，不冒称获得系统全局日志。
 - 挂载页 … → 导出授权日志，可直接分享 .log；重启后仍可导出最近文件。原始文件始终保存在 App Documents。
 - 自动清理路径、URL、Bearer/Token 等凭据样式文本；不记录选中目录路径、文件内容、安全书签或证书。
@@ -34,6 +34,6 @@ build 241 / iOS 27.0.1 (24A446)，普通和显式多选两种路径都只有 cho
 1. 安装并签名 build242。
 2. 挂载文件夹 → + → 进入文件夹 → 点击打开/✅，等5–10秒。
 3. 若无响应，取消 → … → 导出授权日志，发送该 .log。
-4. 若导出不可用，也可在系统文件 App → 我的 iPhone → Dylix → DylixDiagnostics → FolderPicker 分享最新日志。
+4. 若导出不可用，也可在系统文件 App → 我的 iPhone → Workbench → WorkbenchDiagnostics → FolderPicker 分享最新日志。
 
-参考：Apple Providing access to directories；OSLogStore storeWithScope:error:；OpenMinis FolderPicker 原生目录选择；SpeedyNote IOS_BUG_TRACKING 中的独立窗口案例（其根因是 Qt 触摸事件链，不等同于 Dylix 根因，只用于设计对照）。
+参考：Apple Providing access to directories；OSLogStore storeWithScope:error:；OpenMinis FolderPicker 原生目录选择；SpeedyNote IOS_BUG_TRACKING 中的独立窗口案例（其根因是 Qt 触摸事件链，不等同于 Workbench 根因，只用于设计对照）。

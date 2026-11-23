@@ -6,19 +6,19 @@
   "ipaBytes": 139962148,
   "archiveAndDeepStrictSignatureVerified": true,
   "componentVersions": {
-    "Payload/TheosMobileCompiler.app/Info.plist": {
+    "Payload/Workbench.app/Info.plist": {
       "version": "1.0.9",
       "build": "200"
     },
-    "Payload/TheosMobileCompiler.app/PlugIns/TweakForgeShare.appex/Info.plist": {
+    "Payload/Workbench.app/PlugIns/WorkbenchShare.appex/Info.plist": {
       "version": "1.0.9",
       "build": "200"
     },
-    "Payload/TheosMobileCompiler.app/PlugIns/TweakForgeActivity.appex/Info.plist": {
+    "Payload/Workbench.app/PlugIns/WorkbenchActivity.appex/Info.plist": {
       "version": "1.0.9",
       "build": "200"
     },
-    "Payload/TheosMobileCompiler.app/Frameworks/TFTaskActivity.framework/Info.plist": {
+    "Payload/Workbench.app/Frameworks/TFTaskActivity.framework/Info.plist": {
       "version": "1.0.9",
       "build": "200"
     }

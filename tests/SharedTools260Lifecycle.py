@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Fresh test-only App install plus real fakefs legacy migration (never touches Dylix)."""
+"""Fresh test-only App install plus real fakefs legacy migration (never touches Workbench)."""
 import argparse,json,plistlib,subprocess,time
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--device',required=True);a=p.parse_args()
-bundle='com.dylix.ishproof';app=ROOT/'build/ish-regression/DylixISHProof.app'
+bundle='com.workbench.ishproof';app=ROOT/'build/ish-regression/WorkbenchISHProof.app'
 def ctl(*args):return subprocess.check_output(['xcrun','simctl',*args],text=True).strip()
 def data():return Path(ctl('get_app_container',a.device,bundle,'data'))
 def launch(flag):
@@ -23,7 +23,7 @@ def launch(flag):
 subprocess.run(['xcrun','simctl','uninstall',a.device,bundle],capture_output=True)
 ctl('install',a.device,str(app));rows=launch('--shared260')
 ctl('terminate',a.device,bundle)
-base=data()/'Library/Application Support/Dylix/iSH-v1'
+base=data()/'Library/Application Support/Workbench/iSH-v1'
 shared='b3699d2b0a236797eb0b19394441f1795d2bdd9a55103d75a13783a4bc276d3c';legacy='e'*64
 before=(base/shared/'meta.db').stat().st_ino
 (base/shared).rename(base/legacy);(base/'shared-environment.plist').unlink()

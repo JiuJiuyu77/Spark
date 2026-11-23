@@ -3,7 +3,7 @@
 ## 已确认的问题与边界
 
 - 用户提供的 build 240 分享诊断显示主 App 和扩展有五个共同可用共享组；不能继续把问题归为缺少 App Group。
-- 分享接收器之前主动拒绝目录，错误为“只接收普通文件，不接收目录或符号链接”。这是 Dylix 的确定缺陷。
+- 分享接收器之前主动拒绝目录，错误为“只接收普通文件，不接收目录或符号链接”。这是 Workbench 的确定缺陷。
 - 用户报告 iOS 27.0.1 系统 Picker 中点“打开/✅”无响应。当前无该真机日志，根因未定；本机仅有 iOS 18.3 模拟器，不能宣称已修复该系统上的故障。
 - 尚无已核实官方依据支持“iOS 26 起禁止 in-place 文件夹授权”这个笼统判断。
 
@@ -20,7 +20,7 @@
 - 文件提供器/单文件导入回归：85 项通过，含文件 URL 的 NSURL/Data/String 表示、真实 NSItemProvider、目录 UTI、嵌套 ZIP、中文与空目录、链接拒绝、超限拒绝、临时文件清理。
 - 目录登记/只读挂载：47 项通过。
 - 原生 ARM64 iOS 18.3 生产代码测试：25 项通过，含兼容 Picker、目录提供器 ZIP、目录浏览、错误/取消和现有 IPA/终端链路。自动化目录测试会调用生产 Delegate，不代替真正的系统按钮测试。
-- 另行通过 CUA 实际点击兼容入口、系统“打开”，授权外部 Dylix App Documents/Folder241；回到列表显示已挂载；重启后依然可用，进入可见 verify241.txt。截图与阶段日志保存在 build/data241-evidence。
+- 另行通过 CUA 实际点击兼容入口、系统“打开”，授权外部 Workbench App Documents/Folder241；回到列表显示已挂载；重启后依然可用，进入可见 verify241.txt。截图与阶段日志保存在 build/data241-evidence。
 - 另行通过 CUA 从系统分享面板把 FolderShare241 文件夹交给完整 App 的 build 241 分享扩展；真实接收成功，诊断显示 files=1、bytes=752、error={}、phase=awaitingManualExport。模拟器 ad-hoc 无可用共享组，因此进入预期的手动保存回退；未将其宣称为真机共享组自动唤起通过。
 - 会话导出/恢复回归通过；iPhone/iPad 模拟器各 10 项既有会话/UI 集成测试通过。
 - iOS 26.0 SDK 构建真机 IPA 与模拟器 App 成功；build 241，版本 1.1.1，最低 iOS 15。IPA ZIP 完整性和主程序/分享扩展 ad-hoc 签名验证通过；安装仍需用户正常签名。

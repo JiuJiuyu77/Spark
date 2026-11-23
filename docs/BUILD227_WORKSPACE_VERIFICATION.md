@@ -7,7 +7,7 @@
 - Mac 合约回归：AgentExtensions 154、DirectoryRegistry 47、Subtask manager 20、Subtask runtime 12、BuildQueue 10、MCP HTTP 35、ToolRegistry 197、RuntimeAudit 12、StorageSpace 42。
 - iOS ARM64 模拟器：真实 iSH/PTY、进程、文件、网页预览、MCP STDIO、技能和 fakefs 维护完整回归 114 项通过；iPhone 与 iPad 外部目录和远程终端通过；iPad 工作台分栏/折叠/编辑草稿保留 26 项通过；浏览器会话/登录门控 UI 两设备通过。
 - 浏览器终端：真实 xterm 资源、ANSI 输出、会话切换、撤权提示、Ctrl-C、显式尺寸同步、在途旧输出丢弃 9 项通过。
-- 产物：`build/Dylix-1.1.1-build227-unsigned.ipa`，用 iPhoneOS26.0 SDK 构建，设备部署目标 iOS15；脚本完成包布局、扩展和签名结构检查。
+- 产物：`build/Workbench-1.1.1-build227-unsigned.ipa`，用 iPhoneOS26.0 SDK 构建，设备部署目标 iOS15；脚本完成包布局、扩展和签名结构检查。
 
 ## 设计边界
 
@@ -25,7 +25,7 @@
 - `--browser-ui`：iPhone/iPad 各10条检查；真实WKWebView、标签归属、单会话8标签上限、手动登录暂停所有标签AI操作、失效tab引用拒绝、清理会话不影响其他会话。
 - `python3 tests/RemoteTerminalUI.py`：真实 Chromium + xterm + 生产 renderer；Job API 是fixture，真实PTY与撤权另由上述iSH测试验证。界面测试不冒充完整手机网络服务集成。
 - `node --check Resources/RemoteWeb/remote.js` 和 `git diff --check` 通过。
-- `codesign --verify --deep --strict build/device/TheosMobileCompiler.app` 通过；`vtool -show-build` 显示 sdk26.0 / minos15.0。App与两个扩展版本均为1.1.1 /227。IPA ZIP完整性、xterm/远程页面/rootfs资源存在性均已检查。
+- `codesign --verify --deep --strict build/device/Workbench.app` 通过；`vtool -show-build` 显示 sdk26.0 / minos15.0。App与两个扩展版本均为1.1.1 /227。IPA ZIP完整性、xterm/远程页面/rootfs资源存在性均已检查。
 
 ## 可见性与限制
 

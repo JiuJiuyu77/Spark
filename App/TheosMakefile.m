@@ -18,7 +18,7 @@ NSArray<NSString *> *TMCMakeWords(NSString *value) {
     if(word.length)[words addObject:word.copy];return words;
 }
 static NSString *Trim(NSString *s){return [s stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];}
-static NSError *MakeError(NSString *s){return [NSError errorWithDomain:@"TweakForgeMakefile" code:1 userInfo:@{NSLocalizedDescriptionKey:s}];}
+static NSError *MakeError(NSString *s){return [NSError errorWithDomain:@"WorkbenchMakefile" code:1 userInfo:@{NSLocalizedDescriptionKey:s}];}
 static NSString *Relative(NSString *s){
     s=[s stringByStandardizingPath];
     if(s.isAbsolutePath||[s.pathComponents containsObject:@".."]||[s containsString:@":"]||[s rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location!=NSNotFound)return nil;

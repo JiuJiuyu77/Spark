@@ -10,7 +10,7 @@ class Signing(unittest.TestCase):
     def test_exact(self):
         self.assertEqual(entitlements_for(profile('com.test'),'com.test')['application-identifier'],'PREFIX.com.test')
     def test_fixed_profile_rejects_original(self):
-        with self.assertRaisesRegex(ValueError,'不匹配'):entitlements_for(profile('app.panda1248.maroon8441'),'com.xuegao.theosmobilecompiler')
+        with self.assertRaisesRegex(ValueError,'不匹配'):entitlements_for(profile('app.panda1248.maroon8441'),'com.HuQing.Workbench')
     def test_wildcard(self):
         self.assertEqual(entitlements_for(profile('com.*'),'com.test')['keychain-access-groups'],['PREFIX.com.test'])
     def test_prefix_not_team(self):

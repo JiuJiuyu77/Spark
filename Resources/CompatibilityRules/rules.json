@@ -14,7 +14,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "在诊断行确认 weak/strong 声明后使用 __typeof__，不做全局替换。",
@@ -43,7 +43,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "仅适配已诊断的简单 property = [value integerValue]；枚举值合法性由工程负责。",
@@ -75,7 +75,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "确认源码实际引用 Mach task 类型，补充 SDK 的 mach/task_info.h。",
@@ -105,7 +105,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "只接收编译器给出的单个分号插入范围；排除宏、冲突及过期快照。",
@@ -135,7 +135,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "仅在工程内存在唯一匹配头文件、配置与构建快照一致时添加 includeDirectories。",
@@ -165,7 +165,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "查明依赖来源并导入真实头文件或 SDK；不生成伪造声明。",
@@ -195,7 +195,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "检查工程内多个同名头文件的所属依赖，再在项目设置选择正确搜索路径。",
@@ -226,7 +226,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "核对符号所属 Framework；已有依赖可在 Frameworks 中添加，缺失二进制需导入匹配设备架构的依赖。",
@@ -258,7 +258,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "核对 -l 名称、真实库文件、架构和搜索目录，避免按符号猜测依赖。",
@@ -289,7 +289,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "检查符号实现是否位于 sources 外；确认目标归属后手工加入源文件列表。",
@@ -320,7 +320,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "恢复真实源文件或修正清单路径，避免删除条目掩盖缺失实现。",
@@ -358,7 +358,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "确认文件确实含 C++ 后使用 .mm/ObjC++；不要为通过编译统一转换所有文件。",
@@ -389,7 +389,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "检查 @interface/@implementation 所在文件是否需使用 .m/.mm；先核对目标语言。",
@@ -422,7 +422,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "按依赖声明选择 cxxStandard，LLVM14 未覆盖的新标准特性需调整工具链。",
@@ -455,7 +455,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "在配置中选 cStandard；核对代码及依赖要求。",
@@ -486,7 +486,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "确定源文件内存管理模式；移除调用可能影响生命周期，需开发者选择策略。",
@@ -518,7 +518,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "检查 objcArc、部署目标和类弱引用支持，避免自动改 unsafe_unretained。",
@@ -549,7 +549,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "由调用方确认 CF/ObjC 所有权后选择 __bridge / __bridge_transfer / __bridge_retained。",
@@ -581,7 +581,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "核对真实接口、泛型和所有权；不批量插入强转隐藏接口错误。",
@@ -611,7 +611,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "需要按生命周期移到方法、dispatch_once 或初始化流程，属于业务逻辑判断。",
@@ -642,7 +642,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "检查 Logos 语法、generator、substrate/libhooker 真实依赖和多文件符号归属。",
@@ -673,7 +673,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "使用 packageSchemes=rootless；核对 /var/jb 与 @rpath，依赖也需 rootless 版本。",
@@ -703,7 +703,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "确认目标有根环境，选择 rootful；不从 CPU 类型推断越狱布局。",
@@ -734,7 +734,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "核对目标 RootHide 运行环境、.jbroot 定位与依赖构建方式，包标签不等于 Mach-O CPU ABI。",
@@ -765,7 +765,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "核对真实运行依赖及包 ID；缺失依赖需安装或提供，不自动删除 Depends。",
@@ -799,7 +799,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge >= 0.5.5",
+        "app": "Workbench >= 0.5.5",
         "platform": "iOS >= 15"
       },
       "explanation": "检查 Mach-O 架构、部署目标及依赖；当前 LLVM14 arm64e 输出受限，建议核对 arm64，DEB 架构标签单独处理。",
@@ -829,7 +829,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "使用 Clang 给出的精确插入位置补 @；仅限普通字符串字面量，不推断字符指针的业务用途。",
@@ -866,7 +866,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "仅删除 Clang 精确标记的单个多余右括号，不自动配平整个文件。",
@@ -904,7 +904,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "仅采用 Clang 的 struct/union/enum 前缀插入建议；不创建 typedef 或改变类型。",
@@ -940,7 +940,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "只采用 Clang 给出的单个逗号插入，不改动成员值或排序。",
@@ -977,7 +977,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "查看链接器列出的两个定义；核对重复源文件、头文件中的实体定义，以及同时编译 Logos 原文件和生成文件。不要直接删除实现或允许重复定义。",
@@ -1014,7 +1014,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "检查诊断中的原定义位置、重复导入及头文件保护。先确定重复声明的来源，不自动删除接口或定义。",
@@ -1051,7 +1051,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "@class 只声明名称；访问成员或属性需要真实接口。确认相应头文件已存在并正确导入，避免补造私有类声明。",
@@ -1087,7 +1087,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "确认是否希望修改外层变量，再选择 __block 或调整数据流；__block 会改变捕获和生命周期语义，不自动插入。",
@@ -1126,7 +1126,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "核对 @implementation、分类及对应源文件是否参与当前目标；不要生成空方法来消除诊断。",
@@ -1163,7 +1163,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "检查实际部署版本和 SDK；可选择保留最低版本并增加 @available 检查，或确认支持范围后提高部署版本。不直接移除可用性检查。",
@@ -1199,7 +1199,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "按磁盘中的真实大小写修正 include/import；同时检查跨大小写敏感文件系统时的同名冲突。",
@@ -1235,7 +1235,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "比对 #ifndef 与对应 #define；确认宏用途后统一名称，避免盲目添加重复保护或改变条件编译。",
@@ -1271,7 +1271,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "从诊断指向的 #if/#ifdef/#ifndef 检查嵌套与 #endif；恢复正确条件分支，不简单在文件末尾补齐。",
@@ -1307,7 +1307,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "根据 Logos 标记的打开位置核对 %hook/%group/%subclass 的嵌套；先确定闭合位置，不自动在文件末尾追加。",
@@ -1347,7 +1347,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "按 Logos 报告检查当前方法及 %hook/%subclass 作用域，尤其是前面的花括号和 %end；不移动 hook 代码。",
@@ -1383,7 +1383,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "检查 %group 是否应在 %ctor 中以 %init(GroupName) 初始化，并核对条件分支；初始化时机由项目决定。",
@@ -1419,7 +1419,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "查看首次初始化位置，排查自动构造器和显式 %ctor 的重复路径；不要直接删除任一 %init。",
@@ -1455,7 +1455,7 @@
       },
       "applicableVersions": {
         "compiler": "LLVM/Clang 14.x",
-        "app": "TweakForge（包含 upstream-1 规则目录的版本）",
+        "app": "Workbench（包含 upstream-1 规则目录的版本）",
         "platform": "iOS >= 15"
       },
       "explanation": "根据每个 group 的启用条件设计显式 %ctor 和 %init；不默认同时启用全部 hook group。",

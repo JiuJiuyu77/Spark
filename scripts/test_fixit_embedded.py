@@ -4,11 +4,11 @@ from pathlib import Path
 R=Path(__file__).resolve().parents[1];OUT=R/'evidence/0.5.5-rules/embedded-fixit';OUT.mkdir(parents=True,exist_ok=True)
 def run(*args):
  p=subprocess.run(list(map(str,args)),capture_output=True,text=True);assert p.returncode==0,(p.stdout,p.stderr);return p.stdout.strip()
-doc=Path(run('xcrun','simctl','get_app_container','booted','com.xuegao.theosmobilecompiler','data'))/'Documents'
+doc=Path(run('xcrun','simctl','get_app_container','booted','com.HuQing.Workbench','data'))/'Documents'
 with tempfile.TemporaryDirectory(prefix='tmc-fixit-') as tmp:
  root=Path(tmp);(root/'Test.c').write_text('const char *fixit_title = "中文"\n');(root/'MobileCompiler.json').write_text(json.dumps(dict(name='FixItExactByteTest',productName='FixItByte',sources=['Test.c'],package=False)))
  def build():
-  before=set(doc.glob('Build-*'));run('xcrun','simctl','launch','--terminate-running-process','booted','com.xuegao.theosmobilecompiler','--self-test-project','--test-project-path',root)
+  before=set(doc.glob('Build-*'));run('xcrun','simctl','launch','--terminate-running-process','booted','com.HuQing.Workbench','--self-test-project','--test-project-path',root)
   deadline=time.monotonic()+40
   while time.monotonic()<deadline:
    for b in set(doc.glob('Build-*'))-before:

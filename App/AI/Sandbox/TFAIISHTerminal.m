@@ -14,7 +14,7 @@
 #import <WebKit/WebKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
-@interface DylixTerminalPage : UIViewController <WKScriptMessageHandler,WKNavigationDelegate,UIDocumentPickerDelegate>
+@interface WorkbenchTerminalPage : UIViewController <WKScriptMessageHandler,WKNavigationDelegate,UIDocumentPickerDelegate>
 @property NSString *session,*processID,*projectRoot;
 @property uint64_t outputOffset;
 @property NSUInteger pollGeneration;
@@ -28,13 +28,13 @@
 @property NSMutableData *pending;
 @end
 // WKUserContentController retains its handler. Use a weak forwarding object.
-@interface DylixTerminalMessages : NSObject <WKScriptMessageHandler>
-@property(weak) DylixTerminalPage *owner;
+@interface WorkbenchTerminalMessages : NSObject <WKScriptMessageHandler>
+@property(weak) WorkbenchTerminalPage *owner;
 @end
-@implementation DylixTerminalMessages
+@implementation WorkbenchTerminalMessages
 - (void)userContentController:(WKUserContentController *)c didReceiveScriptMessage:(WKScriptMessage *)m{[self.owner userContentController:c didReceiveScriptMessage:m];}
 @end
-@implementation DylixTerminalPage
+@implementation WorkbenchTerminalPage
 - (void)viewDidLoad{
  [super viewDidLoad];if(self.projectRoot!=nil)[TFAIISHRuntime.shared configureProject:self.projectRoot session:self.session];self.overrideUserInterfaceStyle=UIUserInterfaceStyleDark;self.title=self.processID?[NSString stringWithFormat:@"Linux 进程 · %@",[self.processID substringToIndex:MIN(8,self.processID.length)]]:@"Linux 终端";self.view.backgroundColor=[UIColor colorWithRed:16/255.0 green:20/255.0 blue:28/255.0 alpha:1];self.pending=[NSMutableData new];
  UINavigationBarAppearance *bar=[UINavigationBarAppearance new];[bar configureWithOpaqueBackground];bar.backgroundColor=self.view.backgroundColor;bar.titleTextAttributes=@{NSForegroundColorAttributeName:UIColor.whiteColor};self.navigationItem.standardAppearance=bar;self.navigationItem.scrollEdgeAppearance=bar;self.navigationItem.compactAppearance=bar;
@@ -43,7 +43,7 @@
  self.bindingLabel=[UILabel new];self.bindingLabel.font=[UIFont preferredFontForTextStyle:UIFontTextStyleCaption1];self.bindingLabel.textColor=UIColor.labelColor;self.bindingLabel.numberOfLines=2;self.bindingLabel.adjustsFontForContentSizeCategory=YES;self.bindingLabel.accessibilityIdentifier=@"terminal.binding";
  self.directoryLabel=[UILabel new];self.directoryLabel.font=[UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];self.directoryLabel.textColor=UIColor.secondaryLabelColor;self.directoryLabel.lineBreakMode=NSLineBreakByTruncatingMiddle;self.directoryLabel.accessibilityIdentifier=@"terminal.cwd";
  UIStackView *context=[[UIStackView alloc]initWithArrangedSubviews:@[self.bindingLabel,self.directoryLabel]];context.axis=UILayoutConstraintAxisVertical;context.spacing=3;context.accessibilityIdentifier=@"terminal.context";context.userInteractionEnabled=YES;[context addGestureRecognizer:[[UITapGestureRecognizer alloc]initWithTarget:self action:@selector(bindingInfo)]];
- WKWebViewConfiguration *configuration=[WKWebViewConfiguration new];configuration.websiteDataStore=WKWebsiteDataStore.nonPersistentDataStore;DylixTerminalMessages *handler=[DylixTerminalMessages new];handler.owner=self;[configuration.userContentController addScriptMessageHandler:handler name:@"dylixTerminal"];
+ WKWebViewConfiguration *configuration=[WKWebViewConfiguration new];configuration.websiteDataStore=WKWebsiteDataStore.nonPersistentDataStore;WorkbenchTerminalMessages *handler=[WorkbenchTerminalMessages new];handler.owner=self;[configuration.userContentController addScriptMessageHandler:handler name:@"workbenchTerminal"];
  self.web=[[WKWebView alloc]initWithFrame:CGRectZero configuration:configuration];self.web.navigationDelegate=self;self.web.opaque=NO;self.web.backgroundColor=self.view.backgroundColor;self.web.scrollView.scrollEnabled=NO;
  UIView *keys=[UIView new];keys.backgroundColor=[UIColor colorWithWhite:0.09 alpha:1];
  UIScrollView *scroll=[UIScrollView new];scroll.showsHorizontalScrollIndicator=YES;scroll.alwaysBounceHorizontal=YES;scroll.accessibilityLabel=@"终端快捷键，左右滑动查看更多";
@@ -71,21 +71,21 @@
  __weak typeof(self) weak=self;[b addAction:[UIAction actionWithHandler:^(UIAction *a){[weak shortcut:key];}] forControlEvents:UIControlEventTouchUpInside];return b;
 }
 - (void)shortcut:(NSString *)key{
- if([key isEqual:@"keyboard"]){if(self.keyboardVisible)[self.web endEditing:YES];else[self.web evaluateJavaScript:@"window.dylixFocus()" completionHandler:nil];return;}
+ if([key isEqual:@"keyboard"]){if(self.keyboardVisible)[self.web endEditing:YES];else[self.web evaluateJavaScript:@"window.workbenchFocus()" completionHandler:nil];return;}
  if([key isEqual:@"files"]){[self.navigationController pushViewController:TFAIISHFilesController(self.session,self.projectRoot) animated:YES];return;}
  if([key isEqual:@"environment"]){[self.navigationController pushViewController:TFAIISHEnvironmentController(self.session,self.projectRoot) animated:YES];return;}
  if([key isEqual:@"copy"]){[self.web evaluateJavaScript:@"terminal.getSelection()" completionHandler:^(id value,NSError *error){if([value isKindOfClass:NSString.class]&&[value length]){UIPasteboard.generalPasteboard.string=value;self.status.text=@"已复制选中文本";}else self.status.text=@"请先在终端中选择要复制的文本";}];return;}
  NSString *text=[key isEqual:@"paste"]?UIPasteboard.generalPasteboard.string:key;if(!text.length)return;
- NSData *json=[NSJSONSerialization dataWithJSONObject:@[text] options:0 error:nil];NSString *arg=[[NSString alloc]initWithData:json encoding:NSUTF8StringEncoding];NSString *method=[key isEqual:@"paste"]?@"dylixPaste":@"dylixKey";
+ NSData *json=[NSJSONSerialization dataWithJSONObject:@[text] options:0 error:nil];NSString *arg=[[NSString alloc]initWithData:json encoding:NSUTF8StringEncoding];NSString *method=[key isEqual:@"paste"]?@"workbenchPaste":@"workbenchKey";
  [self.web evaluateJavaScript:[NSString stringWithFormat:@"window.%@(%@[0])",method,arg] completionHandler:nil];
 }
 - (void)updateModifiers:(NSDictionary *)value{
  for(NSArray *pair in @[@[self.ctrlButton,@"ctrl"],@[self.altButton,@"alt"]]){UIButton *b=pair[0];BOOL active=[value[pair[1]] boolValue];b.selected=active;b.accessibilityValue=active?@"已启用，下一次按键生效":@"关闭";b.accessibilityTraits=UIAccessibilityTraitButton|(active?UIAccessibilityTraitSelected:0);b.backgroundColor=active?[UIColor colorWithRed:0.18 green:0.39 blue:0.6 alpha:1]:[UIColor colorWithWhite:0.16 alpha:1];}
 }
 - (UIStatusBarStyle)preferredStatusBarStyle{return UIStatusBarStyleLightContent;}
-- (void)dealloc{[self.contextTimer invalidate];[NSNotificationCenter.defaultCenter removeObserver:self];[self.web.configuration.userContentController removeScriptMessageHandlerForName:@"dylixTerminal"];}
+- (void)dealloc{[self.contextTimer invalidate];[NSNotificationCenter.defaultCenter removeObserver:self];[self.web.configuration.userContentController removeScriptMessageHandlerForName:@"workbenchTerminal"];}
 - (void)bytes:(NSNotification *)n{if(self.processID)return;NSData *data=n.userInfo[@"data"];if(self.ready)[self display:data];else{[self.pending appendData:data];if(self.pending.length>256*1024)[self.pending replaceBytesInRange:NSMakeRange(0,self.pending.length-256*1024) withBytes:NULL length:0];}}
-- (void)display:(NSData *)data{if(!data.length)return;NSString *script=[NSString stringWithFormat:@"window.dylixWrite('%@')",[data base64EncodedStringWithOptions:0]];[self.web evaluateJavaScript:script completionHandler:nil];}
+- (void)display:(NSData *)data{if(!data.length)return;NSString *script=[NSString stringWithFormat:@"window.workbenchWrite('%@')",[data base64EncodedStringWithOptions:0]];[self.web evaluateJavaScript:script completionHandler:nil];}
 - (void)state:(NSNotification *)n{if(self.processID)return;self.status.text=[@"Alpine Linux · " stringByAppendingString:n.userInfo[@"state"]?:@""];}
 - (void)keyboard:(NSNotification *)n{CGRect screen=[n.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];CGRect frame=[self.view convertRect:screen fromView:nil];CGFloat overlap=MAX(0,CGRectGetMaxY(self.view.bounds)-CGRectGetMinY(frame)-self.view.safeAreaInsets.bottom);self.keyboardVisible=overlap>0;[self.keyboardButton setTitle:self.keyboardVisible?@"收起":@"键盘" forState:UIControlStateNormal];self.keyboardButton.accessibilityLabel=self.keyboardVisible?@"收起键盘":@"显示键盘";self.bottom.constant=-overlap;[UIView animateWithDuration:[n.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue] animations:^{[self.view layoutIfNeeded];}];}
 - (void)userContentController:(WKUserContentController *)controller didReceiveScriptMessage:(WKScriptMessage *)message{
@@ -103,7 +103,7 @@
 - (void)poll:(NSUInteger)generation{
  if(generation!=self.pollGeneration||!self.view.window)return;__weak typeof(self) weak=self;
  [TFAIISHRuntime.shared performProcess:@"read" arguments:@{@"process_id":self.processID,@"offset":@(self.outputOffset),@"max_bytes":@16384,@"wait_seconds":@0.4} session:self.session completion:^(NSDictionary *r,NSError *e){if(!weak||generation!=weak.pollGeneration)return;if(e){weak.status.text=e.localizedDescription;return;}
-  if([r[@"missed_bytes"] unsignedLongLongValue])[weak display:[@"\r\n[Dylix] 较早输出已滚出缓冲区，仅显示保留部分。\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+  if([r[@"missed_bytes"] unsignedLongLongValue])[weak display:[@"\r\n[Workbench] 较早输出已滚出缓冲区，仅显示保留部分。\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
   NSData *bytes=[r[@"encoding"] isEqual:@"base64"]?[[NSData alloc]initWithBase64EncodedString:r[@"output"] options:0]:[r[@"output"] dataUsingEncoding:NSUTF8StringEncoding];[weak display:bytes];weak.outputOffset=[r[@"next_offset"] unsignedLongLongValue];weak.status.text=[r[@"running"] boolValue]?@"Alpine Linux · 进程运行中": [NSString stringWithFormat:@"进程已结束 · exit %@",r[@"exit_code"]];
   if([r[@"running"] boolValue]||[r[@"has_more"] boolValue])dispatch_after(dispatch_time(DISPATCH_TIME_NOW,250*NSEC_PER_MSEC),dispatch_get_main_queue(),^{[weak poll:generation];});
  }];
@@ -111,7 +111,7 @@
 - (void)refreshContext{__weak typeof(self) weak=self;[TFAIISHRuntime.shared terminalContext:self.session process:self.processID completion:^(NSDictionary *context){if(!weak)return;weak.bindingContext=context;NSString *title=context[@"session_title"];if(!title.length)title=[context[@"local_terminal"] boolValue]?@"设置页本机终端":[@"AI 会话 · " stringByAppendingString:[weak.session substringToIndex:MIN(8,weak.session.length)]];NSString *project=[context[@"project_name"] length]?context[@"project_name"]:@"未关联项目";weak.bindingLabel.text=[NSString stringWithFormat:@"%@ · %@\n%@ · 工具全局共用",title,project,weak.processID?@"命令任务":@"交互终端"];NSString *cwd=context[@"current_directory"];weak.directoryLabel.text=cwd.length?[@"当前目录  " stringByAppendingString:cwd]:[NSString stringWithFormat:@"默认目录  %@%@",context[@"default_directory"],[context[@"running"] boolValue]?@" · 当前目录暂不可读":@" · 未运行"];weak.directoryLabel.accessibilityLabel=weak.directoryLabel.text;}];}
 - (void)connectTerminal{
  if(!self.processID){[TFAIISHRuntime.shared openTerminal:self.session columns:80 rows:24 completion:^(NSError *e){self.status.text=e.localizedDescription?:@"已连接会话终端 · 保留原目录与变量";[self refreshContext];}];return;}
- for(UIViewController *controller in self.navigationController.viewControllers)if([controller isKindOfClass:DylixTerminalPage.class]&&![((DylixTerminalPage *)controller).processID length]&&[((DylixTerminalPage *)controller).session isEqual:self.session]){[self.navigationController popToViewController:controller animated:YES];return;}
+ for(UIViewController *controller in self.navigationController.viewControllers)if([controller isKindOfClass:WorkbenchTerminalPage.class]&&![((WorkbenchTerminalPage *)controller).processID length]&&[((WorkbenchTerminalPage *)controller).session isEqual:self.session]){[self.navigationController popToViewController:controller animated:YES];return;}
  [self.navigationController pushViewController:TFAIISHTerminalControllerWithRoot(self.session,self.projectRoot) animated:YES];
 }
 - (void)bindingInfo{
@@ -129,7 +129,7 @@
 - (void)newProcess:(NSString *)command{
  UIAlertController *prompt=[UIAlertController alertControllerWithTitle:@"新建命令任务" message:@"在共享 Linux 中启动独立 Shell，归属当前会话。从默认工作目录开始，不继承现有终端中的 cd、export 或临时变量；退出 App 后停止。" preferredStyle:UIAlertControllerStyleAlert];[prompt addTextFieldWithConfigurationHandler:^(UITextField *f){f.text=command?:@"/bin/sh -i";f.autocorrectionType=UITextAutocorrectionTypeNo;f.autocapitalizationType=UITextAutocapitalizationTypeNone;}];[prompt addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];[prompt addAction:[UIAlertAction actionWithTitle:@"运行" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){[TFAIISHRuntime.shared performProcess:@"start" arguments:@{@"command":prompt.textFields.firstObject.text?:@""} session:self.session completion:^(NSDictionary *r,NSError *e){if(e)AIAlert(self,@"进程未启动",e.localizedDescription);else[self.navigationController pushViewController:TFAIISHProcessController(self.session,r[@"process_id"]) animated:YES];}];}]];[self presentViewController:prompt animated:YES completion:nil];
 }
-- (void)importProjectCopy{UIAlertController *confirm=[UIAlertController alertControllerWithTitle:@"导入当前项目源码副本？" message:@"仅复制 UTF-8 源码和配置到新的 Linux 子目录，不覆盖已有文件，不修改项目。最多 24 文件、单文件 256 KiB、共 1 MiB；跳过隐藏目录、构建产物、链接及二进制。含疑似密钥时整批停止。修改后仍须审核写回。" preferredStyle:UIAlertControllerStyleAlert];[confirm addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];[confirm addAction:[UIAlertAction actionWithTitle:@"复制源码" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){[TFAIISHRuntime.shared importProjectCopy:self.projectRoot session:self.session completion:^(NSDictionary *r,NSError *e){if(e){AIAlert(self,@"未导入",e.localizedDescription);return;}self.status.text=[NSString stringWithFormat:@"已复制 %@ 个文件 · 跳过 %@ 项",r[@"files"],r[@"skipped"]];[self display:[[NSString stringWithFormat:@"\r\n[Dylix] 项目副本：%@\r\n",r[@"path"]] dataUsingEncoding:NSUTF8StringEncoding]];AIAlert(self,@"源码副本已导入",r[@"path"]);}];}]];[self presentViewController:confirm animated:YES completion:nil];}
+- (void)importProjectCopy{UIAlertController *confirm=[UIAlertController alertControllerWithTitle:@"导入当前项目源码副本？" message:@"仅复制 UTF-8 源码和配置到新的 Linux 子目录，不覆盖已有文件，不修改项目。最多 24 文件、单文件 256 KiB、共 1 MiB；跳过隐藏目录、构建产物、链接及二进制。含疑似密钥时整批停止。修改后仍须审核写回。" preferredStyle:UIAlertControllerStyleAlert];[confirm addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];[confirm addAction:[UIAlertAction actionWithTitle:@"复制源码" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){[TFAIISHRuntime.shared importProjectCopy:self.projectRoot session:self.session completion:^(NSDictionary *r,NSError *e){if(e){AIAlert(self,@"未导入",e.localizedDescription);return;}self.status.text=[NSString stringWithFormat:@"已复制 %@ 个文件 · 跳过 %@ 项",r[@"files"],r[@"skipped"]];[self display:[[NSString stringWithFormat:@"\r\n[Workbench] 项目副本：%@\r\n",r[@"path"]] dataUsingEncoding:NSUTF8StringEncoding]];AIAlert(self,@"源码副本已导入",r[@"path"]);}];}]];[self presentViewController:confirm animated:YES completion:nil];}
 - (void)menu{
  [self.view endEditing:YES];
  UIAlertController *sheet=[UIAlertController alertControllerWithTitle:@"当前会话终端" message:@"工具全局共用，进程归属当前会话。" preferredStyle:UIAlertControllerStyleActionSheet];
@@ -151,7 +151,7 @@
  if(self.projectRoot.length)[sheet addAction:[UIAlertAction actionWithTitle:@"导入当前项目源码副本" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){[self importProjectCopy];}]];
  [sheet addAction:[UIAlertAction actionWithTitle:[TFAIISHRemote allowed:self.session]?@"撤销局域网终端授权":@"局域网终端授权" style:UIAlertActionStyleDefault handler:^(id a){if([TFAIISHRemote allowed:self.session]){[TFAIISHRemote setAllowed:NO session:self.session];AIAlert(self,@"已撤销",@"该会话的远程终端进程已请求停止。");return;}UIAlertController *confirm=[UIAlertController alertControllerWithTitle:@"允许已配对设备访问本会话 Linux？" message:@"仅本机/局域网工作区设备，可启动、输入及读取它创建的 Linux 进程；不能访问其他会话或宿主 Shell。HTTP 传输为明文，私密内容请启用现有 TLS。重启清除授权，可随时撤销；远端仍需确认控制操作。" preferredStyle:UIAlertControllerStyleAlert];[confirm addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];[confirm addAction:[UIAlertAction actionWithTitle:@"授权本会话" style:UIAlertActionStyleDefault handler:^(id a){[TFAIISHRemote setAllowed:YES session:self.session];}]];[self presentViewController:confirm animated:YES completion:nil];}]];
  if(self.processID)[sheet addAction:[UIAlertAction actionWithTitle:@"停止当前进程" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a){[TFAIISHRuntime.shared performProcess:@"stop" arguments:@{@"process_id":self.processID} session:self.session completion:^(NSDictionary *r,NSError *e){self.status.text=e.localizedDescription?:@"进程已停止";}];}]];
- [sheet addAction:[UIAlertAction actionWithTitle:@"清空屏幕" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){[self.web evaluateJavaScript:@"window.dylixClear()" completionHandler:nil];}]];
+ [sheet addAction:[UIAlertAction actionWithTitle:@"清空屏幕" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){[self.web evaluateJavaScript:@"window.workbenchClear()" completionHandler:nil];}]];
  if(!self.processID)[sheet addAction:[UIAlertAction actionWithTitle:@"重开 shell（文件保留）" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a){[TFAIISHRuntime.shared closeTerminal:self.session];[TFAIISHRuntime.shared openTerminal:self.session columns:80 rows:24 completion:^(NSError *e){if(e)AIAlert(self,@"终端未启动",e.localizedDescription);}];}]];
  [sheet addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];sheet.popoverPresentationController.barButtonItem=self.navigationItem.rightBarButtonItems.firstObject;[self presentViewController:sheet animated:YES completion:nil];
 }
@@ -164,9 +164,9 @@
   self.status.text=[@"已保存副本：" stringByAppendingString:result[@"name"]];UIActivityViewController *share=[[UIActivityViewController alloc]initWithActivityItems:@[url] applicationActivities:nil];share.popoverPresentationController.barButtonItem=self.navigationItem.rightBarButtonItems.firstObject;[self presentViewController:share animated:YES completion:nil];
  }];}]];[self presentViewController:prompt animated:YES completion:nil];
 }
-- (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls{NSURL *url=urls.firstObject;if(!url)return;BOOL scope=[url startAccessingSecurityScopedResource];self.status.text=@"正在复制文件到 Linux";[TFAIISHRuntime.shared importFile:url name:url.lastPathComponent session:self.session completion:^(NSDictionary *r,NSError *e){if(scope)[url stopAccessingSecurityScopedResource];self.status.text=e.localizedDescription?:[@"已导入：" stringByAppendingString:r[@"path"]];if(r){NSString *line=[NSString stringWithFormat:@"\r\n[Dylix] 文件副本: %@\r\n",r[@"path"]];[self display:[line dataUsingEncoding:NSUTF8StringEncoding]];}}];}
+- (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls{NSURL *url=urls.firstObject;if(!url)return;BOOL scope=[url startAccessingSecurityScopedResource];self.status.text=@"正在复制文件到 Linux";[TFAIISHRuntime.shared importFile:url name:url.lastPathComponent session:self.session completion:^(NSDictionary *r,NSError *e){if(scope)[url stopAccessingSecurityScopedResource];self.status.text=e.localizedDescription?:[@"已导入：" stringByAppendingString:r[@"path"]];if(r){NSString *line=[NSString stringWithFormat:@"\r\n[Workbench] 文件副本: %@\r\n",r[@"path"]];[self display:[line dataUsingEncoding:NSUTF8StringEncoding]];}}];}
 @end
-UIViewController *TFAIISHProcessController(NSString *sessionID,NSString *processID){DylixTerminalPage *page=[DylixTerminalPage new];page.session=sessionID;page.processID=processID;return page;}
-UIViewController *TFAIISHTerminalController(NSString *sessionID){DylixTerminalPage *p=[DylixTerminalPage new];p.session=sessionID.length?sessionID:@"local-terminal";return p;}
+UIViewController *TFAIISHProcessController(NSString *sessionID,NSString *processID){WorkbenchTerminalPage *page=[WorkbenchTerminalPage new];page.session=sessionID;page.processID=processID;return page;}
+UIViewController *TFAIISHTerminalController(NSString *sessionID){WorkbenchTerminalPage *p=[WorkbenchTerminalPage new];p.session=sessionID.length?sessionID:@"local-terminal";return p;}
 
-UIViewController *TFAIISHTerminalControllerWithRoot(NSString *sessionID,NSString *root){DylixTerminalPage *p=(id)TFAIISHTerminalController(sessionID);p.projectRoot=root;return p;}
+UIViewController *TFAIISHTerminalControllerWithRoot(NSString *sessionID,NSString *root){WorkbenchTerminalPage *p=(id)TFAIISHTerminalController(sessionID);p.projectRoot=root;return p;}

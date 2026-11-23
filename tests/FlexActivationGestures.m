@@ -1,6 +1,6 @@
 #import <UIKit/UIKit.h>
 #import "FLEXManager+ThreeFingerTap.h"
-#import "FLEXDylixTouchDriver.h"
+#import "FLEXWorkbenchTouchDriver.h"
 static NSUInteger ToggleCount,OtherCount;
 static NSMutableArray *Checks;
 @interface FLEXManager (ActivationTests)
@@ -14,7 +14,7 @@ static void Check(BOOL pass,NSString *name){[Checks addObject:@{@"name":name,@"p
 static void Spin(NSTimeInterval delay){NSDate *end=[NSDate dateWithTimeIntervalSinceNow:delay];while(end.timeIntervalSinceNow>0)[NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.01]];}
 static void Hold(UIWindow *window,NSUInteger fingers,NSTimeInterval duration){
  NSMutableArray *paths=[NSMutableArray new];for(NSUInteger i=0;i<fingers;i++){NSValue *p=[NSValue valueWithCGPoint:CGPointMake(60+i*55,230)];[paths addObject:@[p,p]];}
- FLEXDylixTouchDriver *driver=[FLEXDylixTouchDriver new];__block BOOL finished=NO;__block NSString *failure=nil;[driver performPaths:paths window:window duration:duration completion:^(NSDictionary *result,NSString *error){finished=YES;failure=error;}];NSDate *end=[NSDate dateWithTimeIntervalSinceNow:4];while(!finished&&end.timeIntervalSinceNow>0)Spin(.02);if(failure)[Checks addObject:@{@"name":@"touch delivery diagnostic",@"passed":@NO,@"error":failure,@"appState":@(UIApplication.sharedApplication.applicationState),@"window":NSStringFromCGRect(window.bounds),@"backend":[FLEXDylixTouchDriver backendCapabilities]}];Check(finished&&!failure,[NSString stringWithFormat:@"%lu finger %.1fs UIKit event delivery",(unsigned long)fingers,duration]);Spin(.15);
+ FLEXWorkbenchTouchDriver *driver=[FLEXWorkbenchTouchDriver new];__block BOOL finished=NO;__block NSString *failure=nil;[driver performPaths:paths window:window duration:duration completion:^(NSDictionary *result,NSString *error){finished=YES;failure=error;}];NSDate *end=[NSDate dateWithTimeIntervalSinceNow:4];while(!finished&&end.timeIntervalSinceNow>0)Spin(.02);if(failure)[Checks addObject:@{@"name":@"touch delivery diagnostic",@"passed":@NO,@"error":failure,@"appState":@(UIApplication.sharedApplication.applicationState),@"window":NSStringFromCGRect(window.bounds),@"backend":[FLEXWorkbenchTouchDriver backendCapabilities]}];Check(finished&&!failure,[NSString stringWithFormat:@"%lu finger %.1fs UIKit event delivery",(unsigned long)fingers,duration]);Spin(.15);
 }
 @interface ActivationApp : UIResponder <UIApplicationDelegate>
 @property UIWindow *window;

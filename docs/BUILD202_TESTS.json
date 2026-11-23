@@ -40,13 +40,13 @@
           "minimumOS": "15.0",
           "sdk": "iphoneos18.2"
         },
-        "PlugIns/TweakForgeShare.appex/Info.plist": {
+        "PlugIns/WorkbenchShare.appex/Info.plist": {
           "version": "1.0.9",
           "build": "202",
           "minimumOS": "15.0",
           "sdk": null
         },
-        "PlugIns/TweakForgeActivity.appex/Info.plist": {
+        "PlugIns/WorkbenchActivity.appex/Info.plist": {
           "version": "1.0.9",
           "build": "202",
           "minimumOS": "16.2",
@@ -74,13 +74,13 @@
           "minimumOS": "15.0",
           "sdk": "iphoneos26.0"
         },
-        "PlugIns/TweakForgeShare.appex/Info.plist": {
+        "PlugIns/WorkbenchShare.appex/Info.plist": {
           "version": "1.0.9",
           "build": "202",
           "minimumOS": "15.0",
           "sdk": null
         },
-        "PlugIns/TweakForgeActivity.appex/Info.plist": {
+        "PlugIns/WorkbenchActivity.appex/Info.plist": {
           "version": "1.0.9",
           "build": "202",
           "minimumOS": "16.2",

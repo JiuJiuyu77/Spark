@@ -20,7 +20,7 @@ class Handler(BaseHTTPRequestHandler):
   except BrokenPipeError:pass
 server=ThreadingHTTPServer(('127.0.0.1',0),Handler);threading.Thread(target=server.serve_forever,daemon=True).start()
 try:
- with tempfile.TemporaryDirectory(prefix='dylix-balance-') as d:
+ with tempfile.TemporaryDirectory(prefix='workbench-balance-') as d:
   p=Path(d);(p/'UIKit').mkdir();(p/'UIKit/UIKit.h').write_text('#import <Foundation/Foundation.h>\n@class UIViewController;\n')
   binary=p/'tests'
   subprocess.run(['xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk','-I'+str(p),'-fobjc-arc','-fblocks','-Wno-incompatible-pointer-types','-Wno-incomplete-implementation',str(root/'tests/BalanceTests.m'),str(root/'App/AI/Providers/TFAIProviderBalance.m'),'-framework','Foundation','-framework','Security','-o',str(binary)],check=True)

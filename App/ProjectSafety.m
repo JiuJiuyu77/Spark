@@ -5,7 +5,7 @@
 - (NSUInteger)lineAt:(NSUInteger)offset{NSUInteger low=0,high=self.starts.count;while(low<high){NSUInteger middle=(low+high)/2;if([self.starts[middle] unsignedIntegerValue]<=offset)low=middle+1;else high=middle;}return MAX((NSUInteger)1,low);}
 @end
 
-static BOOL Fail(NSError **error, NSInteger code, NSString *message){if(error)*error=[NSError errorWithDomain:@"TweakForge.Files" code:code userInfo:@{NSLocalizedDescriptionKey:message}];return NO;}
+static BOOL Fail(NSError **error, NSInteger code, NSString *message){if(error)*error=[NSError errorWithDomain:@"Workbench.Files" code:code userInfo:@{NSLocalizedDescriptionKey:message}];return NO;}
 NSDictionary *TMCReadDraft(NSString *root){
  NSString *path=[root stringByAppendingPathComponent:@".studio-draft.json"];
  NSDictionary *a=[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];
@@ -30,7 +30,7 @@ BOOL TMCWriteDocument(NSString *path, NSData *expected, NSString *text, NSError 
   if(![current isEqual:expected]){Fail(&failure,409,@"磁盘文件已被其他操作修改，已保留双方内容。请选择处理方式。");return;}
   ok=[[text dataUsingEncoding:NSUTF8StringEncoding] writeToURL:url options:NSDataWritingAtomic error:&failure];
  }];
- if(!ok&&error)*error=failure?:coordination?:[NSError errorWithDomain:@"TweakForge.Files" code:2 userInfo:@{NSLocalizedDescriptionKey:@"保存未完成"}];return ok;
+ if(!ok&&error)*error=failure?:coordination?:[NSError errorWithDomain:@"Workbench.Files" code:2 userInfo:@{NSLocalizedDescriptionKey:@"保存未完成"}];return ok;
 }
 static BOOL Excluded(NSString *relative,BOOL share){
  for(NSString *part in relative.pathComponents){

@@ -23,7 +23,7 @@
 - [OpenMinis ThinkingRuleResolver](https://github.com/OpenMinis/OpenMinis/blob/1a71df0f381cefde80bf912b723de6f9831bc177/src/ios/Providers/Thinking/ThinkingRuleResolver.swift)：用户规则与服务商规则分层，声明的档位约束实际参数。
 - [OpenMinis CopilotModelsAPI](https://github.com/OpenMinis/OpenMinis/blob/1a71df0f381cefde80bf912b723de6f9831bc177/src/ios/Providers/Copilot/CopilotModelsAPI.swift)：保留服务返回的 reasoningEffortValues，而非一律给相同档位。
 - [Kelivo ModelSpecResolver](https://github.com/Chevey339/kelivo/blob/edd184a3324eb68dd9f33af5fd0ef4dddd54b8c0/lib/core/services/model_spec/model_spec_resolver.dart)：override/catalog/guess/vendor/fallback 的逐字段来源；vendor_defaults 区分接口方言。
-- [Codex-X model_catalog](https://github.com/yynxxxxx/Codex-X/blob/02a71fb1eaa7bbccbd574a1bfb563c6077e34698/apps/desktop/src-tauri/src/providers/model_catalog.rs)：给自定义映射提供完整 effort 菜单，实际能力交由服务决定；这属于放开客户端选项，不是能力实测。Dylix 保留手动入口，但不自动宣布每个模型支持所有档位。
+- [Codex-X model_catalog](https://github.com/yynxxxxx/Codex-X/blob/02a71fb1eaa7bbccbd574a1bfb563c6077e34698/apps/desktop/src-tauri/src/providers/model_catalog.rs)：给自定义映射提供完整 effort 菜单，实际能力交由服务决定；这属于放开客户端选项，不是能力实测。Workbench 保留手动入口，但不自动宣布每个模型支持所有档位。
 - [OpenAI reasoning](https://developers.openai.com/api/docs/guides/reasoning)、[DeepSeek thinking](https://api-docs.deepseek.com/guides/thinking_mode)、[Claude adaptive thinking](https://platform.claude.com/docs/en/build-with-claude/adaptive-thinking)、[Gemini thinking](https://ai.google.dev/gemini-api/docs/thinking)：核对实际字段和模型相关限制。官方页面已获取到本地阅读。
 
 ## 验证与边界

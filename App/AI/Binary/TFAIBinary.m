@@ -8,7 +8,7 @@
 #import <CommonCrypto/CommonDigest.h>
 #import <dlfcn.h>
 #import <TargetConditionals.h>
-static NSError *Err(NSString *s){return [NSError errorWithDomain:@"TweakForge.Binary" code:1 userInfo:@{NSLocalizedDescriptionKey:s}];}
+static NSError *Err(NSString *s){return [NSError errorWithDomain:@"Workbench.Binary" code:1 userInfo:@{NSLocalizedDescriptionKey:s}];}
 static id Fail(NSError **e,NSString *s){if(e)*e=Err(s);return nil;}
 static NSData *DecodeHex(NSString *source,BOOL key,NSError **error){
  NSString *field=key?@"key_hex":@"file_offset/byte_count 所选内容";NSString *hint=key?@"请核对已知 XOR 密钥；使用成对十六进制字节，如 00 或 0x00，勿填写普通文本或猜测密钥。":@"encoding=hex 要求文件内存放十六进制文本，并非任意机器码；请核对切片内文件偏移和精确字节长度，排除末尾 NUL。没有编码依据时继续 symbols/strings/disassemble 分析。";
@@ -20,7 +20,7 @@ static NSData *DecodeHex(NSString *source,BOOL key,NSError **error){
 }
 static BOOL Range(NSUInteger total,uint64_t off,uint64_t len){return off<=total&&len<=total-off;}
 static BOOL UUID(id s){return [s isKindOfClass:NSString.class]&&[[NSUUID alloc]initWithUUIDString:s];}
-static NSString *Root(void){return [NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"TweakForgeAI/Binaries"];}
+static NSString *Root(void){return [NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"WorkbenchAI/Binaries"];}
 static NSString *Digest(NSData *d){unsigned char b[32];CC_SHA256(d.bytes,(CC_LONG)d.length,b);NSMutableString *s=[NSMutableString new];for(int i=0;i<32;i++)[s appendFormat:@"%02x",b[i]];return s;}
 static NSString *Hex(uint64_t n){return [NSString stringWithFormat:@"0x%llx",(unsigned long long)n];}
 static BOOL Intersects(uint64_t a,uint64_t n,NSArray *crypt);

@@ -5,9 +5,9 @@ Full Share Extension distribution still requires matching App Group profiles.
 from pathlib import Path
 import tempfile,shutil,subprocess,zipfile,plistlib,json,hashlib
 root=Path(__file__).resolve().parents[1]
-source=root/'build/device/TheosMobileCompiler.app'
+source=root/'build/device/Workbench.app'
 info=plistlib.loads((source/'Info.plist').read_bytes())
-output=root/'build'/f"TweakForge-{info['CFBundleShortVersionString']}-build{info['CFBundleVersion']}-OpenIn-unsigned.ipa"
+output=root/'build'/f"Workbench-{info['CFBundleShortVersionString']}-build{info['CFBundleVersion']}-OpenIn-unsigned.ipa"
 with tempfile.TemporaryDirectory(prefix='tf-openin-') as temp:
  app=Path(temp)/'Payload'/source.name
  shutil.copytree(source,app)

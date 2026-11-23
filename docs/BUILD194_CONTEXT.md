@@ -1,6 +1,6 @@
 # Build 194：工具上下文治理与测试记录
 
-日期：2026-11-05。版本：Dylix 1.0.8 / Build 194，FLEX 插件仍为 1.0.0。
+日期：2026-11-05。版本：Workbench 1.0.8 / Build 194，FLEX 插件仍为 1.0.0。
 
 ## 问题与已确认的根因
 
@@ -22,11 +22,11 @@
 - [OpenMinis](https://github.com/OpenMinis/OpenMinis)，本地核对提交 `1a71df0f381cefde80bf912b723de6f9831bc177`。
   - `src/ios/Agent/Chat/AIChatViewModel+Offloading.swift`：历史参数/结果卸载、回读、避免把占位符写回源码。
   - `AIChatViewModel+Compaction.swift`、`ContextPolicy.swift`、`AIChatViewModel+ContextUsage.swift`：每轮 dispatch 前预算检查、固定上下文与工具定义计入预算、全轮次边界、窗口和累计统计分开。
-  - 没有照搬它的模型窗口阈值、文件系统路径或完整 tokenizer；Dylix 当前未可靠记录所有中转模型的官方窗口，不能猜测为 1M。
+  - 没有照搬它的模型窗口阈值、文件系统路径或完整 tokenizer；Workbench 当前未可靠记录所有中转模型的官方窗口，不能猜测为 1M。
 - [nanoMuse](https://github.com/nano-muse/nanoMuse)，核对提交 `8b32d43c946db2bbef6fae39c48a9fc608ebd8e9`。
   - `nanomuse/agent/context.py`：仅修改请求副本、不拆散工具交换、预算不足时有明确终止。
   - `nanomuse/llm/budget.py`：估算与服务商实际 usage 分开。
-  - 用户只说 Muse，未确认具体仓库；这里只把可核实的 nanoMuse 当补充样本，不声称它就是用户所指项目。它的运行时架构也不同于 Dylix 的 iOS 本机构建。
+  - 用户只说 Muse，未确认具体仓库；这里只把可核实的 nanoMuse 当补充样本，不声称它就是用户所指项目。它的运行时架构也不同于 Workbench 的 iOS 本机构建。
 
 ## 本次实现
 

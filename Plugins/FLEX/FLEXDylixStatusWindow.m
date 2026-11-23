@@ -1,12 +1,12 @@
-#import "FLEXDylixStatusWindow.h"
+#import "FLEXWorkbenchStatusWindow.h"
 
 @interface DXStatusRootController : UIViewController
 @end
 @implementation DXStatusRootController
-- (void)viewDidLayoutSubviews {[super viewDidLayoutSubviews];[(FLEXDylixStatusWindow *)self.view.window clampToSafeArea];}
+- (void)viewDidLayoutSubviews {[super viewDidLayoutSubviews];[(FLEXWorkbenchStatusWindow *)self.view.window clampToSafeArea];}
 @end
 
-@interface FLEXDylixStatusWindow ()
+@interface FLEXWorkbenchStatusWindow ()
 @property (nonatomic) UIButton *capsule;
 @property UILabel *heading, *detail;
 @property UIView *dot;
@@ -14,7 +14,7 @@
 @property BOOL positioned;
 @end
 
-@implementation FLEXDylixStatusWindow
+@implementation FLEXWorkbenchStatusWindow
 - (instancetype)initWithWindowScene:(UIWindowScene *)scene {
  if((self=[super initWithWindowScene:scene]))[self configure];return self;
 }
@@ -29,7 +29,7 @@
  self.capsule.backgroundColor=UIColor.secondarySystemBackgroundColor;self.capsule.layer.cornerRadius=22;
  self.capsule.layer.borderWidth=.5;self.capsule.layer.borderColor=UIColor.separatorColor.CGColor;
  self.capsule.layer.shadowColor=UIColor.blackColor.CGColor;self.capsule.layer.shadowOpacity=.16;self.capsule.layer.shadowRadius=10;self.capsule.layer.shadowOffset=CGSizeMake(0,3);
- self.capsule.accessibilityIdentifier=@"dylix.agent.status";self.capsule.accessibilityHint=@"轻点返回同一 AI 会话，可拖动调整位置";
+ self.capsule.accessibilityIdentifier=@"workbench.agent.status";self.capsule.accessibilityHint=@"轻点返回同一 AI 会话，可拖动调整位置";
  [self.capsule addTarget:self action:@selector(openTapped) forControlEvents:UIControlEventTouchUpInside];
  [self.capsule addGestureRecognizer:[[UIPanGestureRecognizer alloc]initWithTarget:self action:@selector(pan:)]];
  self.dot=[[UIView alloc]initWithFrame:CGRectMake(12,14,6,6)];self.dot.layer.cornerRadius=3;self.dot.userInteractionEnabled=NO;
@@ -47,7 +47,7 @@
 }
 - (void)updateTitle:(NSString *)title detail:(NSString *)detail color:(UIColor *)color busy:(BOOL)busy {
  self.heading.text=title;self.detail.text=detail;self.dot.backgroundColor=color;self.spinner.color=color;
- self.capsule.accessibilityLabel=[NSString stringWithFormat:@"Dylix AI，%@，%@",title,detail];
+ self.capsule.accessibilityLabel=[NSString stringWithFormat:@"Workbench AI，%@，%@",title,detail];
  if(busy&&!UIAccessibilityIsReduceMotionEnabled())[self.spinner startAnimating];else[self.spinner stopAnimating];
  [self clampToSafeArea];
 }

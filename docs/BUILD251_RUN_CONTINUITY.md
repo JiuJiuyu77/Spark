@@ -5,7 +5,7 @@
 ## OpenMinis 对照
 
 核对仓库 https://github.com/OpenMinis/OpenMinis ，HEAD `1a71df0f381cefde80bf912b723de6f9831bc177`。
-阅读 `src/ios/Agent/Chat/AIChatViewModel+PromptQueue.swift` 的独占 drain、晚到消息交接，以及 `AIChatViewModel+BackgroundTask.swift` 的后台到期挂起与恢复处理。使用 Dylix 原有 Objective-C runtime 实现，未复制上游 Swift。
+阅读 `src/ios/Agent/Chat/AIChatViewModel+PromptQueue.swift` 的独占 drain、晚到消息交接，以及 `AIChatViewModel+BackgroundTask.swift` 的后台到期挂起与恢复处理。使用 Workbench 原有 Objective-C runtime 实现，未复制上游 Swift。
 
 ## 改动
 

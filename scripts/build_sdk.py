@@ -17,7 +17,7 @@ def select_sdk(platform, installed, bundled, explicit=None):
         if int(sdk_settings(chosen)['Version'].split('.')[0]) < 26:
             chosen = pathlib.Path(bundled)
             if not chosen.is_dir() or int(sdk_settings(chosen)['Version'].split('.')[0]) < 26:
-                raise ValueError('Device builds require an iOS 26+ SDK by default. Set DYLIX_SDK_26_0 or --sdk-root; refusing a silent older-SDK release.')
+                raise ValueError('Device builds require an iOS 26+ SDK by default. Set WORKBENCH_SDK_26_0 or --sdk-root; refusing a silent older-SDK release.')
     settings = sdk_settings(chosen)
     if platform not in settings.get('SupportedTargets', {}):
         raise ValueError('SDK platform does not match build target: ' + platform)

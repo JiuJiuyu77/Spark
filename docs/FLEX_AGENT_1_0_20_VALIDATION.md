@@ -1,4 +1,4 @@
-# FLEX 1.0.20 / Dylix 1.0.7 build188
+# FLEX 1.0.20 / Workbench 1.0.7 build188
 
 日期：2026-11-05。
 
@@ -33,7 +33,7 @@ FLEX 发送上下文同步更新：收起后有状态悬浮球；触摸前确认
 3. 旧 live ID 过期后重新查询是正确恢复，单次过期不能归因于 Logos 或 Hook；需要比较新旧签名、实例及页面状态。
 4. 报告前段截图/窗口尺寸与末段截图尺寸有出入，应区分窗口逻辑点和压缩图片像素。报告未提供截图变换关系，不能把不同尺寸说成相同。
 5. 首次手势被覆盖层拒绝，重新最小化后可操作。报告不足以确定是谁再次显示覆盖层；本期改善状态可见性与诊断，不虚称已经复现并根治自动重新显示问题。
-6. 构建没有执行，所以构建 ID、产物即时索引及手机文件页刷新在该轮均未验收。新目录不等于新构建项目；当前 build_project 无目录覆盖参数。可在 Dylix 新建独立测试项目，再由 FLEX 选择它后测试，不修改业务根配置。
+6. 构建没有执行，所以构建 ID、产物即时索引及手机文件页刷新在该轮均未验收。新目录不等于新构建项目；当前 build_project 无目录覆盖参数。可在 Workbench 新建独立测试项目，再由 FLEX 选择它后测试，不修改业务根配置。
 
 ## 验证
 
@@ -41,13 +41,13 @@ FLEX 发送上下文同步更新：收起后有状态悬浮球；触摸前确认
 - 新增覆盖：悬浮球可见、非 key、触摸穿透、点击返回原会话、拖动边界、真实事件驱动的控制提醒/构建/回复/审批状态、旧事件忽略、长时间无更新、断线、前后台切换，以及目标窗口排除悬浮球。
 - 既有模型精确选择、会话授权隔离、真实触摸、滚动边界、工具页导航、停止与迟到审批等回归保留。
 - 浅色/深色 UIKit 渲染图已检查，保留在交付目录。
-- FLEX release arm64 rootless dylib/deb 构建；Dylix iPhoneOS 26.0 SDK、最低 iOS 15 构建与内置产物哈希验证随交付检查。
+- FLEX release arm64 rootless dylib/deb 构建；Workbench iPhoneOS 26.0 SDK、最低 iOS 15 构建与内置产物哈希验证随交付检查。
 
 测试使用本地 UIKit 夹具和模拟响应，不代表已经在红果真机注入本次新插件。当前版本仍需要真机检查宿主导航、悬浮球位置和长期任务状态；不会将静态声明标记冒充实际生命周期执行验证。
 
 ## 修改位置
 
-- FLEX/FLEXDylixStatusWindow.h/.m（新增）。
-- FLEX/FLEXDylixChatViewController.m、FLEXDylixRuntime.m、Makefile。
+- FLEX/FLEXWorkbenchStatusWindow.h/.m（新增）。
+- FLEX/FLEXWorkbenchChatViewController.m、FLEXWorkbenchRuntime.m、Makefile。
 - tests/FlexAgentUISmoke.m、FlexAgentUISmokeRun.py。
 - scripts/build.py、Resources/FLEXPlugin/manifest.json 及 1.0.20 插件。

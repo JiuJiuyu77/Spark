@@ -10,7 +10,7 @@ with tempfile.TemporaryDirectory(prefix='tf80-sdk-') as tmp:
     run('xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX15.2.sdk','-fobjc-arc','-framework','Foundation','-larchive',R/'tests/SDKResourcesHarness.m',R/'App/SDKResources.m',R/'App/AI/Resources/DXResourceStore.m',R/'App/ArchiveImport.m',R/'App/TheosMakefile.m','-o',exe)
     app=t/'Fixture.app';app.mkdir()
     (app/'Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier':'local.sdk.fixture','CFBundlePackageType':'APPL'}))
-    built=R/'build/device/TheosMobileCompiler.app'
+    built=R/'build/device/Workbench.app'
     for name in ['SDK.zip','SDKResource.plist']:shutil.copy2(built/name,app/name)
     cache=t/'cache';path=pathlib.Path(run(exe,app,cache));marker=path/'.complete'
     stamp=marker.stat().st_mtime_ns
@@ -28,10 +28,10 @@ with tempfile.TemporaryDirectory(prefix='tf80-sdk-') as tmp:
     (app/'SDK.zip').write_bytes(raw);(app/'SDKResource.plist').write_bytes(plistlib.dumps({'sha256':'../invalid'}));run(exe,app,cache,ok=False)
     # Reproduce the original signer failure, then scan the fixed whole app.
     old=t/'old';old.mkdir()
-    with zipfile.ZipFile(R/'build/TweakForge-1.0.1-build79-unsigned.ipa') as z:z.extractall(old)
-    run('ldid','-S',old/'Payload/TheosMobileCompiler.app',ok=False)
-    fixed=t/'fixed';shutil.copytree(built,fixed/'TheosMobileCompiler.app')
-    run('ldid','-S',fixed/'TheosMobileCompiler.app')
+    with zipfile.ZipFile(R/'build/Workbench-1.0.1-build79-unsigned.ipa') as z:z.extractall(old)
+    run('ldid','-S',old/'Payload/Workbench.app',ok=False)
+    fixed=t/'fixed';shutil.copytree(built,fixed/'Workbench.app')
+    run('ldid','-S',fixed/'Workbench.app')
     # Verify the deliverable's Apple ad-hoc signature, before third-party signing.
     # macOS codesign is not a verifier for every ldid/iOS signature format.
     run('codesign','--verify','--deep','--strict',built)

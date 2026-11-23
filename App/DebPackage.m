@@ -46,7 +46,7 @@ static la_ssize_t gzipWrite(struct archive *archive, void *context, const void *
     return (la_ssize_t)length;
 }
 static NSData *gzipTar(NSData *tar, NSError **error) {
-    // Use the system libarchive already linked by Dylix; no subprocess or new dependency.
+    // Use the system libarchive already linked by Workbench; no subprocess or new dependency.
     NSMutableData *compressed = [NSMutableData data];
     struct archive *writer = archive_write_new();
     struct archive_entry *entry = archive_entry_new();

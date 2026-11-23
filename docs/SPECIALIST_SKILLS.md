@@ -1,6 +1,6 @@
 # 插件开发与逆向技能（Build223）
 
-不新增通用技能市场；沿用 Agent 能力中的技能入口与 `.dylix/skills/<id>/SKILL.md`。内置正文扩充到 11 项，面向实际工具链：
+不新增通用技能市场；沿用 Agent 能力中的技能入口与 `.workbench/skills/<id>/SKILL.md`。内置正文扩充到 11 项，面向实际工具链：
 
 1. theos-logos：工程配置、Objective-C/Objective-C++、Logos、ABI、编译诊断。
 2. hook-template：控件归属、生命周期、视图复用、最小 Hook 与宿主验证。

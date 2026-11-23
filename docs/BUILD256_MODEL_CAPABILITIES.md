@@ -2,7 +2,7 @@
 
 ## 排查结论
 
-Dylix 原实现仍有三条不一致的限制：切换模型会先发送文本探测，未知图片能力不能使用部分截图工具，只声明支持 reasoning 而未列出档位的模型可能不显示控制项。另有快捷诊断失败覆盖此前成功证据的问题。
+Workbench 原实现仍有三条不一致的限制：切换模型会先发送文本探测，未知图片能力不能使用部分截图工具，只声明支持 reasoning 而未列出档位的模型可能不显示控制项。另有快捷诊断失败覆盖此前成功证据的问题。
 
 参考已核对的 OpenMinis revision `1a71df0f381cefde80bf912b723de6f9831bc177`：
 
@@ -10,7 +10,7 @@ Dylix 原实现仍有三条不一致的限制：切换模型会先发送文本�
 - `ModelsDevAPI.swift` 使用 models.dev 补充声明，区分当前供应商与跨供应商参考。
 - `Thinking/ThinkingRuleResolver.swift` 根据端点、模型声明和族规则适配参数，没有“必须通过付费探测才能解锁”的统一要求。
 
-Dylix 继续使用 UIKit / Objective-C 自身实现，没有移植 Minis 的整个 Swift 运行时。能力目录从其固定 models.dev 快照生成，保留原 MIT 声明与来源摘要。
+Workbench 继续使用 UIKit / Objective-C 自身实现，没有移植 Minis 的整个 Swift 运行时。能力目录从其固定 models.dev 快照生成，保留原 MIT 声明与来源摘要。
 
 ## 新行为
 

@@ -32,9 +32,9 @@ static inline NSString *TMCDocumentProjectName(NSString *root){
 static inline NSString *TMCDocumentInputName(NSString *docs,NSString *identifier){
  NSDictionary *meta=TMCDocumentJSON([[[docs stringByAppendingPathComponent:@"AIClassDumpInputs"] stringByAppendingPathComponent:identifier] stringByAppendingPathComponent:@"metadata.json"]);
  NSString *name=meta[@"name"];if([name isKindOfClass:NSString.class]&&name.length)return name;
- meta=TMCDocumentJSON([[docs stringByAppendingPathComponent:[@"ClassDump-" stringByAppendingString:identifier]] stringByAppendingPathComponent:@".tweakforge-display-name.json"]);name=meta[@"name"];if([name isKindOfClass:NSString.class]&&name.length)return name;
+ meta=TMCDocumentJSON([[docs stringByAppendingPathComponent:[@"ClassDump-" stringByAppendingString:identifier]] stringByAppendingPathComponent:@".workbench-display-name.json"]);name=meta[@"name"];if([name isKindOfClass:NSString.class]&&name.length)return name;
  NSString *support=NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject;
- meta=TMCDocumentJSON([[[support stringByAppendingPathComponent:@"TweakForgeAI/Binaries"] stringByAppendingPathComponent:identifier] stringByAppendingPathComponent:@"metadata.json"]);name=meta[@"name"];return [name isKindOfClass:NSString.class]&&name.length?name:@"应用";
+ meta=TMCDocumentJSON([[[support stringByAppendingPathComponent:@"WorkbenchAI/Binaries"] stringByAppendingPathComponent:identifier] stringByAppendingPathComponent:@"metadata.json"]);name=meta[@"name"];return [name isKindOfClass:NSString.class]&&name.length?name:@"应用";
 }
 static inline NSString *TMCDocumentDisplayName(NSString *path){
  NSString *raw=path.lastPathComponent;NSDictionary *meta=TMCDocumentJSON([path stringByAppendingPathComponent:@"receipt.json"]);NSString *name=meta[@"name"];if([name isKindOfClass:NSString.class]&&name.length)return name;
@@ -62,7 +62,7 @@ static inline NSDictionary *TMCDocumentPresentIncoming(NSString *docs,NSDictiona
 }
 static inline BOOL TMCDocumentCopyOnce(NSString *source,NSString *target,NSError **error){
  NSFileManager *fm=NSFileManager.defaultManager;if(!TMCRegularDocument(source,NO))return NO;if([fm fileExistsAtPath:target])return TMCRegularDocument(target,NO);
- NSString *staging=[target.stringByDeletingLastPathComponent stringByAppendingPathComponent:[@".dylix-export-" stringByAppendingString:NSUUID.UUID.UUIDString]];if(![fm copyItemAtPath:source toPath:staging error:error]){[fm removeItemAtPath:staging error:nil];return NO;}
+ NSString *staging=[target.stringByDeletingLastPathComponent stringByAppendingPathComponent:[@".workbench-export-" stringByAppendingString:NSUUID.UUID.UUIDString]];if(![fm copyItemAtPath:source toPath:staging error:error]){[fm removeItemAtPath:staging error:nil];return NO;}
  BOOL ok=[fm moveItemAtPath:staging toPath:target error:error];if(!ok)[fm removeItemAtPath:staging error:nil];return ok;
 }
 static inline BOOL TMCDocumentPublishBuild(NSString *docs,NSString *build,NSError **error){
@@ -74,12 +74,12 @@ static inline BOOL TMCDocumentPublishBuild(NSString *docs,NSString *build,NSErro
  if(!files.count)return YES;
  NSDictionary *owner=TMCDocumentJSON([build stringByAppendingPathComponent:@".studio-cache-owner.json"]);NSString *name=TMCDocumentProjectName(owner[@"project"]);if(!name.length)name=[files.firstObject stringByDeletingPathExtension];
  NSString *parent=[docs stringByAppendingPathComponent:@"构建产物"];if(!TMCDocumentUserDirectory(parent,error))return NO;
- NSString *saved=TMCDocumentJSON([build stringByAppendingPathComponent:@".dylix-published-name.json"])[@"name"];if(![saved isKindOfClass:NSString.class]||![saved isEqual:saved.lastPathComponent]||[saved hasPrefix:@"."])saved=nil;
+ NSString *saved=TMCDocumentJSON([build stringByAppendingPathComponent:@".workbench-published-name.json"])[@"name"];if(![saved isKindOfClass:NSString.class]||![saved isEqual:saved.lastPathComponent]||[saved hasPrefix:@"."])saved=nil;
  NSString *visible=saved?:[NSString stringWithFormat:@"%@ · %@ · %@",TMCDocumentSafeName(name),TMCDocumentStamp(build),[[id substringFromIndex:6] substringToIndex:8]],*dest=[parent stringByAppendingPathComponent:visible];
  if(saved&&![fm fileExistsAtPath:dest])return YES; // A user-removed export must not grow back on every launch.
  if(!TMCDocumentUserDirectory(dest,error))return NO;
  for(NSString *file in [files arrayByAddingObjectsFromArray:@[@"build.log",@"report.json"]]){NSString *source=[build stringByAppendingPathComponent:file],*target=[dest stringByAppendingPathComponent:[@{@"build.log":@"构建日志.txt",@"report.json":@"构建报告.json"} objectForKey:file]?:file];if(!TMCRegularDocument(source,NO))continue;if([fm fileExistsAtPath:target]){if(!TMCRegularDocument(target,NO))return NO;continue;}if(!TMCDocumentCopyOnce(source,target,error))return NO;}
- [[NSJSONSerialization dataWithJSONObject:@{@"name":visible} options:0 error:nil] writeToFile:[build stringByAppendingPathComponent:@".dylix-published-name.json"] atomically:YES];return YES;
+ [[NSJSONSerialization dataWithJSONObject:@{@"name":visible} options:0 error:nil] writeToFile:[build stringByAppendingPathComponent:@".workbench-published-name.json"] atomically:YES];return YES;
  }
 }
 static inline BOOL TMCDocumentPublishHeaders(NSString *docs,NSString *identifier,NSString *name,NSString *zip,NSError **error){
@@ -100,5 +100,5 @@ static inline void TMCPrepareDocumentPresentation(NSString *docs){
  NSString *incoming=[docs stringByAppendingPathComponent:@"Incoming"];if(TMCRegularDocument(incoming,YES)&&[incoming.stringByResolvingSymlinksInPath isEqual:[docs.stringByResolvingSymlinksInPath stringByAppendingPathComponent:@"Incoming"]])for(NSString *id in [fm contentsOfDirectoryAtPath:incoming error:nil])if(TMCDocumentUUID(id)){NSDictionary *record=TMCDocumentJSON([[incoming stringByAppendingPathComponent:id] stringByAppendingPathComponent:@"receipt.json"]);if([record[@"id"] isEqual:id])TMCDocumentPresentIncoming(docs,record,nil);}
  NSString *exports=[docs stringByAppendingPathComponent:@"ClassDumpExports"];if(TMCRegularDocument(exports,YES))for(NSString *file in [fm contentsOfDirectoryAtPath:exports error:nil])if([file.pathExtension isEqual:@"zip"]&&TMCDocumentUUID(file.stringByDeletingPathExtension))TMCDocumentPublishHeaders(docs,file.stringByDeletingPathExtension,TMCDocumentInputName(docs,file.stringByDeletingPathExtension),[exports stringByAppendingPathComponent:file],nil);
  NSString *readme=[docs stringByAppendingPathComponent:@"文件分类说明.txt"];
- if(![fm fileExistsAtPath:readme])[@"Dylix 文件分类\n\nProjects：项目源码。\n接收文件：收到的原文件，按原文件名、时间归档。\n构建产物：按项目、时间整理的 deb、dylib 和构建记录。\n头文件导出：按原应用名称整理的头文件 ZIP。\n\n内部编号不是乱码。构建快照、分析副本及历史导入工作目录已从普通浏览隐藏，原始路径和会话引用保持不变；可在 Dylix 的项目、会话文件及设置 → 存储空间中访问或清理。历史导入源码仍由项目列表管理。这里的产物是独立导出副本，不会因自动构建缓存清理而丢失。\n" writeToFile:readme atomically:YES encoding:NSUTF8StringEncoding error:nil];
+ if(![fm fileExistsAtPath:readme])[@"Workbench 文件分类\n\nProjects：项目源码。\n接收文件：收到的原文件，按原文件名、时间归档。\n构建产物：按项目、时间整理的 deb、dylib 和构建记录。\n头文件导出：按原应用名称整理的头文件 ZIP。\n\n内部编号不是乱码。构建快照、分析副本及历史导入工作目录已从普通浏览隐藏，原始路径和会话引用保持不变；可在 Workbench 的项目、会话文件及设置 → 存储空间中访问或清理。历史导入源码仍由项目列表管理。这里的产物是独立导出副本，不会因自动构建缓存清理而丢失。\n" writeToFile:readme atomically:YES encoding:NSUTF8StringEncoding error:nil];
 }

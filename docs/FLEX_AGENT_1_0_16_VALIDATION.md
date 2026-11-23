@@ -1,10 +1,10 @@
-# FLEX 1.0.16 / Dylix 1.0.7 build 184
+# FLEX 1.0.16 / Workbench 1.0.7 build 184
 
 ## 本轮变更
 
 - 完整移除 DXAgentBubbleWindow、悬浮条、拖动、悬浮恢复和停止按钮。
-- 手动收起聊天回到原生 FLEX 菜单。会话 controller / navigation 仍由 FLEXExplorerViewController.dylixNavigation 持有，连接、同一 sessionID、jobID、任务和轮询不暂停。
-- 点击原菜单 Dylix AI 时重用同一聊天，并在 viewDidAppear 清除收起标志。AI 仍可用 restore_chat 恢复会话。
+- 手动收起聊天回到原生 FLEX 菜单。会话 controller / navigation 仍由 FLEXExplorerViewController.workbenchNavigation 持有，连接、同一 sessionID、jobID、任务和轮询不暂停。
+- 点击原菜单 Workbench AI 时重用同一聊天，并在 viewDidAppear 清除收起标志。AI 仍可用 restore_chat 恢复会话。
 - AI 要操作目标 App 时，minimize_chat(surface=target) 仍隐藏 FLEX 覆盖层，不遮挡目标触摸；不创建任何替代悬浮窗。
 - chat_status.minimized 使用独立状态；不再以悬浮窗是否存在判断。
 - 更新发送给 AI 的操作说明：从原 FLEX 菜单返回；无 controlActions 或 hit_test 命中父容器时继续检查交互归属，不能草率写全局 UIButton Hook；测试不能因为其他项目通过而跳过。

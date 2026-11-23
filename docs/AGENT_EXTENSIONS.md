@@ -20,7 +20,7 @@ OAuth诊断不保存响应正文、底层网络错误或令牌；令牌不写Use
 
 ## 技能
 
-会话菜单 → 通用 Agent，或AI设置 → 通用 Agent。四份随App分发的文本技能：Theos/Logos、Hook模板、deb打包、Mach-O分析。首次使用可安装至当前项目`.dylix/skills/<id>/SKILL.md`；已有同名目录原样保留，项目版本优先。
+会话菜单 → 通用 Agent，或AI设置 → 通用 Agent。四份随App分发的文本技能：Theos/Logos、Hook模板、deb打包、Mach-O分析。首次使用可安装至当前项目`.workbench/skills/<id>/SKILL.md`；已有同名目录原样保留，项目版本优先。
 
 SKILL.md以简单frontmatter声明`name`、`description`，其后是正文。清单元数据进入独立上下文，正文仅在模型调用`agent_skill_read`时读取。脚本不执行；文本不授予写项目、Git或构建权限。越界和外部符号链接被拒绝。没有添加新的人设正文，旧人设数据及目录保持原样。
 
@@ -36,7 +36,7 @@ SKILL.md以简单frontmatter声明`name`、`description`，其后是正文。清
 
 导入 → 发现工具 → 审核并逐项启用只读查询 → 在目标会话开启服务器。全局设置页没有会话开关权限；从会话进入可配置对应会话。重启后会话启用状态关闭，重新发现后再启用；服务配置和逐项允许列表保留。重新导入会清除缓存、工具允许列表和会话启用状态，要求重新审核。
 
-只接受明确readOnlyHint=true、destructiveHint=false的工具，额外拒绝写入/执行/构建/Git等名称与写SQL参数。工具默认不开放。服务端声明不是可信证明，用户须审核服务器与工具；远端只读承诺最终由该服务器执行。MCP没有本机文件/构建/Git桥接权限；这些操作继续走原Dylix工具和审批。结果标记为远端参考数据，不作为操作授权。
+只接受明确readOnlyHint=true、destructiveHint=false的工具，额外拒绝写入/执行/构建/Git等名称与写SQL参数。工具默认不开放。服务端声明不是可信证明，用户须审核服务器与工具；远端只读承诺最终由该服务器执行。MCP没有本机文件/构建/Git桥接权限；这些操作继续走原Workbench工具和审批。结果标记为远端参考数据，不作为操作授权。
 
 ## 只读 JS 浏览
 
@@ -48,7 +48,7 @@ SKILL.md以简单frontmatter声明`name`、`description`，其后是正文。清
 
 项目根目录MEMORY.md可在通用Agent页面编辑，用于记录已确认架构、SDK和已知坑。不覆盖现有文件；保存用内容指纹检测其他编辑器的修改，并复用Git写租约。模型可按现有项目读取权限按需读取，记忆正文不自动塞入system。
 
-超过80条消息或192KB的长上下文，按角色截取早期记录至`.dylix/summaries/<会话UUID>.md`，后续请求保留最近8次用户发言及完整工具轮次。此处是确定性的本地截取记录，不是模型生成的语义摘要；不调用额外模型，也不自动上传摘要文件。保存失败则继续保留全部上下文。完整UI/落盘聊天历史独立保留，不因请求压缩而截断。
+超过80条消息或192KB的长上下文，按角色截取早期记录至`.workbench/summaries/<会话UUID>.md`，后续请求保留最近8次用户发言及完整工具轮次。此处是确定性的本地截取记录，不是模型生成的语义摘要；不调用额外模型，也不自动上传摘要文件。保存失败则继续保留全部上下文。完整UI/落盘聊天历史独立保留，不因请求压缩而截断。
 
 ## 构建队列与检查点
 
@@ -65,7 +65,7 @@ SKILL.md以简单frontmatter声明`name`、`description`，其后是正文。清
 - 服务声明：Resources/AIProviders；协议目录入口：App/AI/Providers/TFAIRegistry。
 - OAuth：App/AI/Providers/TFAIOAuth；传输：TFAITransport；连接：TFAIConnections。
 - Agent：App/AI/Agent；runtime接入：App/AI/Core/AIRuntime.m；原工具schema和审批文件保持原哈希。
-- 本机配置：Application Support/DylixAgent/mcp.json、build-queue.json；MCP鉴权头及OAuth令牌分别存钥匙串。
+- 本机配置：Application Support/WorkbenchAgent/mcp.json、build-queue.json；MCP鉴权头及OAuth令牌分别存钥匙串。
 - 原项目、技能、记忆、人设目录均无清空或重置迁移。
 
 ## 参考依据

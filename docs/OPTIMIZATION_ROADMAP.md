@@ -1,6 +1,6 @@
-# Dylix 工作台优化任务清单
+# Workbench 工作台优化任务清单
 
-依据用户提供《Dylix优化建议方案.md》（2026-11-09），基线3ce60422 / Build225。此文件是执行台账；未通过验收的事项不计完成。参考交互和架构，用Objective-C/UIKit重写，不复制Kelivo AGPL代码。
+依据用户提供《Workbench优化建议方案.md》（2026-11-09），基线3ce60422 / Build225。此文件是执行台账；未通过验收的事项不计完成。参考交互和架构，用Objective-C/UIKit重写，不复制Kelivo AGPL代码。
 
 ## 先核实的差异
 

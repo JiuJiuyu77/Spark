@@ -19,15 +19,15 @@ def digest(path):
 def run(*args):
     return subprocess.check_output(list(map(str, args)), text=True).strip()
 
-ipa = ROOT / 'build/Dylix-1.1.1-build247-unsigned.ipa'
-app = ROOT / 'build/device/TheosMobileCompiler.app'
+ipa = ROOT / 'build/Workbench-1.1.1-build247-unsigned.ipa'
+app = ROOT / 'build/device/Workbench.app'
 with zipfile.ZipFile(ipa) as archive:
     assert archive.testzip() is None
     names = archive.namelist()
     assert not any(name.endswith(('developer-tools.tar', 'reverse-tools.tar', '/SDK26.zip')) or '/GuestTools/' in name for name in names)
     for required in ['SDK.zip', 'SDKResource.plist', 'SDK26Resource.plist', 'DownloadResources.json']:
-        assert f'Payload/TheosMobileCompiler.app/{required}' in names, required
-    info = plistlib.loads(archive.read('Payload/TheosMobileCompiler.app/Info.plist'))
+        assert f'Payload/Workbench.app/{required}' in names, required
+    info = plistlib.loads(archive.read('Payload/Workbench.app/Info.plist'))
     assert info['CFBundleShortVersionString'] == '1.1.1'
     assert str(info['CFBundleVersion']) == '247'
     assert info['DTSDKName'] == 'iphoneos26.0'
@@ -35,11 +35,11 @@ with zipfile.ZipFile(ipa) as archive:
 catalog = json.loads((ROOT / 'Resources/DownloadResources.json').read_text())
 assert json.loads((app / 'DownloadResources.json').read_text()) == catalog
 for entry in catalog:
-    path = ROOT / 'build/website-resources247/downloads/dylix/v1' / entry['file']
+    path = ROOT / 'build/website-resources247/downloads/workbench/v1' / entry['file']
     assert path.stat().st_size == entry['bytes']
     assert digest(path) == entry['sha256']
 
-with tempfile.TemporaryDirectory(prefix='dylix247-sdk-') as temporary:
+with tempfile.TemporaryDirectory(prefix='workbench247-sdk-') as temporary:
     tmp = Path(temporary)
     exe = tmp / 'sdk'
     sdk = '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk'
@@ -57,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix='dylix247-sdk-') as temporary:
     assert marker.stat().st_mtime_ns == before
 
 run('codesign', '--verify', '--deep', '--strict', app)
-previous = ROOT / 'build/Dylix-1.1.1-build246-unsigned.ipa'
+previous = ROOT / 'build/Workbench-1.1.1-build246-unsigned.ipa'
 result = dict(passed=True, build=247, version='1.1.1', sdk=info['DTSDKName'],
               ipaBytes=ipa.stat().st_size, ipaSHA256=digest(ipa),
               previousIPABytes=previous.stat().st_size,

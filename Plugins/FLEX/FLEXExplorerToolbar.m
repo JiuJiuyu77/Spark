@@ -45,7 +45,7 @@
 @property (nonatomic, readwrite) FLEXExplorerToolbarItem *decryptItem;
 @property (nonatomic, readwrite) FLEXExplorerToolbarItem *filzaItem;
 @property (nonatomic, readwrite) FLEXExplorerToolbarItem *protectionItem;
-@property (nonatomic, readwrite) FLEXExplorerToolbarItem *dylixItem;
+@property (nonatomic, readwrite) FLEXExplorerToolbarItem *workbenchItem;
 @property (nonatomic) UIView *secondRowBackground;
 
 @end
@@ -99,7 +99,7 @@
         self.decryptItem    = [FLEXExplorerToolbarItem itemWithTitle:@"抓取" image:[UIImage systemImageNamed:@"lock.open.fill"]];
         self.filzaItem      = [FLEXExplorerToolbarItem itemWithTitle:@"Filza" image:[UIImage systemImageNamed:@"folder.fill"]];
         self.protectionItem = [FLEXExplorerToolbarItem itemWithTitle:@"保护" image:[UIImage systemImageNamed:@"shield.fill"]];
-        self.dylixItem = [FLEXExplorerToolbarItem itemWithTitle:@"Dylix AI" image:[UIImage systemImageNamed:@"bubble.left.and.bubble.right.fill"]];
+        self.workbenchItem = [FLEXExplorerToolbarItem itemWithTitle:@"Workbench AI" image:[UIImage systemImageNamed:@"bubble.left.and.bubble.right.fill"]];
 
         // Selected view box //
         
@@ -125,7 +125,7 @@
         self.toolbarItems = @[_globalsItem, _hierarchyItem, _selectItem, _recentItem, _moveItem, _closeItem];
         
         // secondRowItems - 第二行（拖动手柄 + 6 个按钮）
-        self.secondRowItems = @[_classdumpItem, _disassemblerItem, _decryptItem, _filzaItem, _protectionItem, _dylixItem];
+        self.secondRowItems = @[_classdumpItem, _disassemblerItem, _decryptItem, _filzaItem, _protectionItem, _workbenchItem];
     }
 
     return self;

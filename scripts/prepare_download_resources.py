@@ -31,13 +31,13 @@ def prepare(stage=None):
         filename = f'{identifier}-{sha[:16]}{path.suffix}'
         rows.append(dict(id=identifier, title=title, file=filename,
                          bytes=path.stat().st_size, sha256=sha,
-                         url=f'https://dylib.cn/downloads/dylix/v1/{filename}'))
+                         url=f'https://dylib.cn/downloads/workbench/v1/{filename}'))
         if stage:
-            target = Path(stage) / 'downloads/dylix/v1' / filename
+            target = Path(stage) / 'downloads/workbench/v1' / filename
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, target)
     if stage:
-        notices = Path(stage) / 'downloads/dylix/notices'
+        notices = Path(stage) / 'downloads/workbench/notices'
         shutil.copytree(ROOT / 'Resources/ThirdPartyNotices', notices, dirs_exist_ok=True)
         shutil.copytree(ROOT / 'Resources/iSH/GuestTools', notices / 'GuestTools', dirs_exist_ok=True)
         shutil.copy2(ROOT / 'Resources/iSH/developer-tools.json', notices / 'developer-tools.json')

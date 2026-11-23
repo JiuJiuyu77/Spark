@@ -1,6 +1,6 @@
 <div align="center">
 
-# Dylix
+# Workbench
 
 **把插件开发工作台，放进口袋。**
 
@@ -14,15 +14,15 @@ iPhone / iPad 本机构建 · AI 开发助手 · 项目与 Git · 二进制工�
 
 当前版本：**1.1.4（284）**，配套 **FLEX 插件 1.0.3**。改进上下文与缓存、消息续接和任务补充，修复原会话关联项目，完善聊天展示，并使用 Xcode 自带 iOS 27.2 SDK 构建。
 
-[1.1.4 更新内容](docs/RELEASE_1.1.4.md) · [服务商与 Agent](docs/AGENT_EXTENSIONS.md) · [FLEX 联动](docs/FLEX_DYLIX_BRIDGE.md) · [连接传输](docs/CONNECTION_TRANSPORT.md)。
+[1.1.4 更新内容](docs/RELEASE_1.1.4.md) · [服务商与 Agent](docs/AGENT_EXTENSIONS.md) · [FLEX 联动](docs/FLEX_WORKBENCH_BRIDGE.md) · [连接传输](docs/CONNECTION_TRANSPORT.md)。
 
 ## 这是什么
 
-Dylix 是原生 iOS 插件开发工作台：在手机上管理源码、编辑代码、调用内嵌 Clang / LLD 和 Logos，并生成 dylib 与 deb。AI 可以按权限读取头文件、解释代码、修改项目、检查构建结果；编译工作在设备本机完成。
+Workbench 是原生 iOS 插件开发工作台：在手机上管理源码、编辑代码、调用内嵌 Clang / LLD 和 Logos，并生成 dylib 与 deb。AI 可以按权限读取头文件、解释代码、修改项目、检查构建结果；编译工作在设备本机完成。
 
 它使用进程内 LLVM 工具链，并非完整 Theos shell 环境。现有 Theos 工程会经过受支持的 Makefile / 配置解析；任意脚本、Xcode 工程和完整 make 语义并不等同于已支持。
 
-## Dylix Remote · 局域网远程工作台
+## Workbench Remote · 局域网远程工作台
 
 Build 160：在手机「设置 → 远程开发 → 局域网远程」开启 HTTP 服务，同一 Wi-Fi 的电脑访问手机显示的地址。网页和 Monaco 随 App 离线打包，正确授权码即可连接；支持一次性随机码与钥匙串保存的固定码，倒计时每秒更新。默认关闭服务。
 
@@ -32,7 +32,7 @@ Build 160：在手机「设置 → 远程开发 → 局域网远程」开启 HTT
 
 在线编辑支持多语言语法高亮、多标签、默认自动保存、撤销重做、修改前备份与冲突校验；导航可折叠，文件栏可拖动调整或收起，并支持全屏编辑。上传下载不设置固定文件大小上限，实际受设备存储、内存及系统网络状态影响。
 
-<p align="center"><img src="docs/images/remote/editor-fullscreen159.png" width="100%" alt="Dylix Remote 全屏在线编辑实测界面" /></p>
+<p align="center"><img src="docs/images/remote/editor-fullscreen159.png" width="100%" alt="Workbench Remote 全屏在线编辑实测界面" /></p>
 
 [架构与实施方案](docs/LAN_WORKSPACE_ARCHITECTURE.md) · [接口文档](docs/LAN_WORKSPACE_API.md) · [测试记录](docs/LAN_WORKSPACE_TESTS.md)
 
@@ -53,9 +53,9 @@ Build 160：在手机「设置 → 远程开发 → 局域网远程」开启 HTT
 ### 写代码，也管理整个项目
 
 <p align="center">
-  <img src="docs/images/projects.png" width="280" alt="Dylix 项目模板与包信息设置" />
+  <img src="docs/images/projects.png" width="280" alt="Workbench 项目模板与包信息设置" />
   &nbsp;&nbsp;
-  <img src="docs/images/editor.png" width="280" alt="Dylix 原生源码编辑器" />
+  <img src="docs/images/editor.png" width="280" alt="Workbench 原生源码编辑器" />
 </p>
 
 项目模板、最近项目、文件标签、语法着色与编辑快捷栏。当前架构、SDK 和最低系统版本直接显示在编辑器底部。
@@ -85,7 +85,7 @@ Build 160：在手机「设置 → 远程开发 → 局域网远程」开启 HTT
 <p align="center">
   <img src="docs/images/git.png" width="280" alt="本地 Git 变更、暂存与提交" />
   &nbsp;&nbsp;
-  <img src="docs/images/settings.png" width="280" alt="Dylix 设置与开源许可证入口" />
+  <img src="docs/images/settings.png" width="280" alt="Workbench 设置与开源许可证入口" />
 </p>
 
 本地 Git 管理变更、提交与历史，远程支持 GitHub / Gitee。工作台集中提供编辑器、存储空间、开发工具和许可证入口。
@@ -105,17 +105,17 @@ App 最低目标为 iOS 15；部分界面和后台能力按系统版本启用。
 
 ```sh
 git clone https://github.com/yangokok886/dylix.git
-cd dylix
+cd workbench
 python3 scripts/fetch_toolchain.py
 rustup target add aarch64-apple-ios x86_64-apple-ios
 python3 scripts/build.py --sdk-root LocalSDKs/iPhoneOS26.0.sdk
 ```
 
-输出 `build/Dylix-1.1.1-build225-unsigned.ipa`。安装前使用自己的证书/适用安装方式处理主 App、Share Extension 和嵌套 framework 签名。仓库不包含个人证书、描述文件或共享 API 密钥。
+输出 `build/Workbench-1.1.1-build225-unsigned.ipa`。安装前使用自己的证书/适用安装方式处理主 App、Share Extension 和嵌套 framework 签名。仓库不包含个人证书、描述文件或共享 API 密钥。
 
-设备版默认要求 SDK26+；旧 Xcode 可通过 `DYLIX_SDK_26_0` 指向完整 SDK26 目录，缺失时停止构建。
+设备版默认要求 SDK26+；旧 Xcode 可通过 `WORKBENCH_SDK_26_0` 指向完整 SDK26 目录，缺失时停止构建。
 
-**两个 SDK 角色不同**：`--sdk-root` 决定 Dylix App 自身的构建 SDK；内嵌插件构建 SDK 可选 16.4 / 26.0，默认仍为 **SDK 16.4 + 最低 iOS 15**。
+**两个 SDK 角色不同**：`--sdk-root` 决定 Workbench App 自身的构建 SDK；内嵌插件构建 SDK 可选 16.4 / 26.0，默认仍为 **SDK 16.4 + 最低 iOS 15**。
 
 完整环境配置、模拟器构建、依赖来源、测试与签名说明见 [docs/BUILDING.md](docs/BUILDING.md)。仓库附带 SDK 16.4 与 26.0 构建输入；Apple SDK 保留 Apple 原有条款，不适用本项目 GPL。工具链通过下载脚本自动还原。
 
@@ -133,11 +133,11 @@ IPA 导出依据 Objective-C 元数据，不等于还原源码。加密镜像会
 
 **开发协作**：本项目由 Xuegao 主导开发，OpenAI Codex / ChatGPT 辅助实现、调试与文档编写。
 
-Dylix 原创代码与修改采用 **GNU General Public License v3.0 or later（GPL-3.0-or-later）**，完整条款见 [LICENSE](LICENSE)。分发修改版或二进制时，请遵循 GPL 对相应源码、许可文本和必要构建材料的要求；软件按现状提供，不附带担保。
+Workbench 原创代码与修改采用 **GNU General Public License v3.0 or later（GPL-3.0-or-later）**，完整条款见 [LICENSE](LICENSE)。分发修改版或二进制时，请遵循 GPL 对相应源码、许可文本和必要构建材料的要求；软件按现状提供，不附带担保。
 
 第三方代码保留原许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。感谢 LLVM / Clang / LLD、ios_system、Perl、Theos Logos、libgit2、REipa、Monaco Editor、MBProgressHUD、highlight.js、diff2html 等项目。第三方许可不因本项目采用 GPL 而被替换。
 
-欢迎通过 [贡献说明](CONTRIBUTING.md) 一起改进 Dylix。
+欢迎通过 [贡献说明](CONTRIBUTING.md) 一起改进 Workbench。
 
 ### Linux 终端与逆向分析（Build 213–215）
 

@@ -1,7 +1,7 @@
 #import "AIPolicy.h"
 #import "../Permissions/TFAIPolicy.h"
 #import <CommonCrypto/CommonDigest.h>
-static NSError *PolicyError(NSString *text){return [NSError errorWithDomain:@"TweakForge.AI.RuntimePolicy" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
+static NSError *PolicyError(NSString *text){return [NSError errorWithDomain:@"Workbench.AI.RuntimePolicy" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
 static BOOL Fail(NSError **error,NSString *text){if(error)*error=PolicyError(text);return NO;}
 static NSString *Text(id value){return [value isKindOfClass:NSString.class]?value:@"";}
 static BOOL ReadTool(NSString *name){return [@[@"list_files",@"read_file",@"search_text",@"list_symbols",@"propose_patch",@"read_project_config",@"propose_config_change",@"propose_build_settings",@"list_builds",@"read_diagnostics",@"list_artifacts",@"git_status",@"git_diff",@"git_history"] containsObject:name];}

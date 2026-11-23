@@ -17,12 +17,12 @@ def run(*args):
 
 
 def main():
-    app = ROOT / 'build/simulator/TheosMobileCompiler.app'
+    app = ROOT / 'build/simulator/Workbench.app'
     source = (ROOT / 'App/main.m').read_text()
     assert '@"-mframe-pointer=non-leaf"' in source
     assert '@"-funwind-tables=1"' in source
     sdk = run('xcrun', '--sdk', 'iphonesimulator', '--show-sdk-path').strip()
-    with tempfile.TemporaryDirectory(prefix='dylix-unwind-regression-') as temporary:
+    with tempfile.TemporaryDirectory(prefix='workbench-unwind-regression-') as temporary:
         work = pathlib.Path(temporary)
         bundle = work / 'Tool.app'
         bundle.mkdir()
@@ -49,7 +49,7 @@ int main(int argc,char **argv) { @autoreleasepool {
 - (id)valueForKey:(id)key;
 @end
 extern "C" __attribute__((noinline)) int objc_probe(id obj) {
- @try { [obj valueForKey:@"DylixMissingKey"]; return 0; }
+ @try { [obj valueForKey:@"WorkbenchMissingKey"]; return 0; }
  @catch(id exception) { return 42; }
 }
 static volatile int cleaned;

@@ -1,6 +1,6 @@
 import subprocess,json,time,tempfile,shutil,os
 from pathlib import Path
-B='com.xuegao.theosmobilecompiler';out=Path(os.environ.get('TMC_NAMING_EVIDENCE','TheosMobileCompiler/evidence/0.5.7-build-settings'));out.mkdir(parents=True,exist_ok=True)
+B='com.HuQing.Workbench';out=Path(os.environ.get('TMC_NAMING_EVIDENCE','Workbench/evidence/0.5.7-build-settings'));out.mkdir(parents=True,exist_ok=True)
 def run(*a):return subprocess.check_output(a,text=True).strip()
 doc=Path(run('xcrun','simctl','get_app_container','booted',B,'data'))/'Documents'
 with tempfile.TemporaryDirectory() as t:

@@ -6,7 +6,7 @@ import sys,tarfile,json,re,hashlib,concurrent.futures
 from pathlib import Path
 from fetch_ish_packages import download
 base='https://dl-cdn.alpinelinux.org/alpine/edge/'
-cache=Path('/tmp/dylix-alpine-reverse');cache.mkdir(exist_ok=True)
+cache=Path('/tmp/workbench-alpine-reverse');cache.mkdir(exist_ok=True)
 # Default is reproducible: restore the checked-in version, never silently move edge.
 manifest_path=Path(__file__).resolve().parents[1]/'Resources/iSH/reverse-tools.json'
 if manifest_path.exists() and '--refresh' not in sys.argv:

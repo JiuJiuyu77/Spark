@@ -12,7 +12,7 @@ static const unsigned long long TMCMaxFile = 1024ULL * 1024 * 1024;
 static const NSUInteger TMCMaxEntries = 100000;
 
 static NSError *ImportError(NSInteger code, NSString *message) {
-    return [NSError errorWithDomain:@"TweakForgeArchive" code:code userInfo:@{NSLocalizedDescriptionKey:message}];
+    return [NSError errorWithDomain:@"WorkbenchArchive" code:code userInfo:@{NSLocalizedDescriptionKey:message}];
 }
 static BOOL Fail(NSError **error, NSInteger code, NSString *message) {
     if(error)*error=ImportError(code,message);return NO;
@@ -152,7 +152,7 @@ BOOL TMCExtractDebPackage(NSURL *input, NSURL *destination,
     if(![magic isEqual:[@"!<arch>\n" dataUsingEncoding:NSASCIIStringEncoding]])
         return Fail(outError,TMCArchiveInvalid,@"不是有效的 Debian ar 包");
     NSString *stage = [NSTemporaryDirectory() stringByAppendingPathComponent:
-                       [@"TweakForgeDeb-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+                       [@"WorkbenchDeb-" stringByAppendingString:NSUUID.UUID.UUIDString]];
     NSError *error = nil;
     BOOL ok = TMCExtractArchive(input, [NSURL fileURLWithPath:stage], nil,
                                 cancellation, progress, &error);

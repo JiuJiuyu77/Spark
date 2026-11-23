@@ -17,8 +17,8 @@ with tempfile.TemporaryDirectory(prefix='tf83-') as work:
  (p/'fat64.dylib').write_bytes(struct.pack('>IIiiQQII',0xcafebabf,1,0x100000c,0,40,len(binary),0,0)+binary)
  (p/'bad-fat.dylib').write_bytes(struct.pack('>IIiiIII',0xcafebabe,1,0x100000c,0,0xffffffff,len(binary),0)+binary)
  sources=['tests/TFBinaryIncomingTests.m','App/AI/Binary/TFAIBinary.m','App/AI/ClassDump/TFAIClassDump.m','App/AI/ClassDump/TFAIClassDumpExecution.m','App/Incoming/TFIncoming.m','App/Incoming/TFShareTransfer.m','App/AI/Sessions/TFAISessionArchive.m']
- subprocess.run(['xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk','-fobjc-arc','-fblocks','-Wno-incompatible-pointer-types','-framework','Foundation',*[str(root/s) for s in sources],str(root/'build/classdump-macos/libtweakforge_classdump.a'),'-larchive','-liconv','-o',str(p/'test')],check=True)
+ subprocess.run(['xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk','-fobjc-arc','-fblocks','-Wno-incompatible-pointer-types','-framework','Foundation',*[str(root/s) for s in sources],str(root/'build/classdump-macos/libworkbench_classdump.a'),'-larchive','-liconv','-o',str(p/'test')],check=True)
  subprocess.run([str(p/'test'),str(p)],check=True)
  scan_sources=['tests/TFObfuscationScanTests.m','App/AI/Binary/TFAIBinary.m','App/AI/ClassDump/TFAIClassDump.m','App/AI/ClassDump/TFAIClassDumpExecution.m']
- subprocess.run(['xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk','-fobjc-arc','-fblocks','-Wno-incompatible-pointer-types','-framework','Foundation',*[str(root/s) for s in scan_sources],str(root/'build/classdump-macos/libtweakforge_classdump.a'),'-larchive','-liconv','-o',str(p/'scan-test')],check=True)
+ subprocess.run(['xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk','-fobjc-arc','-fblocks','-Wno-incompatible-pointer-types','-framework','Foundation',*[str(root/s) for s in scan_sources],str(root/'build/classdump-macos/libworkbench_classdump.a'),'-larchive','-liconv','-o',str(p/'scan-test')],check=True)
  subprocess.run([str(p/'scan-test'),str(p)],check=True)

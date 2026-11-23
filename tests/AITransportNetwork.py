@@ -108,7 +108,7 @@ if __name__=='__main__':
     server=ThreadingHTTPServer(('127.0.0.1',0),Fixture)
     threading.Thread(target=server.serve_forever,daemon=True).start()
     environment=os.environ.copy()
-    environment['DYLIX_PROVIDER_RESOURCES']=str(root/'Resources/AIProviders')
+    environment['WORKBENCH_PROVIDER_RESOURCES']=str(root/'Resources/AIProviders')
     try:result=subprocess.run([str(binary),'http://127.0.0.1:'+str(server.server_port),'--ai-runtime-test'],check=False,env=environment)
     finally:server.shutdown()
     raise SystemExit(result.returncode)

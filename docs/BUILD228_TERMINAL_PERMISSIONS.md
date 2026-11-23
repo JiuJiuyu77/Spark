@@ -15,6 +15,6 @@
 
 最终回归：116 项全部通过；终端权限、注册表、子任务权限测试通过。
 
-安装包：`build/Dylix-1.1.1-build228-unsigned.ipa`，315,853,263 bytes。
+安装包：`build/Workbench-1.1.1-build228-unsigned.ipa`，315,853,263 bytes。
 SHA256：`03b19119e37b5a86dd4f1cfe226545d57f432b363c793d3db88854d9d213a99a`。
 IPA ZIP 完整性、App deep/strict 签名检查及内置工具哈希校验通过。验证结果见 `build/proof228/`。

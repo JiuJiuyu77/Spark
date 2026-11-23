@@ -3,7 +3,7 @@
 from pathlib import Path
 import argparse,re,sys,json
 p=argparse.ArgumentParser();p.add_argument('--binary',type=Path);a=p.parse_args();root=Path(__file__).resolve().parents[1]
-forbidden=[b'TFAIPromptHub',b'dylixPromptHub',b'Dylix.PromptHub',b'dylix_hub',b'/hub/api/v1',b'dylib.cn/hub',b'dylix.cn/hub',b'hubContentHash',b'persona-prompt-hub',b'StudioFeedbackEndpoint']
+forbidden=[b'TFAIPromptHub',b'workbenchPromptHub',b'Workbench.PromptHub',b'workbench_hub',b'/hub/api/v1',b'dylib.cn/hub',b'workbench.cn/hub',b'hubContentHash',b'persona-prompt-hub',b'StudioFeedbackEndpoint']
 secret=re.compile(rb'(github_pat_[A-Za-z0-9_]{30,}|ghp_[A-Za-z0-9]{30,}|-----BEGIN (?:RSA |EC )?PRIVATE KEY-----)')
 violations=[];checked=0
 paths=[a.binary.resolve()] if a.binary else root.rglob('*')

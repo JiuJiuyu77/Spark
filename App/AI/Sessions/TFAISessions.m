@@ -10,7 +10,7 @@ static BOOL AIIdentifier(NSString *value) {
 static NSString *AIStoreRoot(NSString *project) {
     if (!AIIdentifier(project)) return nil;
     NSString *base=NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject;
-    return [[base stringByAppendingPathComponent:@"TweakForgeAI/Sessions"] stringByAppendingPathComponent:project];
+    return [[base stringByAppendingPathComponent:@"WorkbenchAI/Sessions"] stringByAppendingPathComponent:project];
 }
 static BOOL AIExcluded(NSString *relative) {
     NSSet *dirs=[NSSet setWithArray:@[@".git",@".theos",@"build",@"Build",@"DerivedData",@"Frameworks",@"node_modules",@"Caches",@"tmp",@".ssh"]];

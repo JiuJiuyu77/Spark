@@ -47,7 +47,7 @@ OpenAI、Anthropic、Gemini、xAI、通义千问等没有在本模块中获得�
 - `tests/provider_v4Run.py`：100项通过，验证现有协议、模型发现及请求行为。
 - `tests/UsageRun.py`：28项通过，验证统计计数未改变。
 - 模拟器`--ai-chat93-test --balance197-fixture`：8项生产UIKit与真实协议校验检查，包含410诊断入口、实际地址、API码和脱敏；样例明确标记非真实账户。测试分支只编入模拟器。
-- Dylix最低iOS15模拟器和arm64设备编译、IPA结构、资源哈希及签名见`BUILD197_TESTS.json`。
+- Workbench最低iOS15模拟器和arm64设备编译、IPA结构、资源哈希及签名见`BUILD197_TESTS.json`。
 
 线上有效Key余额仍待真实账号验收；本轮没有执行收费模型请求，没有将fixture中的HTTP410当作用户问题已复现。此版本交付的是自动识别、响应兼容和可定位的失败详情，无法仅凭当前证据保证该用户HTTP410已消失。
 

@@ -120,17 +120,17 @@
     "private": {
       "versions": [
         {
-          "bundle": "TheosMobileCompiler.app",
+          "bundle": "Workbench.app",
           "version": "1.0.9",
           "build": "208"
         },
         {
-          "bundle": "TweakForgeActivity.appex",
+          "bundle": "WorkbenchActivity.appex",
           "version": "1.0.9",
           "build": "208"
         },
         {
-          "bundle": "TweakForgeShare.appex",
+          "bundle": "WorkbenchShare.appex",
           "version": "1.0.9",
           "build": "208"
         }
@@ -140,23 +140,23 @@
       "flexManifestFilesMatch": true,
       "ipaIntegrity": true,
       "signatureVerified": true,
-      "ipa": "Dylix-1.0.9-build208.ipa",
+      "ipa": "Workbench-1.0.9-build208.ipa",
       "sha256": "bf8d3c60ef0bf457207e57be1b04574ce8e862bccc7a9c3b5d414a3a5dc7248e"
     },
     "public": {
       "versions": [
         {
-          "bundle": "TheosMobileCompiler.app",
+          "bundle": "Workbench.app",
           "version": "1.0.9",
           "build": "208"
         },
         {
-          "bundle": "TweakForgeActivity.appex",
+          "bundle": "WorkbenchActivity.appex",
           "version": "1.0.9",
           "build": "208"
         },
         {
-          "bundle": "TweakForgeShare.appex",
+          "bundle": "WorkbenchShare.appex",
           "version": "1.0.9",
           "build": "208"
         }
@@ -166,7 +166,7 @@
       "flexManifestFilesMatch": true,
       "ipaIntegrity": true,
       "signatureVerified": true,
-      "ipa": "Dylix-1.0.9-build208-公开源码版.ipa",
+      "ipa": "Workbench-1.0.9-build208-公开源码版.ipa",
       "sha256": "29305ca915ea126c46638213fd26ee342a52e03e61b15cec1cc97ac59a8d26a8"
     }
   },

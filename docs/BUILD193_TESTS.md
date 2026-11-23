@@ -6,7 +6,7 @@ Build192 仅修复 DEB 压缩成员与目录记录，不能据此宣布 RootHide
 
 样包 SHA-256：`37096d1f9a1a080c084e0f7efe7a4ef0c947c5555eef00fa93f7f2eae474f638`。它的 Debian Architecture 为 iphoneos-arm64e，主 dylib 的实际 CPU 是 arm64。包中存在 rootless-compat(>=0.9)、pkgmirror 原副本及 AutoPatches 的 .roothidepatch 符号链接，符合官方 Patcher 的 AutoPatches 转换路线。没有复制、修改或分发该插件正文。
 
-包架构标签和 Mach-O CPU 属于不同层次：iphoneos-arm / iphoneos-arm64 / iphoneos-arm64e 在这里分别区分 rootful / rootless / RootHide 的包安装生态，不能用来推断 dylib 的 arm64 / arm64e CPU 切片；更不能通过改字段或 Mach-O subtype 来转换 ABI。App Store 目标通常使用 arm64；真正 arm64e 涉及 ABI，Dylix 继续拒绝内嵌 LLD 无法正确输出的 arm64e，不伪造切片。
+包架构标签和 Mach-O CPU 属于不同层次：iphoneos-arm / iphoneos-arm64 / iphoneos-arm64e 在这里分别区分 rootful / rootless / RootHide 的包安装生态，不能用来推断 dylib 的 arm64 / arm64e CPU 切片；更不能通过改字段或 Mach-O subtype 来转换 ABI。App Store 目标通常使用 arm64；真正 arm64e 涉及 ABI，Workbench 继续拒绝内嵌 LLD 无法正确输出的 arm64e，不伪造切片。
 
 ## 修复
 
@@ -33,6 +33,6 @@ Build192 仅修复 DEB 压缩成员与目录记录，不能据此宣布 RootHide
 
 - https://theos.dev/docs/Rootless ：包安装方案、arm64e ABI 与非系统 App 的区别。
 - https://github.com/roothide/Developer ：原生包方案及 .jbroot 依赖路径，核对 c53cc199f1bab7d7ea2fd70f0a14e215b1f3461b。
-- https://github.com/roothide/lib/blob/master/iphone/roothide/CydiaSubstrate.framework/CydiaSubstrate.tbd ：Substrate 原生 install_name。Dylix 的专属描述由既有 stub 更改路径生成，没有引入新库实现。
+- https://github.com/roothide/lib/blob/master/iphone/roothide/CydiaSubstrate.framework/CydiaSubstrate.tbd ：Substrate 原生 install_name。Workbench 的专属描述由既有 stub 更改路径生成，没有引入新库实现。
 - https://github.com/roothide/RootHidePatcher/blob/main/patch.sh ：AutoPatches 转换、签名、镜像与依赖；核对 80c16e08da33fecd27c0ff35777f37afd171868b。
 - https://github.com/roothide/Sileo-roothide ：rawFields、控制解析和包架构检查；核对 065fb49969c872a90494689de82894c341396350。

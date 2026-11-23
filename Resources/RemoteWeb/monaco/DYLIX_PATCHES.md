@@ -1,4 +1,4 @@
-# Dylix local patches to Monaco Editor 0.52.2
+# Workbench local patches to Monaco Editor 0.52.2
 
 2026-11-03 · Build 158 · Word-highlighter cancellation
 

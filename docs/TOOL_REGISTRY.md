@@ -14,10 +14,10 @@ Remote 工作区状态查询默认关闭，需要同时开启本开关及现有 
 
 沿用现有项目文件、补丁提案与批准、构建、Git、已暂存二进制静态分析等入口。既有根目录、符号链接检查、大小限制及写操作审批保持原实现。二进制与 IPA 分析继续要求本轮已选中的暂存输入。
 
-- 技能：项目内 `.dylix/skills/<技能>/SKILL.md`，元数据进入上下文，正文经 `agent_skill_read` 按需读取。提供四份本项目编写的 Theos/Logos、Hook 模板、deb 打包与 Mach-O 分析文本；不执行技能脚本。
+- 技能：项目内 `.workbench/skills/<技能>/SKILL.md`，元数据进入上下文，正文经 `agent_skill_read` 按需读取。提供四份本项目编写的 Theos/Logos、Hook 模板、deb 打包与 Mach-O 分析文本；不执行技能脚本。
 - HTTP MCP：使用现有导入、服务器连接及逐项只读授权。未启用会话、未批准工具、写工具及写参数均被拦截。远端对“只读”的声明仍是信任边界；只连接用户信任的服务器。
 - JS 浏览器：前台使用临时 WKWebView 提取公开网页正文和链接；沿用原网址检查，不自动登录、填表或保存账号。
-- 项目记忆：`agent_memory_read` 读取当前项目 `MEMORY.md`；修改仍走项目补丁审批。长会话本地截取记录保存在 `.dylix/summaries/`，不自动发送摘要文件；这不是语义模型摘要。显式工具读取的正文会作为工具结果交给当前模型。
+- 项目记忆：`agent_memory_read` 读取当前项目 `MEMORY.md`；修改仍走项目补丁审批。长会话本地截取记录保存在 `.workbench/summaries/`，不自动发送摘要文件；这不是语义模型摘要。显式工具读取的正文会作为工具结果交给当前模型。
 - 构建队列：沿用本机编译入口、队列取消、进度、通知和检查点校验。关闭队列后保留直接构建，已有直接构建运行中时拒绝重复启动，任务历史保留。`agent_build_tasks` 查询当前项目任务。
 
 ## B：当前有效授权
@@ -38,7 +38,7 @@ Remote 工作区状态查询默认关闭，需要同时开启本开关及现有 
 
 元数据只读 `Info.plist` 白名单：标识、名称、版本、最低系统和可执行文件名，不读取可执行文件。日志每页最多 16 KiB。路径采用 canonical 路径和逐级文件描述符打开，拒绝替换后的符号链接与非普通文件；确认前后复核目标指纹。
 
-操作对象、插件标识、时间与执行结果记录在本机 Application Support 的 `DylixToolRegistry/audit.json`，最多保留最近 256 条。目标登记保存在同目录 `targets.json`；日志正文不写入审计。
+操作对象、插件标识、时间与执行结果记录在本机 Application Support 的 `WorkbenchToolRegistry/audit.json`，最多保留最近 256 条。目标登记保存在同目录 `targets.json`；日志正文不写入审计。
 
 本期没有 C 档写工具，因而没有 C 档目标写入或快照流程。复制其他 App 二进制、注入、动态插桩、Frida、任意 Shell 和全盘扫描均未加入；二进制分析继续使用原有显式导入及 `binary_inspect` 暂存流程。
 
@@ -50,6 +50,6 @@ Remote 工作区状态查询默认关闭，需要同时开启本开关及现有 
 
 AIRuntime 每轮保存实际下发 schema。执行时必须同时满足“本轮原 schema”与“当前能力”的参数、类型、范围和 ID 枚举，防止 mid-turn 新授权替换原目标。需要审批的工具在审批返回后再检查一次。原项目 prepare → policy → approval → execute 路径保持不变。
 
-开关键为 `Dylix.Tools.v1.<module>`，module 包括 `skills`、`mcp`、`browser`、`memory`、`build_queue`、`remote`、`isolation`。无数据清理或重置迁移。
+开关键为 `Workbench.Tools.v1.<module>`，module 包括 `skills`、`mcp`、`browser`、`memory`、`build_queue`、`remote`、`isolation`。无数据清理或重置迁移。
 
 实现与测试见 [架构](TOOL_REGISTRY_ARCHITECTURE.md)、[Build164 验证记录](BUILD164_TESTS.md)。仅参考 OpenMinis 的工具定义、预检与条件下发结构，使用独立 Objective-C 实现；未复制 Swift 或采用 AzTuT 默认开启策略。

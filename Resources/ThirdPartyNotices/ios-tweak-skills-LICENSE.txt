@@ -21,5 +21,5 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
-TweakForge adaptation: hook contract, behavior observation, lifecycle and verification guidance was adapted into the built-in development prompt. No Frida runtime or desktop tools are bundled by this adaptation.
+Workbench adaptation: hook contract, behavior observation, lifecycle and verification guidance was adapted into the built-in development prompt. No Frida runtime or desktop tools are bundled by this adaptation.
 Source: https://github.com/liamschwie/skills/tree/main/skills/ios-tweak-development

@@ -21,6 +21,6 @@ with (contextlib.nullcontext(tempfile.mkdtemp(prefix='tf-classdump-debug-')) if 
     (d/'encrypted.dylib').write_bytes(struct.pack('<8I',0xfeedfacf,0x100000c,0,6,1,24,0,0)+struct.pack('<6I',0x2c,24,0,0,1,0))
     (d/'truncated.dylib').write_bytes(binary[:40])
     exe=d/'tests'
-    subprocess.run(['xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX15.2.sdk','-fobjc-arc','-fblocks','-Wno-incompatible-pointer-types','-framework','Foundation',str(root/'tests/TFClassDumpTests.m'),str(root/'App/AI/ClassDump/TFAIClassDump.m'),str(root/'App/AI/ClassDump/TFAIClassDumpExecution.m'),str(root/'build/classdump-macos/libtweakforge_classdump.a'),'-larchive','-liconv','-o',str(exe)],check=True)
+    subprocess.run(['xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX15.2.sdk','-fobjc-arc','-fblocks','-Wno-incompatible-pointer-types','-framework','Foundation',str(root/'tests/TFClassDumpTests.m'),str(root/'App/AI/ClassDump/TFAIClassDump.m'),str(root/'App/AI/ClassDump/TFAIClassDumpExecution.m'),str(root/'build/classdump-macos/libworkbench_classdump.a'),'-larchive','-liconv','-o',str(exe)],check=True)
     subprocess.run(['env','NSUnbufferedIO=YES',str(exe),str(d)],check=True)
     with zipfile.ZipFile(d/'export.zip') as z: assert 'index.json' in z.namelist()

@@ -3,7 +3,7 @@
 import hashlib,io,json,os,plistlib,re,shutil,struct,subprocess,tarfile,time
 from pathlib import Path
 from test_local_projects import copy_sources
-R=Path(__file__).resolve().parents[1];SOURCE=Path('/Users/xuegao/彩虹编译');OUT=R/'evidence/0.5.2-rainbow-projects';OUT.mkdir(exist_ok=True);B='com.xuegao.theosmobilecompiler'
+R=Path(__file__).resolve().parents[1];SOURCE=Path('/Users/xuegao/彩虹编译');OUT=R/'evidence/0.5.2-rainbow-projects';OUT.mkdir(exist_ok=True);B='com.HuQing.Workbench'
 CASES=[('kook','kook'),('AutoMessagePlugin','AutoMessagePlugin'),('AutoMessagePlugin2','AutoMessagePlugin 2'),('WCElite','微信优化 2/wcyh/wcyh'),('RainbowHelper','Rainbow/RainbowHelper/RainbowHelper'),('xncj','虚拟插件/xncj/xncj'),('xiangqing','xiangqing/xiangqing'),('FLEX','FLEX')]
 def run(args,**kwargs):return subprocess.run(list(map(str,args)),capture_output=True,text=True,**kwargs)
 def sim(*args):
@@ -73,7 +73,7 @@ if os.environ.get('TMC_REPAIR_FLEX_ONLY'):
  CASES=[('FLEX-rule-repair','FLEX')]
 if os.environ.get('TMC_REPAIR_LOG'):
  OUT=R/'evidence'/('0.5.3-repair-'+('FLEX' if os.environ.get('TMC_RAINBOW_ADAPT') else 'AutoMessage'));OUT.mkdir(exist_ok=True)
-sim('install','booted',R/'build/simulator/TheosMobileCompiler.app');doc=Path(sim('get_app_container','booted',B,'data'))/'Documents';results=[];integrity=[]
+sim('install','booted',R/'build/simulator/Workbench.app');doc=Path(sim('get_app_container','booted',B,'data'))/'Documents';results=[];integrity=[]
 if os.environ.get('TMC_EVIDENCE_OUT'):
  OUT=R/'evidence'/os.environ['TMC_EVIDENCE_OUT'];OUT.mkdir(exist_ok=True)
 for name,relative in CASES:

@@ -1,4 +1,4 @@
-# Dylix 1.1.1（258）存储与备份修复验收
+# Workbench 1.1.1（258）存储与备份修复验收
 
 ## 故障根因
 
@@ -27,4 +27,4 @@
 
 ## 安装包
 
-Dylix-1.1.1-build258-release-unsigned.ipa：发布版，需使用用户自己的证书重签安装；没有在本次任务上传 GitHub。
+Workbench-1.1.1-build258-release-unsigned.ipa：发布版，需使用用户自己的证书重签安装；没有在本次任务上传 GitHub。

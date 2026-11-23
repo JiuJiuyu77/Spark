@@ -23,7 +23,7 @@
  NSAssert(NSThread.isMainThread,@"Launcher runs on main thread");
  if([self.state isEqual:@"opening"]||[self.state isEqual:@"opened"]||![[NSUUID alloc]initWithUUIDString:job])return NO;
  self.generation++;NSUInteger token=self.generation;self.state=@"opening";self.reason=@"";self.fallbackStarted=NO;self.attempts=[NSMutableArray new];
- NSURLComponents *parts=[NSURLComponents new];parts.scheme=@"tweakforge";parts.host=@"incoming";parts.queryItems=@[[NSURLQueryItem queryItemWithName:@"job" value:job]];self.url=parts.URL;
+ NSURLComponents *parts=[NSURLComponents new];parts.scheme=@"workbench";parts.host=@"incoming";parts.queryItems=@[[NSURLQueryItem queryItemWithName:@"job" value:job]];self.url=parts.URL;
  NSTimeInterval timeout=MAX(.01,MIN(10,self.timeout));
  [self call:self.primary name:@"modernResponder" token:token fallback:NO];
  dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(MIN(.7,timeout/2)*NSEC_PER_SEC)),dispatch_get_main_queue(),^{[self tryFallback:token];});

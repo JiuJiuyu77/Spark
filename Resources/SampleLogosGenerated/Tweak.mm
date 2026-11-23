@@ -1,4 +1,4 @@
-#line 1 "TheosMobileCompiler/Resources/SampleProject/Tweak.xm"
+#line 1 "Workbench/Resources/SampleProject/Tweak.xm"
 #import <Foundation/Foundation.h>
 
 @interface MobileLogosFixture : NSObject
@@ -31,7 +31,7 @@ __asm__(".linker_option \"-framework\", \"CydiaSubstrate\"");
 @class MobileLogosFixture; 
 static NSString * (*_logos_orig$_ungrouped$MobileLogosFixture$message)(_LOGOS_SELF_TYPE_NORMAL MobileLogosFixture* _LOGOS_SELF_CONST, SEL); static NSString * _logos_method$_ungrouped$MobileLogosFixture$message(_LOGOS_SELF_TYPE_NORMAL MobileLogosFixture* _LOGOS_SELF_CONST, SEL); 
 
-#line 7 "TheosMobileCompiler/Resources/SampleProject/Tweak.xm"
+#line 7 "Workbench/Resources/SampleProject/Tweak.xm"
 
 static NSString * _logos_method$_ungrouped$MobileLogosFixture$message(_LOGOS_SELF_TYPE_NORMAL MobileLogosFixture* _LOGOS_SELF_CONST __unused self, SEL __unused _cmd) {
     return @"Compiled locally by Logos";
@@ -39,4 +39,4 @@ static NSString * _logos_method$_ungrouped$MobileLogosFixture$message(_LOGOS_SEL
 
 static __attribute__((constructor)) void _logosLocalInit() {
 {Class _logos_class$_ungrouped$MobileLogosFixture = objc_getClass("MobileLogosFixture"); { MSHookMessageEx(_logos_class$_ungrouped$MobileLogosFixture, @selector(message), (IMP)&_logos_method$_ungrouped$MobileLogosFixture$message, (IMP*)&_logos_orig$_ungrouped$MobileLogosFixture$message);}} }
-#line 12 "TheosMobileCompiler/Resources/SampleProject/Tweak.xm"
+#line 12 "Workbench/Resources/SampleProject/Tweak.xm"

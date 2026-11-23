@@ -3,11 +3,11 @@
 #import "TFAIISHEnvironment.h"
 #import "../UI/TFAIUIHelpers.h"
 #import "../Agent/TFAIAgentContext.h"
-@interface DylixEnvironmentPage : UITableViewController
+@interface WorkbenchEnvironmentPage : UITableViewController
 @property NSString *session,*projectRoot;
 @property NSDictionary *inventory;
 @end
-@implementation DylixEnvironmentPage
+@implementation WorkbenchEnvironmentPage
 - (void)viewDidLoad{[super viewDidLoad];self.title=@"Linux 环境";self.tableView.accessibilityIdentifier=@"linux-environment-table";self.tableView.rowHeight=UITableViewAutomaticDimension;self.tableView.estimatedRowHeight=66;self.navigationItem.rightBarButtonItem=AIBar(@"arrow.clockwise",@"刷新环境",self,@selector(refresh));[self refresh];}
 - (void)refresh{__weak typeof(self) weak=self;[TFAIISHRuntime.shared environmentInventory:^(NSDictionary *value){weak.inventory=value;[weak.tableView reloadData];}];}
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table{return 4;}
@@ -27,4 +27,4 @@
  UIAlertController *a=[UIAlertController alertControllerWithTitle:@"Linux 环境维护" message:[row[@"shared"] boolValue]?@"这是全部终端和 AI 共用的环境，删除或重建会影响全部工具。":@"这是保留的旧环境，可切换回来找回工具。" preferredStyle:UIAlertControllerStyleActionSheet];if(![row[@"shared"] boolValue])[a addAction:[UIAlertAction actionWithTitle:@"切换为共享工具环境（重启后）" style:UIAlertActionStyleDefault handler:^(id action){[self confirm:@"activate" key:row[@"key"] snapshot:nil];}]];for(NSString *op in @[@"backup",@"reset",@"delete"])[a addAction:[UIAlertAction actionWithTitle:[op isEqual:@"backup"]?@"备份完整环境":[op isEqual:@"delete"]?@"删除环境以释放空间（重启后）":@"先备份，再重建环境" style:[op isEqual:@"backup"]?UIAlertActionStyleDefault:UIAlertActionStyleDestructive handler:^(UIAlertAction *x){[self confirm:op key:row[@"key"] snapshot:nil];}]];[a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];a.popoverPresentationController.sourceView=[table cellForRowAtIndexPath:i];[self presentViewController:a animated:YES completion:nil];
 }
 @end
-UIViewController *TFAIISHEnvironmentController(NSString *session,NSString *root){DylixEnvironmentPage *page=[[DylixEnvironmentPage alloc]initWithStyle:UITableViewStyleInsetGrouped];page.session=session;page.projectRoot=root;return page;}
+UIViewController *TFAIISHEnvironmentController(NSString *session,NSString *root){WorkbenchEnvironmentPage *page=[[WorkbenchEnvironmentPage alloc]initWithStyle:UITableViewStyleInsetGrouped];page.session=session;page.projectRoot=root;return page;}

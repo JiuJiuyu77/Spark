@@ -1,4 +1,4 @@
-# 构建 Dylix
+# 构建 Workbench
 
 ## 目录与前提
 
@@ -12,7 +12,7 @@
 
 ## 1. 工具链
 
-`python3 scripts/fetch_toolchain.py` 下载本仓库 Release 中校验过 SHA-256 的预编译框架，解到 `Vendor/`；下载包不含 Apple SDK。也可设置 `DYLIX_TOOLCHAIN_ROOT` 到另一个包含 `Vendor/*.xcframework` 的目录。
+`python3 scripts/fetch_toolchain.py` 下载本仓库 Release 中校验过 SHA-256 的预编译框架，解到 `Vendor/`；下载包不含 Apple SDK。也可设置 `WORKBENCH_TOOLCHAIN_ROOT` 到另一个包含 `Vendor/*.xcframework` 的目录。
 
 LLVM/Clang/LLD 14 来源为 holzschu/llvm-project；ios_system 3.0.5、Perl 5.34.0 来源见第三方清单。下载脚本只安装数据，不执行外部安装脚本。版本与每个框架文件摘要在 `dependencies.lock.json`。二进制依赖沿用各自许可。
 
@@ -20,7 +20,7 @@ LLVM/Clang/LLD 14 来源为 holzschu/llvm-project；ios_system 3.0.5、Perl 5.34
 
 App 使用 Xcode 当前选中的 iPhoneOS SDK；本版发布构建使用 iOS 27.2 SDK。请设置 `TOOLCHAINS=com.apple.dt.toolchain.XcodeDefault`，并通过 `xcrun --sdk iphoneos --show-sdk-version` 核对。`--sdk-root` 可显式指定 App 编译 SDK。
 
-`Resources/SDK`（16.4）是手机插件编译使用的内嵌 SDK 输入。SDK26 为手机端按需下载资源，不要求在 Mac 上安装它来构建 App。Apple SDK 保留原有条款，不适用 Dylix 的 GPL 许可。
+`Resources/SDK`（16.4）是手机插件编译使用的内嵌 SDK 输入。SDK26 为手机端按需下载资源，不要求在 Mac 上安装它来构建 App。Apple SDK 保留原有条款，不适用 Workbench 的 GPL 许可。
 
 ## 3. Rust 与 CMake
 
@@ -53,7 +53,7 @@ python3 scripts/test_package_schemes.py
 
 完整测试入口见 scripts/、tests/。iOS 原生回归通过模拟器启动参数运行，例如 `--ai-render122-test`、`--ai-workspace133-test`、`--ai-v2-test`；测试使用本地样本和保留的 `.invalid` 域名拦截，不需要真实模型密钥。模拟器测试必须在一次性测试安装中执行，部分夹具会重置它们自己的样例会话。
 
-部分历史压力脚本引用未随开源版分发的个人 FLEX 测试工程。它不是 Dylix 的运行依赖，请自行提供相应测试夹具或只运行内置基础样例；仓库不包含其代码和二进制。
+部分历史压力脚本引用未随开源版分发的个人 FLEX 测试工程。它不是 Workbench 的运行依赖，请自行提供相应测试夹具或只运行内置基础样例；仓库不包含其代码和二进制。
 
 ## 发布材料
 

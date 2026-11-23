@@ -10,7 +10,7 @@
 static int checks;
 static void Check(BOOL ok,NSString *label){if(!ok){fprintf(stderr,"FAIL %s\n",label.UTF8String);exit(1);}checks++;printf("PASS %s\n",label.UTF8String);}
 static id Job(NSString *identifier,BOOL done){
- id job=[NSClassFromString(@"DylixISHJob") new];
+ id job=[NSClassFromString(@"WorkbenchISHJob") new];
  for(NSString *key in @[@"session",@"key"])[job setValue:@"audit-session" forKey:key];
  [job setValue:identifier forKey:@"processID"];[job setValue:@(done) forKey:@"done"];[job setValue:@NO forKey:@"terminal"];
  [job setValue:[NSMutableDictionary new] forKey:@"listeners"];[job setValue:[NSMutableData dataWithData:[@"tail" dataUsingEncoding:NSUTF8StringEncoding]] forKey:@"tail"];
@@ -31,7 +31,7 @@ int main(){@autoreleasepool{
   Check([saved[@"output"] isEqual:@"345"]&&[saved[@"next_offset"] isEqual:@5]&&[saved[@"missed_bytes"] isEqual:@0],@"available spool bytes remain readable before gap");
   [NSFileManager.defaultManager removeItemAtPath:path error:nil];NSDictionary *missing=[runtime readJob:job offset:2 maximum:16];
   Check([missing[@"offset"] isEqual:@10]&&[missing[@"missed_bytes"] isEqual:@8]&&[missing[@"next_offset"] isEqual:@14],@"missing spool falls back to retained output with truthful lost-byte count");
-  NSString *pref=[@"DylixAudit-" stringByAppendingString:NSUUID.UUID.UUIDString];NSUserDefaults *defaults=NSUserDefaults.standardUserDefaults;
+  NSString *pref=[@"WorkbenchAudit-" stringByAppendingString:NSUUID.UUID.UUIDString];NSUserDefaults *defaults=NSUserDefaults.standardUserDefaults;
   id install=Job(@"install",YES);[install setValue:[NSMutableData dataWithData:[@"INSTALLED" dataUsingEncoding:NSUTF8StringEncoding]] forKey:@"tail"];[install setValue:@0 forKey:@"exitStatus"];
   [runtime watchToolJob:install defaultsKey:pref marker:@"INSTALLED" deadline:0];Check([defaults boolForKey:pref],@"autoload preference stored only after successful exit and marker");
   [install setValue:@1 forKey:@"exitStatus"];[runtime watchToolJob:install defaultsKey:pref marker:@"INSTALLED" deadline:0];Check([defaults boolForKey:pref],@"failed session does not revoke successful global preference");

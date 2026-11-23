@@ -9,7 +9,7 @@ class Relay(BaseHTTPRequestHandler):
  def forward(self):
   body=self.rfile.read(int(self.headers.get('Content-Length',0)))
   headers={k:v for k,v in self.headers.items() if k.lower() not in ('host','connection')}
-  if headers.get('Origin')=='http://dylix.test:'+str(self.server.server_port):headers['Origin']='http://127.0.0.1:18787'
+  if headers.get('Origin')=='http://workbench.test:'+str(self.server.server_port):headers['Origin']='http://127.0.0.1:18787'
   try:
    c=http.client.HTTPConnection('127.0.0.1',18787,timeout=120);c.request(self.command,self.path,body=body or None,headers=headers);r=c.getresponse();data=r.read();self.send_response(r.status)
    for k,v in r.getheaders():
@@ -20,6 +20,6 @@ class Relay(BaseHTTPRequestHandler):
 server=ThreadingHTTPServer(('127.0.0.1',0),Relay)
 threading.Thread(target=server.serve_forever,daemon=True).start()
 try:
- env=dict(os.environ,REMOTE_BROWSER_ORIGIN='http://dylix.test:'+str(server.server_port),REMOTE_EXPECT_INSECURE='1')
+ env=dict(os.environ,REMOTE_BROWSER_ORIGIN='http://workbench.test:'+str(server.server_port),REMOTE_EXPECT_INSECURE='1')
  subprocess.run(['python3',os.path.join(os.path.dirname(__file__),'RemoteBrowser.py')],env=env,check=True)
 finally:server.shutdown();server.server_close()
