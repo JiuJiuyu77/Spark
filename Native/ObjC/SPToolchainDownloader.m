@@ -3,6 +3,7 @@
 //
 
 #import "SPToolchainDownloader.h"
+#import "SPRuntimeManifestFallback.h"
 #import "SPToolchain.h"
 #import "SPToolchainInstaller.h"
 #import "SPSession.h"
@@ -11,53 +12,72 @@
 static NSString *const kComponentStateKey = @"Workbench.downloadedComponents";
 
 /**
- * 运行时清单（与 ProjectKit/src/runtimes.mjs 保持一致）。
- * 之所以在 ObjC 里再写一份：iOS 运行时不一定有 node，
- * 但两份的 id / 体积 / 探测命令必须一致，改的时候一起改。
+ * 运行时清单 —— 唯一真相是 Native/Resources/runtime-manifest.json。
+ *
+ * 优先级：
+ *   1. bundle 里的 runtime-manifest.json（构建时拷进 .app，改数据不用重编译）
+ *   2. 编译进二进制的兜底（SPRuntimeManifestFallback.h，由同一份 JSON 自动生成）
+ *
+ * 为什么这样做：以前 ObjC 与 ProjectKit/src/runtimes.mjs 各写一份，
+ * 体积 / 探测命令 / 解包路径长期不一致（例如 theos 标 114MB 实际 259MB、
+ * coretools 标 40MB 实际 9.9MB、python 的 bin/python3 实际在包顶层）。
+ * 现在数据只有一份，两端都从这里读。
  */
 static NSArray<NSDictionary *> *SPRuntimeManifest(void) {
     static NSArray *m;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        // 与 ProjectKit/src/runtimes.mjs 一致；选型见 docs/runtime-decision.md
-        NSString *codex = @"https://github.com/susu123oss/CodexApp-Runtime/releases/download";
-        NSString *self_ = @"https://github.com/JiuJiuyu77/Workbench-Runtime/releases/download/runtime-v3";
-        m = @[
-          @{@"id": @"coretools", @"name": @"核心工具集", @"size": @(10*1024*1024), @"order": @5,
-            @"archive": [codex stringByAppendingString:@"/runtime-core-tools-a7e97567217a/CoreToolsRuntime.tar.gz"],
-            @"probe": @"bin/git", @"detail": @"git / curl / jq / rg / zip", @"symbol": @"terminal.fill"},
-          @{@"id": @"reverse", @"name": @"逆向工具", @"size": @(17*1024*1024), @"order": @10,
-            @"archive": [codex stringByAppendingString:@"/runtime-reverse-tools-9d3ca9ea3340/ReverseToolsRuntime.tar.gz"],
-            @"probe": @"bin/rabin2", @"detail": @"radare2 / mt-macho / 注入 dylib", @"symbol": @"binoculars.fill"},
-          @{@"id": @"node", @"name": @"Node.js 24.5.0", @"size": @(28*1024*1024), @"order": @15,
-            @"archive": [codex stringByAppendingString:@"/runtime-node-24.5.0-e3a6c25fac33/NodeRuntime.tar.gz"],
-            @"probe": @"bin/node", @"detail": @"24.5.0 + npm 11.5 + node-gyp iOS 适配", @"symbol": @"curlybraces"},
-          @{@"id": @"buildtools", @"name": @"构建工具", @"size": @(8*1024*1024), @"order": @15,
-            @"archive": [codex stringByAppendingString:@"/runtime-build-tools-3.27.9-fb0f29cea7b2/BuildToolsRuntime.tar.gz"],
-            @"probe": @"bin/ninja", @"detail": @"CMake 3.27.9 + Ninja 1.11.1", @"symbol": @"hammer.fill"},
-          @{@"id": @"python", @"name": @"Python 3.13", @"size": @(10*1024*1024), @"order": @20,
-            @"archive": [codex stringByAppendingString:@"/runtime-python-3.13.14-3c834a2c8964/PythonRuntime.tar.gz"],
-            @"probe": @"bin/python3", @"detail": @"Python 3.13.14", @"symbol": @"chevron.left.forwardslash.chevron.right"},
-          @{@"id": @"theos", @"name": @"Theos 完整版", @"size": @(114*1024*1024), @"order": @25,
-            @"archive": [self_ stringByAppendingString:@"/SparkTheosRuntimeV3.tar.gz"],
-            @"probe": @"theos/bin/logos.pl", @"detail": @"Theos 本体（SDK 单独下载）", @"symbol": @"wrench.and.screwdriver.fill"},
-          @{@"id": @"ollvm", @"name": @"OLLVM 混淆", @"size": @(35*1024*1024), @"order": @30,
-            @"archive": [codex stringByAppendingString:@"/runtime-ollvm-23.1.1-e54f2878240e/OLLVMRuntime.tar.gz"],
-            @"probe": @"bin/clang", @"detail": @"LLVM 23.1.1，7 个 pass", @"symbol": @"wand.and.stars"},
-          @{@"id": @"sdk17", @"name": @"iPhoneOS17.0.sdk", @"size": @(44*1024*1024), @"order": @0,
-            @"archive": [self_ stringByAppendingString:@"/iPhoneOS17.0.sdk.tar.gz"],
-            @"probe": @"sdks/iPhoneOS17.0.sdk/SDKSettings.json", @"detail": @"17.0 SDK（按需下载）", @"symbol": @"shippingbox"},
-          @{@"id": @"sdk26", @"name": @"iPhoneOS26.5.sdk", @"size": @(33*1024*1024), @"order": @0,
-            @"archive": [self_ stringByAppendingString:@"/iPhoneOS26.5.sdk.tar.gz"],
-            @"probe": @"sdks/iPhoneOS26.5.sdk/SDKSettings.json", @"detail": @"26.5 SDK（按需下载）", @"symbol": @"shippingbox"},
-        ];
+    static dispatch_once_t manifestOnce;
+    dispatch_once(&manifestOnce, ^{
+        NSArray *loaded = nil;
+
+        // 1) bundle 里的 JSON
+        NSString *path = [[NSBundle mainBundle] pathForResource:@"runtime-manifest" ofType:@"json"];
+        if (!path.length) {
+            // 兼容：某些构建把资源放在 .app 根目录但没有 bundle 索引
+            path = [[[NSBundle mainBundle] bundlePath]
+                    stringByAppendingPathComponent:@"runtime-manifest.json"];
+            if (![[NSFileManager defaultManager] fileExistsAtPath:path]) path = nil;
+        }
+        if (path.length) {
+            NSData *d = [NSData dataWithContentsOfFile:path];
+            if (d) {
+                id j = [NSJSONSerialization JSONObjectWithData:d options:0 error:NULL];
+                if ([j isKindOfClass:NSDictionary.class]) {
+                    id comps = ((NSDictionary *)j)[@"components"];
+                    if ([comps isKindOfClass:NSArray.class] && [comps count]) {
+                        loaded = comps;
+                    }
+                }
+            }
+        }
+
+        // 2) 兜底（与 JSON 同源生成）
+        m = loaded ?: SPRuntimeManifestFallback();
+        SPLog(@"运行时清单：%lu 个组件（来源：%@）",
+              (unsigned long)m.count, loaded ? @"bundle JSON" : @"内置兜底");
     });
     return m;
 }
 
-/// 直连失败时用的镜像前缀
+/// 直连失败时用的镜像前缀（与 runtime-manifest.json 的 proxyPrefixes 同源）
 static NSArray<NSString *> *SPProxyPrefixes(void) {
-    return @[@"", @"https://gh-proxy.org/", @"https://ghproxy.net/"];
+    static NSArray *list;
+    static dispatch_once_t proxyOnce;
+    dispatch_once(&proxyOnce, ^{
+        NSMutableArray *out = [NSMutableArray arrayWithObject:@""];   // 先直连
+        NSString *path = [[NSBundle mainBundle] pathForResource:@"runtime-manifest" ofType:@"json"];
+        NSData *d = path.length ? [NSData dataWithContentsOfFile:path] : nil;
+        id j = d ? [NSJSONSerialization JSONObjectWithData:d options:0 error:NULL] : nil;
+        id pfx = [j isKindOfClass:NSDictionary.class] ? ((NSDictionary *)j)[@"proxyPrefixes"] : nil;
+        if ([pfx isKindOfClass:NSArray.class]) {
+            for (id p in pfx) if ([p isKindOfClass:NSString.class]) [out addObject:p];
+        }
+        if (out.count == 1) {   // 兜底
+            [out addObject:@"https://gh-proxy.org/"];
+            [out addObject:@"https://ghproxy.net/"];
+        }
+        list = [out copy];
+    });
+    return list;
 }
 
 @implementation SPComponentInfo

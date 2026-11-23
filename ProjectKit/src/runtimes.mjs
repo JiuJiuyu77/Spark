@@ -1,134 +1,43 @@
 /**
- * 运行时包清单 —— 与 susu123oss/CodexApp-Runtime 的 runtime-manifest.json 对齐。
+ * 运行时包清单 —— **唯一真相是 Native/Resources/runtime-manifest.json**。
  *
- * 为什么单独抽出来：App 的「工具链 → 可选组件」页要展示 name / 体积 / 依赖 /
- * 校验值，CLI 与 CI 也要用同一份数据。放 JS 里三端共用，改一处即可。
+ * 本文件不再自己维护数据，只负责把那份 JSON 读出来并做轻量派生
+ * （按 id 取、安装顺序、代理 URL）。
  *
- * 字段说明：
- *   id            内部标识（对应安装目录名）
- *   name          显示名
- *   components    版本明细（展示用）
- *   archive       下载地址（tar.gz）
- *   sha256        归档校验值（拿不到就留空，只提示不阻断）
- *   size          约等于下载体积（字节）
- *   order         安装顺序（小的先装，依赖在前）
- *   optional      是否可选
- *   pathEntries   解包后要加进 PATH 的子目录
- *   probe         安装后自检：{ executable, arguments, contains }
- *   iosMin        最低 iOS
+ * 为什么改成这样：
+ *   以前这里和 Native/ObjC/SPToolchainDownloader.m 各写一份，
+ *   两边长期不一致 —— 体积（theos 标 114MB 实际 259MB、
+ *   coretools 标 40MB 实际 9.9MB）、探测命令（coretools 写 usr/bin/sh
+ *   但包里只有 bin/git）、解包路径（python 的 python3 在包顶层不在 bin/）
+ *   全对不上。现在数据只有一份，改 JSON 即可，两端自动同步。
+ *
+ * 字段说明见 JSON 里的 note；ObjC 侧由 scripts/gen-runtime-manifest.py
+ * 从同一份 JSON 生成编译期兜底，二者不会分叉。
  */
 
-export const RUNTIME_PROXY_PREFIXES = [
-  'https://gh-proxy.org/',
-  'https://ghproxy.net/',
-];
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-// 选型依据见 docs/runtime-decision.md：
-//  · Theos 用自己的仓库（Rein 本地打包；SDK 16.5 内置、17.0/26.5 按需）
-//  · 其余全部用 Codex 仓库（Node 24.5.0 有 node-gyp iOS 适配、OLLVM 23.1.1 更新）
-const SELF_BASE = 'https://github.com/JiuJiuyu77/Workbench-Runtime/releases/download/runtime-v3';
-const CODEX_BASE = 'https://github.com/susu123oss/CodexApp-Runtime/releases/download';
+const HERE = dirname(fileURLToPath(import.meta.url));
+const MANIFEST_PATH = join(HERE, '..', '..', 'Native', 'Resources', 'runtime-manifest.json');
 
-export const RUNTIMES = [
-  {
-    id: 'coretools',
-    name: '核心工具集',
-    components: { shell: 'usr/bin', libs: 'usr/lib' },
-    archive: `${CODEX_BASE}/runtime-core-tools-a7e97567217a/CoreToolsRuntime.tar.gz`,
-    file: 'CoreToolsRuntime.tar.gz',
-    size: 40 * 1024 * 1024,
-    order: 5,
-    optional: false,
-    pathEntries: ['usr/bin'],
-    probe: { executable: 'usr/bin/sh', arguments: ['-c', 'echo ok'], contains: 'ok' },
-    iosMin: '15.0',
-    detail: '编译链路依赖的基础命令（sh / tar / cp / chmod …）',
-  },
-  {
-    id: 'reverse',
-    name: '逆向工具',
-    components: { radare2: '6.2.4', 'mt-macho': '2', 'mt-inject-dylib': '1' },
-    archive: `${CODEX_BASE}/runtime-reverse-tools-9d3ca9ea3340/ReverseToolsRuntime.tar.gz`,
-    file: 'ReverseToolsRuntime.tar.gz',
-    size: 60 * 1024 * 1024,
-    order: 10,
-    optional: true,
-    pathEntries: ['bin'],
-    probe: { executable: 'bin/rabin2', arguments: ['-h'], contains: 'Usage' },
-    iosMin: '15.0',
-    detail: 'radare2 / mt-macho / mt-inject-dylib（逆向、注入都用它）',
-  },
-  {
-    id: 'node',
-    name: 'Node.js 24.5.0',
-    components: { node: '24.5.0', npm: '11.5.1', corepack: '0.34.0' },
-    archive: `${CODEX_BASE}/runtime-node-24.5.0-e3a6c25fac33/NodeRuntime.tar.gz`,
-    file: 'NodeRuntime.tar.gz',
-    size: 28 * 1024 * 1024,
-    order: 15,
-    optional: true,
-    pathEntries: ['bin'],
-    probe: { executable: 'bin/node', arguments: ['-e', 'console.log("ok "+process.version)'], contains: 'ok' },
-    iosMin: '15.0',
-    detail: 'Node 24.5.0 + npm + corepack（pnpm / yarn 走 corepack）',
-  },
-  {
-    id: 'buildtools',
-    name: '构建工具',
-    components: { cmake: '3.27.9', ninja: '1.11.1' },
-    archive: `${CODEX_BASE}/runtime-build-tools-3.27.9-fb0f29cea7b2/BuildToolsRuntime.tar.gz`,
-    file: 'BuildToolsRuntime.tar.gz',
-    size: 8 * 1024 * 1024,
-    order: 15,
-    optional: true,
-    pathEntries: ['bin'],
-    probe: { executable: 'bin/ninja', arguments: ['--version'], contains: '1.11' },
-    iosMin: '15.0',
-    detail: 'CMake + Ninja（C/C++ 工程）',
-  },
-  {
-    id: 'python',
-    name: 'Python 3.13',
-    components: { python: '3.13.14' },
-    archive: `${CODEX_BASE}/runtime-python-3.13.14-3c834a2c8964/PythonRuntime.tar.gz`,
-    file: 'PythonRuntime.tar.gz',
-    size: 10 * 1024 * 1024,
-    order: 20,
-    optional: true,
-    pathEntries: ['bin'],
-    probe: { executable: 'bin/python3', arguments: ['-c', 'print("py ok")'], contains: 'py ok' },
-    iosMin: '15.0',
-    detail: 'Python 3.13.14（Theos 脚本工具链会用到）',
-  },
-  {
-    id: 'theos',
-    name: 'Theos 完整版',
-    components: { theos: 'Rein 本地', sdks: 'SDK 单独下载' },
-    archive: `${SELF_BASE}/SparkTheosRuntimeV3.tar.gz`,
-    file: 'TheosRuntime.tar.gz',
-    size: 114 * 1024 * 1024,
-    order: 25,
-    optional: true,
-    pathEntries: ['theos/bin'],
-    probe: { executable: 'theos/bin/logos.pl', arguments: [], contains: '' },
-    iosMin: '15.0',
-    detail: '完整 Theos 本体（SDK 单独按需下载），内置版不够用时安装',
-  },
-  {
-    id: 'ollvm',
-    name: 'OLLVM 混淆',
-    components: { llvm: '23.1.1', passes: 'indbr/icall/indgv/cse/fla/cie/cfe' },
-    archive: `${CODEX_BASE}/runtime-ollvm-23.1.1-e54f2878240e/OLLVMRuntime.tar.gz`,
-    file: 'OLLVMRuntime.tar.gz',
-    size: 35 * 1024 * 1024,
-    order: 30,
-    optional: true,
-    pathEntries: ['bin'],
-    probe: { executable: 'bin/clang', arguments: ['--version'], contains: 'clang version' },
-    iosMin: '15.0',
-    detail: 'Arkari LLVM 23.1.1，7 个 pass（arm64e 已验证）',
-  },
-];
+let _manifest = null;
+
+/** 读清单（带缓存）。读不到直接抛 —— 静默降级会重新制造分叉。 */
+export function manifest() {
+  if (!_manifest) {
+    const raw = readFileSync(MANIFEST_PATH, 'utf8');
+    _manifest = JSON.parse(raw);
+  }
+  return _manifest;
+}
+
+/** 全部组件（顺序与 JSON 一致，索引与 ObjC 的 SPComponent 枚举对齐） */
+export const RUNTIMES = manifest().components;
+
+/** 镜像前缀 */
+export const RUNTIME_PROXY_PREFIXES = manifest().proxyPrefixes || [];
 
 /** 按 id 取 */
 export function runtimeById(id) {
@@ -148,4 +57,9 @@ export function proxiedURLs(url) {
 /** 安装子目录名（与 Workbench-Runtime 的包 id 一致） */
 export function sdkSubdirFor(runtimeId) {
   return runtimeId;
+}
+
+/** 体积（字节） */
+export function sizeOf(runtime) {
+  return Number(runtime?.bytes || 0);
 }

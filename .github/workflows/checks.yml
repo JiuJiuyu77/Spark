@@ -41,6 +41,9 @@ jobs:
       - name: ObjC bracket balance
         run: python3 scripts/check-balance.py
 
+      - name: Runtime manifest consistency
+        run: python3 scripts/check-runtime-manifest.py
+
       - name: AOJIT script compile rules
         run: python3 tests/aojit_test.py
 

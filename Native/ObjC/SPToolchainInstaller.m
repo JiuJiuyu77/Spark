@@ -150,6 +150,40 @@ static NSString *const kInstalledVersionKey = @"Workbench.toolchainVersion";
 /// 把存在的目录按顺序拼进 PATH。
 /// 顺序有意义：llvm-16/bin 必须最前（Theos 调 `clang` / `clang++`，
 /// 而 usr/bin 里只有 clang-16）。
+/// 读 runtime-manifest.json 里某个组件的 pathEntries。
+/// 读不到返回空数组，调用方自行兜底。结果缓存，避免每次拼 PATH 都解析 JSON。
+static NSArray<NSString *> *SPComponentPathEntries(NSString *componentId) {
+    static NSDictionary<NSString *, NSArray<NSString *> *> *map;
+    static dispatch_once_t entriesOnce;
+    dispatch_once(&entriesOnce, ^{
+        NSMutableDictionary *out = [NSMutableDictionary dictionary];
+        NSString *path = [[NSBundle mainBundle] pathForResource:@"runtime-manifest" ofType:@"json"];
+        if (!path.length) {
+            path = [[[NSBundle mainBundle] bundlePath]
+                    stringByAppendingPathComponent:@"runtime-manifest.json"];
+        }
+        NSData *d = path.length ? [NSData dataWithContentsOfFile:path] : nil;
+        id j = d ? [NSJSONSerialization JSONObjectWithData:d options:0 error:NULL] : nil;
+        id comps = [j isKindOfClass:NSDictionary.class] ? ((NSDictionary *)j)[@"components"] : nil;
+        if ([comps isKindOfClass:NSArray.class]) {
+            for (id c in comps) {
+                if (![c isKindOfClass:NSDictionary.class]) continue;
+                NSString *cid = ((NSDictionary *)c)[@"id"];
+                id entries = ((NSDictionary *)c)[@"pathEntries"];
+                if ([cid isKindOfClass:NSString.class] && [entries isKindOfClass:NSArray.class]) {
+                    NSMutableArray *list = [NSMutableArray array];
+                    for (id e in entries) {
+                        if ([e isKindOfClass:NSString.class]) [list addObject:e];
+                    }
+                    out[cid] = [list copy];
+                }
+            }
+        }
+        map = [out copy];
+    });
+    return map[componentId] ?: @[];
+}
+
 - (NSDictionary<NSString *, NSString *> *)runtimeEnvironment {
     NSMutableArray<NSString *> *pathDirs = [NSMutableArray array];
     NSFileManager *fm = NSFileManager.defaultManager;
@@ -175,13 +209,24 @@ static NSString *const kInstalledVersionKey = @"Workbench.toolchainVersion";
     addDir([root stringByAppendingPathComponent:@"bin"]);
 
     // 按需下载的运行时组件。
-    // 这些包解到 installRoot/<组件 id>/ 下，内部结构是 usr/bin 或 bin（不同包不一致），
-    // 两个都加；目录不存在时 addDir 会自动跳过，所以没装组件不会有副作用。
+    // 每个包内部结构不一致（多数是 bin/，python 的可执行直接在包顶层），
+    // 所以按 runtime-manifest.json 的 pathEntries 注入，而不是猜。
+    // 目录不存在时 addDir 自动跳过，没装组件无副作用。
     // 顺序放在工具链之后：组件里的命令不应盖掉 clang / ld64 / ldid。
     for (NSString *cid in @[@"coretools", @"reverse", @"node", @"buildtools", @"python", @"ollvm"]) {
         NSString *croot = [root stringByAppendingPathComponent:cid];
-        addDir([croot stringByAppendingPathComponent:@"usr/bin"]);
-        addDir([croot stringByAppendingPathComponent:@"bin"]);
+        for (NSString *rel in SPComponentPathEntries(cid)) {
+            if ([rel isEqualToString:@"."]) {
+                addDir(croot);          // 包顶层（python 的 python3 在这）
+            } else {
+                addDir([croot stringByAppendingPathComponent:rel]);
+            }
+        }
+        // 兜底：清单里没写或读不到时，两个常见位置都试
+        if (!SPComponentPathEntries(cid).count) {
+            addDir([croot stringByAppendingPathComponent:@"usr/bin"]);
+            addDir([croot stringByAppendingPathComponent:@"bin"]);
+        }
     }
     // 包内平铺布局
     NSString *bundle = [NSBundle mainBundle].bundlePath;
