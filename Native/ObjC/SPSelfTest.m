@@ -441,8 +441,8 @@
 
                 NSString *v = [n substringWithRange:NSMakeRange(8, n.length - 8 - 4)];  // 去掉 iPhoneOS 与 .sdk
                 NSArray *parts = [v componentsSeparatedByString:@"."];
-                NSInteger maj = parts.count > 0 ? parts[0].integerValue : 0;
-                NSInteger min = parts.count > 1 ? parts[1].integerValue : 0;
+                NSInteger maj = parts.count > 0 ? [parts[0] integerValue] : 0;
+                NSInteger min = parts.count > 1 ? [parts[1] integerValue] : 0;
                 if (maj > bestMajor || (maj == bestMajor && min > bestMinor)) {
                     bestMajor = maj; bestMinor = min; sdkPath = cand;
                 }
