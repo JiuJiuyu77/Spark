@@ -173,6 +173,16 @@ static NSString *const kInstalledVersionKey = @"Workbench.toolchainVersion";
     // 基础命令（cat / cp / awk / head / uname / df …）
     addDir([root stringByAppendingPathComponent:@"helpers"]);
     addDir([root stringByAppendingPathComponent:@"bin"]);
+
+    // 按需下载的运行时组件。
+    // 这些包解到 installRoot/<组件 id>/ 下，内部结构是 usr/bin 或 bin（不同包不一致），
+    // 两个都加；目录不存在时 addDir 会自动跳过，所以没装组件不会有副作用。
+    // 顺序放在工具链之后：组件里的命令不应盖掉 clang / ld64 / ldid。
+    for (NSString *cid in @[@"coretools", @"reverse", @"node", @"buildtools", @"python", @"ollvm"]) {
+        NSString *croot = [root stringByAppendingPathComponent:cid];
+        addDir([croot stringByAppendingPathComponent:@"usr/bin"]);
+        addDir([croot stringByAppendingPathComponent:@"bin"]);
+    }
     // 包内平铺布局
     NSString *bundle = [NSBundle mainBundle].bundlePath;
     addDir([bundle stringByAppendingPathComponent:@"helpers"]);
@@ -201,9 +211,16 @@ static NSString *const kInstalledVersionKey = @"Workbench.toolchainVersion";
 
     // 动态库：clang / ld64 都是自带的 dylib，必须能查到
     NSMutableArray<NSString *> *libs = [NSMutableArray array];
-    for (NSString *d in @[self.libDir,
+    NSMutableArray *libCands = [NSMutableArray arrayWithArray:@[self.libDir,
                           [root stringByAppendingPathComponent:@"theos-root/usr/lib"],
-                          [root stringByAppendingPathComponent:@"usr/lib/llvm-16/lib"]]) {
+                          [root stringByAppendingPathComponent:@"usr/lib/llvm-16/lib"]]];
+    // 组件自带的 dylib（node / python 运行时必需）
+    for (NSString *cid in @[@"node", @"python", @"reverse", @"coretools"]) {
+        NSString *croot = [root stringByAppendingPathComponent:cid];
+        [libCands addObject:[croot stringByAppendingPathComponent:@"usr/lib"]];
+        [libCands addObject:[croot stringByAppendingPathComponent:@"lib"]];
+    }
+    for (NSString *d in libCands) {
         if (!d.length) continue;
         BOOL isDir = NO;
         if ([fm fileExistsAtPath:d isDirectory:&isDir] && isDir && ![libs containsObject:d]) {

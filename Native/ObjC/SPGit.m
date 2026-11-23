@@ -28,13 +28,24 @@
         NSMutableArray *dirs = [NSMutableArray array];
         SPToolchainInstaller *inst = [SPToolchainInstaller shared];
         if (inst.isInstalled) {
-            [dirs addObject:[inst.installRoot stringByAppendingPathComponent:@"coretools/bin"]];
-            [dirs addObject:[inst.installRoot stringByAppendingPathComponent:@"coretools/usr/bin"]];
+            // 统一用 runtimeEnvironment 拼出的 PATH。
+            // 不再硬编码 coretools/bin —— 那依赖「解包时套一层 id 目录」这个实现细节，
+            // 组件一旦换布局就找不到 git。runtimeEnvironment 已经覆盖所有组件的
+            // usr/bin 与 bin，是唯一的真相来源。
+            NSString *path = [inst runtimeEnvironment][@"PATH"];
+            if (path.length) {
+                [dirs addObjectsFromArray:[path componentsSeparatedByString:@":"]];
+            }
             [dirs addObject:inst.binDir];
         }
         [dirs addObjectsFromArray:@[@"/var/jb/usr/bin", @"/usr/bin", @"/usr/local/bin", @"/bin"]];
-        g.searchDirs = dirs;
-        g.gitPath = [SPUtil findExecutable:@[@"git"] searchDirs:dirs];
+        // 去重（runtimeEnvironment 已含系统兜底目录）
+        NSMutableArray *uniq = [NSMutableArray array];
+        for (NSString *d in dirs) {
+            if (d.length && ![uniq containsObject:d]) [uniq addObject:d];
+        }
+        g.searchDirs = uniq;
+        g.gitPath = [SPUtil findExecutable:@[@"git"] searchDirs:uniq];
     });
     return g;
 }
