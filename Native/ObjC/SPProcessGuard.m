@@ -9,6 +9,7 @@
 #import <signal.h>
 #import <unistd.h>
 #import <pthread.h>
+#import <stdlib.h>
 
 // ── persona 私有 API ───────────────────────────────────────────────
 // posix_spawnattr_t 在 C 里是 opaque 指针，函数签名按 TrollAgent 的写法。
