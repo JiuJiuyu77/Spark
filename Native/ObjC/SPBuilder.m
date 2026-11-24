@@ -9,6 +9,7 @@
 #import "SPOutputNaming.h"
 #import "SPModels.h"
 #import "SPSession.h"
+#import "SPProcessGuard.h"
 #import "SPToolchain.h"
 #import "SPStore.h"
 
@@ -390,6 +391,9 @@
     }
 
     SPSession *session = [[SPSession alloc] initWithEnvironment:env workingDirectory:project.path];
+    // 编译是最需要 root 的一步：非 root 且系统支持 persona 时，
+    // 让子进程单独以 root 跑，父进程身份不动（迁移自 TrollAgent 的托管 spawn）。
+    session.childIdentity = [SPProcessGuard shared].preferredIdentity;
 
     // 16KB 行内的高亮判断
     session.onLine = ^(NSString *line, SPLogLevel level) {

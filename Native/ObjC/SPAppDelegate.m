@@ -57,6 +57,11 @@ void SPSetFloatBarHidden(BOOL hidden, BOOL animated) {
     // 崩溃兜底：尽早装，才能捕获启动期异常
     [[SPCrashGuard shared] install];
 
+    // 父进程守护（迁移自 TrollAgent 的 boot.js）：
+    // applicationWillTerminate 只在「正常退出」时触发，被系统 OOM 杀掉或用户上划
+    // 都不会走它，clang/make 就成了孤儿进程。这里起一条轻量线程盯着 getppid()。
+    [[SPProcessGuard shared] startParentWatchdogWithInterval:2.0];
+
     [self configureAppearance];
     [self setupDefaults];
 
@@ -333,6 +338,7 @@ void SPSetFloatBarHidden(BOOL hidden, BOOL animated) {
 
 - (void)applicationWillTerminate:(UIApplication *)application {
     // 父进程要走了：把 make/clang 一起收掉，避免留下孤儿进程（Rein boot.js 的做法）
+    [[SPProcessGuard shared] stopParentWatchdog];
     SPSessionReapAllChildren();
 }
 

@@ -8,6 +8,7 @@
 #import "SPToolchainInstaller.h"
 #import "SPSession.h"
 #import "SPCompat.h"
+#import "SPNetworkMonitor.h"
 
 static NSString *const kComponentStateKey = @"Workbench.downloadedComponents";
 
@@ -102,6 +103,8 @@ static NSArray<NSString *> *SPProxyPrefixes(void) {
 @property (nonatomic, copy) void (^progressBlock)(CGFloat, NSString *);
 @property (nonatomic, copy) void (^completionBlock)(BOOL, NSError *);
 @property (nonatomic, assign) SPComponent currentComponent;
+/// 因网络不可用而挂起的组件编号；-1 表示没有挂起项（0 是合法编号）
+@property (nonatomic, assign) NSInteger pendingComponent;
 @property (nonatomic, strong) NSString *destinationDir;
 @property (nonatomic, assign) NSInteger proxyIndex;
 @end
@@ -116,6 +119,12 @@ static NSArray<NSString *> *SPProxyPrefixes(void) {
         cfg.timeoutIntervalForRequest = 60;
         cfg.timeoutIntervalForResource = 7200;
         d.session = [NSURLSession sessionWithConfiguration:cfg delegate:d delegateQueue:nil];
+        d.pendingComponent = -1;   // -1 = 没有挂起的组件（0 是合法的组件编号，不能用来表示空）
+        [[NSNotificationCenter defaultCenter] addObserver:d
+                                                 selector:@selector(networkRestored:)
+                                                     name:SPNetworkRestoredNotification
+                                                   object:nil];
+        [[SPNetworkMonitor shared] start];
     });
     return d;
 }
@@ -272,10 +281,58 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
             [self startTaskForCurrentComponent];
             return;
         }
+
+        // 所有镜像都失败。区分「网络问题」和「资源真没了」：
+        // 网络类错误（断网 / 超时 / 连接被拒）→ 挂起，等网络恢复自动重排，
+        // 不要立刻报失败让用户手动重来（大文件下载到 90% 断掉重来代价太高）。
+        BOOL networkError = [self isNetworkError:error];
+        if (networkError && ![[SPNetworkMonitor shared] isNetworkAvailable]) {
+            SPLog(@"下载因网络不可用挂起，等网络恢复后自动重试（组件 %ld）",
+                  (long)self.currentComponent);
+            self.pendingComponent = self.currentComponent;
+            if (self.progressBlock) {
+                self.progressBlock(0.0, @"网络不可用 —— 已挂起，联网后自动继续");
+            }
+            // 注意：这里**不**调用 completionBlock，也不清空它，
+            // 保留调用方的回调，等重试成功/彻底失败再回调。
+            return;
+        }
+
         if (self.completionBlock) self.completionBlock(NO, error);
         self.progressBlock = nil;
         self.completionBlock = nil;
     });
+}
+
+/// 判断是否是「可以等网络恢复」的错误
+- (BOOL)isNetworkError:(NSError *)error {
+    if (![error.domain isEqualToString:NSURLErrorDomain]) return NO;
+    switch (error.code) {
+        case NSURLErrorNotConnectedToInternet:
+        case NSURLErrorNetworkConnectionLost:
+        case NSURLErrorTimedOut:
+        case NSURLErrorCannotConnectToHost:
+        case NSURLErrorCannotFindHost:
+        case NSURLErrorDNSLookupFailed:
+        case NSURLErrorDataNotAllowed:
+        case NSURLErrorInternationalRoamingOff:
+            return YES;
+        default:
+            return NO;
+    }
+}
+
+/// 网络恢复：把挂起的组件从「直连」开始重排一遍
+- (void)networkRestored:(NSNotification *)note {
+    if (self.pendingComponent < 0) return;
+    SPComponent comp = (SPComponent)self.pendingComponent;
+    self.pendingComponent = -1;
+    // 必须把 currentComponent 一起改回来：startTaskForCurrentComponent
+    // 读的是 currentComponent，不改就会去重下「上一次失败的另一个组件」。
+    self.currentComponent = comp;
+    self.proxyIndex = 0;
+    SPLog(@"网络已恢复，重新开始下载组件 %ld", (long)comp);
+    [self startTaskForCurrentComponent];
 }
 
 - (void)remove:(SPComponent)component {

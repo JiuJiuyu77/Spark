@@ -5,6 +5,7 @@
 #import "SPSession.h"
 #import "SPAOJIT.h"
 #import "SPCompat.h"
+#import "SPProcessGuard.h"
 #import "SPToolchainInstaller.h"
 #import <spawn.h>
 #import <signal.h>
@@ -187,6 +188,12 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
     sigset_t defs; sigemptyset(&defs); sigaddset(&defs, SIGPIPE);
     posix_spawnattr_setsigdefault(&attr, &defs);
 
+    // 子进程身份：请求 root persona 时才动属性。
+    // 失败不影响启动 —— 继续用继承身份跑，只是没有 root 权限。
+    if (self.childIdentity == SPChildIdentityRootPersona) {
+        [[SPProcessGuard shared] applyRootPersonaToAttr:&attr];
+    }
+
     // argv
     NSMutableArray *argvArr = [NSMutableArray arrayWithObject:exe];
     [argvArr addObjectsFromArray:args];
@@ -209,6 +216,29 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
 
     int rc = posix_spawn(&child, exe.fileSystemRepresentation, &actions, &attr, argv, envp);
     int savedErrno = rc; // posix_spawn 直接返回错误码，不保证设置 errno
+
+    // persona 兜底重试：有些设备上符号存在但签名没带 persona-mgmt，
+    // 打了 persona 属性反而让 spawn 直接失败（通常是 EPERM/EINVAL）。
+    // 这时必须退回「不带 persona」再起一次，否则本来能跑的编译会莫名其妙起不来。
+    // 只重试一次，且只在确实请求了 persona 时。
+    if (rc != 0 && self.childIdentity == SPChildIdentityRootPersona) {
+        posix_spawnattr_t plain;
+        posix_spawnattr_init(&plain);
+        posix_spawnattr_setflags(&plain, POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF);
+        posix_spawnattr_setpgroup(&plain, 0);
+        sigset_t d2; sigemptyset(&d2); sigaddset(&d2, SIGPIPE);
+        posix_spawnattr_setsigdefault(&plain, &d2);
+
+        int rc2 = posix_spawn(&child, exe.fileSystemRepresentation, &actions, &plain, argv, envp);
+        posix_spawnattr_destroy(&plain);
+
+        SPLog(@"[!] persona spawn 失败(%d)，已退回继承身份重试：%d", rc, rc2);
+        if (rc2 == 0) {
+            rc = 0;
+        } else {
+            savedErrno = rc2;
+        }
+    }
 
     for (NSUInteger i = 0; i < argvArr.count; i++) free(argv[i]);
     free(argv);
@@ -537,6 +567,9 @@ static NSDictionary<NSString *, NSString *> *SPSanitizeEnvironment(NSDictionary 
         posix_spawnattr_setpgroup(&attr, 0);
         sigset_t defs; sigemptyset(&defs); sigaddset(&defs, SIGPIPE);
         posix_spawnattr_setsigdefault(&attr, &defs);
+        if (self.childIdentity == SPChildIdentityRootPersona) {
+            [[SPProcessGuard shared] applyRootPersonaToAttr:&attr];
+        }
 
         char **argv = calloc(argvList.count + 1, sizeof(char *));
         for (NSUInteger k = 0; k < argvList.count; k++) {

@@ -526,6 +526,7 @@ jobs:
             -framework Security \
             -framework Metal -framework MetalKit -framework MetalPerformanceShaders \
             -framework CoreVideo -framework CoreImage \
+            -framework AVFoundation -framework Network \
             -larchive \
             -o "$APP/$SCHEME"
 

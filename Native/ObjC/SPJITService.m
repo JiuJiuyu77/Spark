@@ -5,6 +5,7 @@
 #import "SPJITService.h"
 #import "SPToolchainInstaller.h"
 #import "SPCompat.h"
+#import "SPProcessGuard.h"
 #import "SPSession.h"
 #import <sys/socket.h>
 #import <sys/un.h>
@@ -109,8 +110,36 @@ extern char **environ;
     posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
 
     const char *argv[] = { sh.fileSystemRepresentation, "-c", cmd.UTF8String, NULL };
-    int rc = posix_spawn(&child, sh.fileSystemRepresentation, &actions, NULL, (char **)argv, environ);
+
+    // helper 用 persona 托管（迁移自 TrollAgent CLaunch）：
+    // helper 自己带 get-task-allow / platform-application，但它能不能拿到
+    // 可执行内存取决于**以什么身份跑**。主 App 不是 root 时，用 persona 99
+    // 单独把 helper 提到 root，主进程身份保持不变。
+    // 不支持 persona 的系统上保持原样（NULL attr），不影响启动。
+    posix_spawnattr_t attr;
+    posix_spawnattr_t *attrPtr = NULL;
+    BOOL usedPersona = NO;
+    if ([[SPProcessGuard shared] personaAPIAvailable] && getuid() != 0) {
+        if (posix_spawnattr_init(&attr) == 0) {
+            if ([[SPProcessGuard shared] applyRootPersonaToAttr:&attr]) {
+                attrPtr = &attr;
+                usedPersona = YES;
+            }
+        }
+    }
+
+    int rc = posix_spawn(&child, sh.fileSystemRepresentation, &actions, attrPtr, (char **)argv, environ);
+    if (attrPtr) posix_spawnattr_destroy(&attr);
     posix_spawn_file_actions_destroy(&actions);
+
+    // persona 打了属性却起不来（签名没带 persona-mgmt）→ 退回普通身份再试一次
+    if (rc != 0 && usedPersona) {
+        posix_spawn_file_actions_init(&actions);
+        posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
+        rc = posix_spawn(&child, sh.fileSystemRepresentation, &actions, NULL, (char **)argv, environ);
+        posix_spawn_file_actions_destroy(&actions);
+        SPLog(@"[!] JIT helper persona 启动失败，已退回继承身份：%d", rc);
+    }
 
     if (rc != 0) {
         self.state = SPJITServiceStateFailed;

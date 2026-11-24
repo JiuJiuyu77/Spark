@@ -19,7 +19,7 @@ include $(THEOS)/makefiles/common.mk
 APPLICATION_NAME = Workbench
 
 Workbench_FILES = $(wildcard Native/ObjC/*.m)
-Workbench_FRAMEWORKS = UIKit Foundation CoreGraphics QuartzCore
+Workbench_FRAMEWORKS = UIKit Foundation CoreGraphics QuartzCore AVFoundation Network
 Workbench_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-variable \
                    $(SP_EXTRA_CFLAGS)
 Workbench_OBJCFLAGS = $(Workbench_CFLAGS)

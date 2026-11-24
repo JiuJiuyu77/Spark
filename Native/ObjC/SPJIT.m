@@ -46,17 +46,30 @@
     }
 
     // 2) 子进程不可用 → 退回主进程 mmap
+    // 关键改动（迁移自 TrollAgent）：不再只判断「能不能 mmap 出可执行内存」，
+    // 而是真的写一条 ret 并跳进去执行。mmap 成功但执行被内核杀的情况真实存在，
+    // 只看分配结果会把不可用的设备误报成「可用」。
+    //
+    // 安全阀：真实执行在「签名不允许执行可写内存」的设备上会被内核直接 SIGKILL，
+    // 连崩溃日志都来不及写。只有确认自己是平台级 App（TrollStore / 越狱）或
+    // 已经是 root 时才做这一步；普通自签设备退回「只验证分配」的旧判据。
+    BOOL canSafelyExec = self.isPlatformApp || getuid() == 0;
     void *p = [self allocateExecutable:4096];
     _viaSubprocess = NO;
     if (p) {
-        _enabled = YES;
         [self freeExecutable:p size:4096];
+        if (canSafelyExec) {
+            _enabled = [self verifyExecutableByCalling];
+        } else {
+            _enabled = YES;
+            SPLog(@"JIT 探测：非平台签名，跳过真实执行验证（避免被内核杀掉）");
+        }
     } else {
         _enabled = NO;
     }
     _lastProbe = [NSDate date];
     SPLog(@"JIT 探测：%@（主进程；子进程原因：%@）",
-          _enabled ? @"可用" : @"不可用", svcErr.localizedDescription ?: @"-");
+          _enabled ? @"可用（已实际执行验证）" : @"不可用", svcErr.localizedDescription ?: @"-");
 }
 
 /// 启动时把 helper 拉起来（不阻塞主线程）
@@ -89,6 +102,50 @@
 
 - (void)freeExecutable:(void *)ptr size:(size_t)size {
     if (ptr) munmap(ptr, size);
+}
+
+#pragma mark - 真实执行验证（迁移自 TrollAgent jit-check）
+
+/// icache 失效。不能用 __builtin___clear_cache：它会生成对 ___clear_cache 的引用，
+/// 而该符号在 iOS 的 libSystem 里没有导出，链接阶段就失败。
+/// 优先用 libkern/OSCacheControl.h，没有该头时退回等价的内联汇编。
+static void SPInvalidateICache(void *start, size_t len) {
+#if __has_include(<libkern/OSCacheControl.h>)
+    sys_icache_invalidate(start, len);
+#else
+    (void)len;
+    __asm__ __volatile__("ic ivau, %0" : : "r"(start) : "memory");
+    __asm__ __volatile__("dsb ish" ::: "memory");
+    __asm__ __volatile__("isb" ::: "memory");
+#endif
+}
+
+- (BOOL)verifyExecutableByCalling {
+    if (!self.userEnabled) return NO;
+
+    size_t sz = 4096;
+    void *p = [self allocateExecutable:sz];
+    if (!p) {
+        SPLog(@"JIT 执行验证：拿不到可执行内存");
+        return NO;
+    }
+
+    // arm64 的 ret = 0xd65f03c0，必须整体 4 字节小端写入。
+    // 之前 spark-jitd 里只写 1 个字节（0xC0）既不是完整指令也没真调用，
+    // 等于什么都没验证 —— 这里按 TrollAgent 修好后的写法来。
+    uint32_t *code = (uint32_t *)p;
+    code[0] = 0xd65f03c0u;              // ret
+    SPInvalidateICache(p, sizeof(uint32_t));
+
+    // 真的跳进去执行一次：能正常返回到下一行，才说明 PROT_EXEC 真的生效。
+    // 若签名不允许执行可写内存，这里会被内核直接 SIGKILL（进程消失），
+    // 这正是「探测 JIT 必须单独做、不能放进正常流程」的原因。
+    int (*fn)(void) = (int (*)(void))p;
+    volatile int r = fn();
+    (void)r;
+
+    munmap(p, sz);
+    return YES;
 }
 
 - (NSString *)statusText {

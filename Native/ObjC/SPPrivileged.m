@@ -5,6 +5,7 @@
 #import "SPPrivileged.h"
 #import "SPSession.h"
 #import "SPCompat.h"
+#import "SPProcessGuard.h"
 #import <unistd.h>
 #import <spawn.h>
 #import <errno.h>
@@ -101,6 +102,9 @@
     // 注意：这里不看父进程的 getuid()，父进程是 root 不代表
     // posix_spawn 出来的子进程也是（继承链路可能被降权）。
     SPSession *s = [[SPSession alloc] initWithEnvironment:@{} workingDirectory:NSTemporaryDirectory()];
+    // 父进程不是 root 时先试 persona 托管：这样「父进程非 root 但子进程能 root」
+    // 的情况也能被如实测出来，而不是一律判为「子进程也是普通用户」。
+    s.childIdentity = [SPProcessGuard shared].preferredIdentity;
     s.timeout = 10;
     __block NSString *out = @"";
     s.onLine = ^(NSString *line, SPLogLevel lv) {

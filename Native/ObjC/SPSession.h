@@ -6,6 +6,7 @@
 
 #import <Foundation/Foundation.h>
 #import "SPModels.h"
+#import "SPProcessGuard.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -33,6 +34,12 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, copy, nullable) NSString *workingDirectory;
 /// 超时（秒），0 = 不限
 @property (nonatomic, assign) NSTimeInterval timeout;
+
+/// 子进程身份策略（默认继承当前身份）。
+/// 设为 SPChildIdentityRootPersona 时，若系统支持 persona 私有 API，
+/// 子进程会以 root persona 运行，而**父进程身份不变**。
+/// 不支持时自动退回继承，不会导致启动失败。
+@property (nonatomic, assign) SPChildIdentity childIdentity;
 
 - (instancetype)initWithEnvironment:(NSDictionary<NSString *, NSString *> *)env
                    workingDirectory:(nullable NSString *)cwd;

@@ -43,6 +43,14 @@ NS_ASSUME_NONNULL_BEGIN
 /// 主动探测（会实际申请一小块可执行内存再释放）
 - (void)probe;
 
+/// 真实执行验证：申请一页、写入 arm64 的 `ret` 指令、清 icache、真的跳进去调用一次。
+/// 迁移自 TrollAgent 的 jit-check —— 只证明「能 mmap 出 PROT_EXEC」是不够的，
+/// 有些签名下 mmap 会成功但一执行就 SIGKILL（缺 CS_DEBUGGED / allow-jit），
+/// 必须真的跑一条指令才能确认 JIT 可用。
+/// 注意：这条路径有崩溃风险，只应在探测（用户主动/启动后台）时调用，不要放进热路径。
+/// @return YES 表示写入的指令被成功执行并正常返回
+- (BOOL)verifyExecutableByCalling;
+
 /// 申请一块可执行内存（失败返回 NULL）
 - (nullable void *)allocateExecutable:(size_t)size;
 
