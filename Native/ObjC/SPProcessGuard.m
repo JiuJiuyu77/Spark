@@ -2,8 +2,8 @@
 //  SPProcessGuard.m
 //
 
-#import \"SPProcessGuard.h\"
-#import \"SPCompat.h\"
+#import "SPProcessGuard.h"
+#import "SPCompat.h"
 #import <spawn.h>
 #import <dlfcn.h>
 #import <signal.h>
@@ -38,17 +38,17 @@ static const uint32_t kRootPersonaID = 99;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         g = [SPProcessGuard new];
-        g.personaStatusText = @\"未使用（子进程继承当前身份）\";
+        g.personaStatusText = @"未使用（子进程继承当前身份）";
         g.originalParentPid = getppid();
 
         // 符号探测：三个都要在，缺一个就不能用
         void *rtld = RTLD_DEFAULT;
         g.personaAPIAvailable =
-            dlsym(rtld, \"posix_spawnattr_set_persona_np\") != NULL &&
-            dlsym(rtld, \"posix_spawnattr_set_persona_uid_np\") != NULL &&
-            dlsym(rtld, \"posix_spawnattr_set_persona_gid_np\") != NULL;
+            dlsym(rtld, "posix_spawnattr_set_persona_np") != NULL &&
+            dlsym(rtld, "posix_spawnattr_set_persona_uid_np") != NULL &&
+            dlsym(rtld, "posix_spawnattr_set_persona_gid_np") != NULL;
         if (g.personaAPIAvailable) {
-            g.personaStatusText = @\"可用（子进程可单独以 root 运行）\";
+            g.personaStatusText = @"可用（子进程可单独以 root 运行）";
         }
     });
     return g;
@@ -65,12 +65,12 @@ static const uint32_t kRootPersonaID = 99;
     if (!attr) return NO;
 
     void *rtld = RTLD_DEFAULT;
-    SPSetPersonaFn setPersona = (SPSetPersonaFn)dlsym(rtld, \"posix_spawnattr_set_persona_np\");
-    SPSetPersonaUIDFn setUID = (SPSetPersonaUIDFn)dlsym(rtld, \"posix_spawnattr_set_persona_uid_np\");
-    SPSetPersonaGIDFn setGID = (SPSetPersonaGIDFn)dlsym(rtld, \"posix_spawnattr_set_persona_gid_np\");
+    SPSetPersonaFn setPersona = (SPSetPersonaFn)dlsym(rtld, "posix_spawnattr_set_persona_np");
+    SPSetPersonaUIDFn setUID = (SPSetPersonaUIDFn)dlsym(rtld, "posix_spawnattr_set_persona_uid_np");
+    SPSetPersonaGIDFn setGID = (SPSetPersonaGIDFn)dlsym(rtld, "posix_spawnattr_set_persona_gid_np");
 
     if (!setPersona || !setUID || !setGID) {
-        self.personaStatusText = @\"不可用 —— 系统未导出 persona 私有符号\";
+        self.personaStatusText = @"不可用 —— 系统未导出 persona 私有符号";
         return NO;
     }
 
@@ -82,13 +82,13 @@ static const uint32_t kRootPersonaID = 99;
     if (rp != 0 || ru != 0 || rg != 0) {
         // 常见原因：App 缺 com.apple.private.persona-mgmt（TrollStore 签名丢失）
         self.personaStatusText = [NSString stringWithFormat:
-            @\"设置失败 —— persona=%d uid=%d gid=%d（可能缺少 persona-mgmt 权限）\",
+            @"设置失败 —— persona=%d uid=%d gid=%d（可能缺少 persona-mgmt 权限）",
             rp, ru, rg];
-        SPLog(@\"persona 托管 spawn 失败：persona=%d uid=%d gid=%d\", rp, ru, rg);
+        SPLog(@"persona 托管 spawn 失败：persona=%d uid=%d gid=%d", rp, ru, rg);
         return NO;
     }
 
-    self.personaStatusText = @\"生效 —— 子进程以 root persona(99) 运行\";
+    self.personaStatusText = @"生效 —— 子进程以 root persona(99) 运行";
     return YES;
 }
 
@@ -117,7 +117,7 @@ static void *SPWatchdogMain(void *raw) {
         // 1 = launchd。父进程被系统杀掉后，子进程会被过继给 launchd，
         // 这是最可靠的「父进程已死」判据（TrollAgent 的 boot.js 用 ppid 比较同理）。
         if (now != expected || now == 1) {
-            SPLog(@\"[守护] 父进程已消失（%d → %d），本进程自行退出\",
+            SPLog(@"[守护] 父进程已消失（%d → %d），本进程自行退出",
                   (int)expected, (int)now);
             // 先给一次 SIGTERM，让 make 有机会清理临时文件；2 秒后硬杀
             kill(getpid(), SIGTERM);
@@ -163,11 +163,11 @@ static void *SPWatchdogMain(void *raw) {
 
     if (rc != 0) {
         free(ctx);
-        SPLog(@\"[!] 父进程守护启动失败 rc=%d\", rc);
+        SPLog(@"[!] 父进程守护启动失败 rc=%d", rc);
         return;
     }
     self.watchdogRunning = YES;
-    SPLog(@\"父进程守护已启动（每 %.1fs 检查 ppid=%d）\", iv, (int)self.originalParentPid);
+    SPLog(@"父进程守护已启动（每 %.1fs 检查 ppid=%d）", iv, (int)self.originalParentPid);
 }
 
 - (void)stopParentWatchdog {
