@@ -108,16 +108,21 @@
 
 /// icache 失效。不能用 __builtin___clear_cache：它会生成对 ___clear_cache 的引用，
 /// 而该符号在 iOS 的 libSystem 里没有导出，链接阶段就失败。
-/// 优先用 libkern/OSCacheControl.h，没有该头时退回等价的内联汇编。
+/// 也不用 libkern/OSCacheControl.h 的 sys_icache_invalidate：
+/// iPhoneOS SDK 的 .tbd 里没有它的导出记录，部分 SDK 头里也没有声明，
+/// 直接调用会报 implicit function declaration 并在链接时 undefined。
+/// 因此这里只用内联汇编，零外部符号依赖。
 static void SPInvalidateICache(void *start, size_t len) {
-#if __has_include(<libkern/OSCacheControl.h>)
-    sys_icache_invalidate(start, len);
-#else
-    (void)len;
-    __asm__ __volatile__("ic ivau, %0" : : "r"(start) : "memory");
+    uintptr_t p = (uintptr_t)start;
+    uintptr_t end = p + len;
+    // arm64 的 cache line 是 128 字节（CTR_EL0 里可查，这里按最小值 64 保守处理：
+    // 多刷几次无害，少刷会留下陈旧指令）。
+    const uintptr_t line = 64;
+    for (uintptr_t a = p & ~(line - 1); a < end; a += line) {
+        __asm__ __volatile__("ic ivau, %0" : : "r"(a) : "memory");
+    }
     __asm__ __volatile__("dsb ish" ::: "memory");
     __asm__ __volatile__("isb" ::: "memory");
-#endif
 }
 
 - (BOOL)verifyExecutableByCalling {
